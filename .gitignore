@@ -1,4 +1,36 @@
 mobile-app/.expo/
 mobile-app/node_modules/
 mobile-app/.env
-# Add other common ignores as needed
+
+# Environment files
+.env
+.env.production
+.env.local
+
+# Docker
+nginx/ssl/*.pem
+nginx/ssl/*.key
+
+# Uploads
+api/uploads/*
+!api/uploads/.gitkeep
+
+# Node modules
+node_modules/
+api/node_modules/
+admin/node_modules/
+
+# Build outputs
+api/dist/
+admin/.next/
+admin/out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
