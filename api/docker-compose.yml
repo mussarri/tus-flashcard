@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tus-postgres
+    environment:
+      POSTGRES_USER: tus
+      POSTGRES_PASSWORD: tus_password
+      POSTGRES_DB: tus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # api:
+  #   image: node:20-slim
+  #   container_name: tus-api
+  #   working_dir: /app
+  #   environment:
+  #     DATABASE_URL: postgresql://tus:tus_password@postgres:5432/tus_db
+  #     REDIS_URL: redis://redis:6379
+  #     NODE_ENV: development
+  #     UPLOAD_DIR: /app/uploads
+  #     PORT: 3000
+  #     ADMIN_URL: http://localhost:3001
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - .:/app
+  #     - ./uploads:/app/uploads
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   command: sh -c "if [ ! -d node_modules ] || [ ! -f node_modules/.prisma/client/index.js ]; then npm install && npx prisma generate; fi && npm run start:dev"
+  #   restart: unless-stopped
+
+  # worker:
+  #   image: node:20-slim
+  #   container_name: tus-worker
+  #   working_dir: /app
+  #   environment:
+  #     DATABASE_URL: postgresql://tus:tus_password@postgres:5432/tus_db
+  #     REDIS_URL: redis://redis:6379
+  #     NODE_ENV: development
+  #     UPLOAD_DIR: /app/uploads
+  #   volumes:
+  #     - .:/app
+  #     - ./uploads:/app/uploads
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   command: sh -c "if [ ! -d node_modules ] || [ ! -f node_modules/.prisma/client/index.js ]; then npm install && npx prisma generate; fi && npm run start:worker"
+  #   restart: unless-stopped
+
+ 
+
+volumes:
+  postgres_data:
+  redis_data:

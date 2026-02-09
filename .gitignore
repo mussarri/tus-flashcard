@@ -1,0 +1,4 @@
+mobile-app/.expo/
+mobile-app/node_modules/
+mobile-app/.env
+# Add other common ignores as needed

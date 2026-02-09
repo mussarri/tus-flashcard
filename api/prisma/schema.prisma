@@ -1,0 +1,1216 @@
+// This is your Prisma schema file for TUS Medical Education Platform
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CONTENT INGESTION PIPELINE
+// ============================================
+
+model UploadBatch {
+  id              String          @id @default(uuid())
+  topic           String // Topic name (e.g., "Cardiology - Arrhythmias")
+  description     String? // Optional description
+  contentTypeHint ContentType? // Admin-selected content type (used for all pages in batch)
+  visionProvider  AIProviderType? // Admin-selected AI provider for vision processing
+  status          BatchStatus     @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String // Admin user ID
+
+  pages           UploadPage[]
+  approvedContent ApprovedContent[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum BatchStatus {
+  UPLOADED // Just uploaded
+  CLASSIFIED // OCR and classification completed
+  REVIEWED // Admin review completed
+  KNOWLEDGE_EXTRACTED // Knowledge extraction completed
+  COMPLETED // All processing completed
+  CANCELLED
+  PENDING
+  PROCESSING
+}
+
+model UploadPage {
+  id      String      @id @default(uuid())
+  batchId String
+  batch   UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  pageNumber   Int // Order within batch
+  fileType     FileType
+  filePath     String // Path to stored file (image or PDF)
+  originalName String // Original filename
+
+  // OCR processing status
+  ocrStatus OCRStatus @default(PENDING)
+  ocrJobId  String? // BullMQ job ID
+  ocrError  String? // Error message if OCR failed
+
+  // Metadata
+  width  Int? // Image width (if applicable)
+  height Int? // Image height (if applicable)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blocks ParsedBlock[]
+
+  @@index([batchId])
+  @@index([ocrStatus])
+  @@index([pageNumber])
+}
+
+enum FileType {
+  IMAGE // JPG, PNG, etc.
+  PDF
+}
+
+enum OCRStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum KnowledgePointApprovalStatus {
+  PENDING // Awaiting review
+  APPROVED // Approved by admin
+  REJECTED // Rejected by admin
+  MERGED // Merged into another knowledge point
+}
+
+model ParsedBlock {
+  id     String     @id @default(uuid())
+  pageId String
+  page   UploadPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  // NEW: AI Classification System
+  contentType ContentType
+  lessonId    String // e.g., Dahiliye, Pediatri, Nöroloji, etc.
+  topicId     String? // e.g., Diyabet, Epilepsi, Anemi, etc.
+  subtopicId  String? // e.g., Tanı Kriterleri, Patofizyoloji, etc.
+
+  lesson   Lesson    @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  topic    Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  subtopic Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+
+  // NEW: Structured Data
+  questions      Json? // Array of {question_text, choices, answer}
+  importantFacts Json? // Array of important fact strings
+
+  // Legacy fields (for backward compatibility)
+  blockType  BlockType?
+  blockIndex Int? // Order within page
+
+  // OCR output
+  rawText    String? // Full text content
+  confidence Float? // OCR confidence score (0-1)
+
+  // Bounding box (for images)
+  x      Float? // Top-left X coordinate (normalized 0-1)
+  y      Float? // Top-left Y coordinate (normalized 0-1)
+  width  Float? // Width (normalized 0-1)
+  height Float? // Height (normalized 0-1)
+
+  // Table structure (if blockType is TABLE)
+  tableData Json? // Structured table data: { headers: [], rows: [] }
+
+  // Algorithm/flowchart data (if blockType is ALGORITHM)
+  algorithmData Json? // Structured flowchart data
+
+  // Classification
+  classificationStatus ClassificationStatus @default(PENDING)
+  classifiedAt         DateTime?
+
+  // Admin approval
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  approvedBy     String? // Admin user ID
+
+  // Admin edits
+  editedText String? // Admin-edited version
+  isEdited   Boolean   @default(false)
+  deletedAt  DateTime? // Soft delete
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvedContent ApprovedContent?
+  knowledgePoints KnowledgePoint[]
+
+  @@index([pageId])
+  @@index([contentType])
+  @@index([blockType])
+  @@index([approvalStatus])
+  @@index([classificationStatus])
+}
+
+enum ContentType {
+  TOPIC_EXPLANATION // Konu anlatımı
+  SPOT_FACT // Spot bilgi
+  QUESTION_ONLY // Sadece soru
+  QUESTION_WITH_ANSWER // Soru + cevap
+  EXPLANATION_ONLY // Sadece açıklama
+  MIXED_CONTENT // Karışık içerik
+}
+
+enum BlockType {
+  TEXT
+  TABLE
+  ALGORITHM
+  SPOT
+}
+
+enum ClassificationStatus {
+  PENDING
+  CLASSIFIED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING // Awaiting admin review
+  APPROVED // Approved for knowledge extraction
+  REJECTED // Rejected by admin
+  DELETED // Soft deleted
+}
+
+// ============================================
+// KNOWLEDGE EXTRACTION
+// ============================================
+
+model ApprovedContent {
+  id      String      @id @default(uuid())
+  batchId String
+  batch   UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  blockId String      @unique
+  block   ParsedBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  // Final approved content
+  content   String // Final text after admin edits
+  blockType BlockType
+
+  // Knowledge extraction status
+  extractionStatus ExtractionStatus @default(NOT_STARTED)
+  extractedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  knowledgePoints KnowledgePoint[]
+
+  @@index([batchId])
+  @@index([extractionStatus])
+}
+
+enum ExtractionStatus {
+  NOT_STARTED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  VERIFIED // Admin verified extraction
+  FAILED
+}
+
+enum KnowledgePointSource {
+  APPROVED_CONTENT
+  EXAM_ANALYSIS
+  ADMIN
+}
+
+model KnowledgePoint {
+  id String @id @default(uuid())
+
+  source KnowledgePointSource
+
+  // Source traceability (content ingestion pipeline)
+  approvedContentId String?
+  approvedContent   ApprovedContent? @relation(fields: [approvedContentId], references: [id], onDelete: Cascade)
+
+  blockId String?
+  block   ParsedBlock? @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  // NEW: Source traceability (exam question analysis pipeline)
+  createdFromExamQuestionId String?
+  createdFromExamQuestion   ExamQuestion? @relation("KnowledgePointsFromAnalysis", fields: [createdFromExamQuestionId], references: [id], onDelete: SetNull)
+
+  // Normalized key for deduplication
+  normalizedKey String @unique // Hash or normalized version of the fact
+
+  // Content
+  fact            String // The atomic knowledge point
+  topicId         String? // e.g., "Orbit", "Skull base"
+  subtopicId      String? // e.g., "Anatomi", "Patoloji"
+  topic           Topic?                       @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  subtopic        Subtopic?                    @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  lessonId        String // e.g., "Anatomi", "Dahiliye"
+  lesson          Lesson                       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  // Metadata
+  priority        Int                          @default(0) // Higher = more important
+  examRelevance   Float? // Calculated relevance score (0-1)
+  examPattern     String? // Pattern type from exam analysis (e.g., "LANDMARK_RELATION")
+  approvalStatus  KnowledgePointApprovalStatus @default(PENDING) // Approval workflow status
+  rejectionReason String? // Reason for rejection (if rejected)
+
+  // AI Confidence & Traceability
+  classificationConfidence Float? // AI confidence for lesson/topic classification (0-1)
+  sourceCount              Int    @default(1) // Number of sources this knowledge point derived from
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flashcards                  Flashcard[]
+  questionKnowledgePoints     QuestionKnowledgePoint[]
+  examQuestionKnowledgePoints ExamQuestionKnowledgePoint[]
+  userWeaknesses              UserWeakness[]
+
+  @@index([approvedContentId])
+  @@index([blockId])
+  @@index([createdFromExamQuestionId])
+  @@index([normalizedKey])
+  @@index([priority])
+}
+
+// ============================================
+// EXAM QUESTIONS ANALYSIS
+// ============================================
+
+model ExamQuestion {
+  id String @id @default(uuid())
+
+  // Question metadata
+  year           Int // Exam year
+  examType       String? // TUS-1, TUS-2, etc.
+  questionNumber Int? // Original question number
+
+  // Question content
+  question      String // Question text
+  options       Json // { A: "...", B: "...", C: "...", D: "..." }
+  correctAnswer String // A, B, C, or D
+  explanation   String? // Explanation if available
+
+  // Analysis
+  lesson   Lesson    @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  lessonId String
+  topic    Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  subtopic Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+
+  topicId    String?
+  subtopicId String?
+
+  // Unmatched ontology fields for admin review
+  unmatchedTopic    String?
+  unmatchedSubtopic String?
+  unmatchedConcepts String[] @default([])
+
+  // Extracted traps (confusable facts)
+  traps Json // Array of { option: string, reason: string, confusion: string } or anatomy-specific structure
+
+  // Full structured analysis output (single source of truth)
+  analysisPayload Json? // Complete analysis output: { spotRule, optionAnalysis, spatialContext, clinicalCorrelation, examTrap, ... }
+
+  // Processing status
+  analysisStatus AnalysisStatus @default(PENDING)
+  analyzedAt     DateTime?
+
+  // Bulk upload support
+  source  QuestionSource @default(MANUAL)
+  rawText String? // Original raw text for bulk uploaded questions
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  uploadedBy String // Admin user ID
+
+  patternType       String? // Pattern type (e.g., "Spot Rule", "Clinical Tip", "Comparison")
+  patternConfidence Float? // Pattern confidence score (0-1)
+
+  knowledgePoints             ExamQuestionKnowledgePoint[]
+  questionSimilarities        QuestionSimilarity[]         @relation("SourceQuestion")
+  questionSimilaritiesTarget  QuestionSimilarity[]         @relation("TargetQuestion")
+  concepts                    QuestionConcept[]
+  unresolvedConceptHints      UnresolvedConceptHint[]
+  questionCards               QuestionCard[]               @relation("GeneratedFromExam")
+  knowledgePointsFromAnalysis KnowledgePoint[]             @relation("KnowledgePointsFromAnalysis")
+  flashcards                  Flashcard[]
+
+  @@index([year])
+  @@index([examType])
+  @@index([topicId, subtopicId])
+  @@index([analysisStatus])
+}
+
+enum AnalysisStatus {
+  RAW // Bulk uploaded, not yet analyzed
+  PENDING // Ready for analysis
+  PROCESSING // Being analyzed
+  ANALYZED // Analysis complete
+  NEEDS_REVIEW // Unmatched ontology or prerequisite conflicts - requires admin review
+  REVIEWED // Admin reviewed and approved
+  KNOWLEDGE_READY // Knowledge extraction complete
+  CONTENT_READY // Content generation complete
+  FAILED // Analysis failed
+}
+
+enum QuestionSource {
+  MANUAL // Manually entered one by one
+  BULK_UPLOAD // Uploaded in bulk via text parser
+}
+
+model ExamQuestionKnowledgePoint {
+  id               String         @id @default(uuid())
+  examQuestionId   String
+  examQuestion     ExamQuestion   @relation(fields: [examQuestionId], references: [id], onDelete: Cascade)
+  knowledgePointId String
+  knowledgePoint   KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  // Relationship type
+  relationshipType RelationshipType // MEASURED, TRAP, CONTEXT
+
+  createdAt DateTime @default(now())
+
+  @@unique([examQuestionId, knowledgePointId, relationshipType])
+  @@index([examQuestionId])
+  @@index([knowledgePointId])
+}
+
+enum RelationshipType {
+  MEASURED // This knowledge point is directly measured
+  TRAP // This is a trap/distractor
+  CONTEXT // Provides context but not directly measured
+  CLINICAL_OUTCOME // This knowledge point is a clinical outcome of the measured concept
+}
+
+// ============================================
+// FLASHCARD SYSTEM
+// ============================================
+
+model Flashcard {
+  id String @id @default(uuid())
+
+  // Source knowledge point
+  knowledgePointId String?
+  knowledgePoint   KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  // Source exam question (for exam-pattern based cards)
+  examQuestionId String?
+  examQuestion   ExamQuestion? @relation(fields: [examQuestionId], references: [id], onDelete: SetNull)
+
+  // Card content
+  cardType CardType
+  front    String   @db.Text // Question/prompt side
+  back     String   @db.Text // Answer side
+
+  // Exam Pattern Tracking
+  examPattern String? // e.g., "except-trap-innervation", "lesion-cranial-nerve"
+  trapData    Json? // For EXCEPT_TRAP cards: { commonMistake, correctAnswer, distractors }
+
+  // Prerequisite Chain
+  prerequisiteCardIds String[] @default([]) // Cards that should be mastered before this one
+
+  // Deduplication key
+  uniqueKey String? @unique // Hash of (cardType + lessonId + topicId + normalizedFront)
+
+  // Lesson enforcement (derived from knowledgePoint.category)
+  lessonId   String? // Must match KnowledgePoint.category
+  topicId    String? // Must match KnowledgePoint.subcategory
+  subtopicId String? // Optional subtopic
+
+  lesson   Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  topic    Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  subtopic Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+
+  // Metadata
+  priority   Int        @default(0)
+  difficulty Difficulty @default(MEDIUM)
+
+  // Admin approval
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  approvedBy     String? // Admin user ID
+
+  // Similarity check
+  similarityChecked Boolean  @default(false)
+  similarCardIds    String[] // IDs of similar cards
+
+  // Visual requirements
+  useVisual         Boolean      @default(false)
+  visualRequirement String? // "IMAGE_OCCLUSION" | "SCHEMATIC" | null
+  visualContext     String? // "SKULL_BASE" | "ORBIT" | "FOOT" | "AXILLA" | "PELVIS" | "BRACHIAL_PLEXUS" | "OTHER" | null
+  highlightRegion   String? // Specific region to highlight
+  imageAssetId      String? // Reference to uploaded image asset
+  visualStatus      VisualStatus @default(NOT_REQUIRED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userProgress UserFlashcardProgress[]
+
+  @@index([knowledgePointId])
+  @@index([examQuestionId])
+  @@index([cardType])
+  @@index([approvalStatus])
+  @@index([visualStatus])
+  @@index([useVisual])
+  @@index([examPattern])
+}
+
+enum CardType {
+  // CORE CARDS (Tier 1: Foundational Knowledge)
+  STRUCTURE_ID // Visual-based: "What is this structure?" → Identify from image
+  CONTENTS_OF_SPACE // List-based: "List contents of X space" → Comprehensive enumeration
+  FUNCTIONAL_ANATOMY // Concept-based: "What does X do?" → Function, innervation, vascular supply
+
+  // INTERMEDIATE CARDS (Tier 2: Contextual Understanding)
+  RELATIONS_BORDERS // Spatial: "What borders X?" → Anterior/posterior/medial/lateral relationships
+  LESION_ANATOMY // Clinical: "What happens if X is damaged?" → Clinical manifestations
+  EMBRYOLOGIC_ORIGIN // Developmental: "Where does X come from?" → Embryologic layer/process
+
+  // ADVANCED CARDS (Tier 3: Exam-Specific & High-Yield)
+  CLINICAL_CORRELATION // Case-based: "Patient presents with Y, which structure is affected?" → Dx reasoning
+  HIGH_YIELD_DISTINCTION // Comparison: "X vs Y: Key differences?" → Side-by-side distinctions
+  EXCEPT_TRAP // Exception-based: "All are true EXCEPT:" → Trap pattern recognition
+  TOPOGRAPHIC_MAP // Integration: "Map all structures in region X" → Comprehensive spatial view
+
+  // LEGACY TYPES (Backward compatibility)
+  SPOT // Direct fact
+  CLINICAL_TIP // Clinical tip
+  COMPARISON // Comparison between concepts
+  TRAP // Trap card (common mistakes)
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum VisualStatus {
+  NOT_REQUIRED // No visual needed
+  REQUIRED // Visual is required but not uploaded
+  PENDING // Visual upload pending
+  UPLOADED // Visual has been uploaded
+  AVAILABLE // Visual uploaded and ready
+}
+
+// ============================================
+// VISUAL ASSETS
+// ============================================
+model ImageAsset {
+  id        String   @id @default(uuid())
+  fileName  String
+  filePath  String   @unique
+  mimeType  String
+  fileSize  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fileName])
+  @@index([createdAt])
+}
+
+// ============================================
+// QUESTION GENERATION
+// ============================================
+model GeneratedQuestionSpatialContext {
+  id String @id @default(uuid())
+
+  questionCardId String
+  questionCard   QuestionCard @relation(fields: [questionCardId], references: [id], onDelete: Cascade)
+
+  conceptId String
+  concept   Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([questionCardId, conceptId])
+  @@index([conceptId])
+}
+
+enum QuestionCardSource {
+  ADMIN // Legacy/admin-created questions
+  EXAM_REPLICA // Exact replica from ExamQuestion (for "Çıkmış Sorular" mode)
+  AI_GENERATION // Generated from KnowledgePoint
+  ERROR_BASED // Generated from user mistakes (UserWeakness)
+}
+
+model QuestionCard {
+  id String @id @default(uuid())
+
+  sourceType          QuestionCardSource
+  // Question content
+  question            String
+  options             Json // { A: "...", B: "...", C: "...", D: "..." }
+  correctAnswer       String
+  explanation         String?
+  patternType         String? // Pattern type (e.g., "Spot Rule", "Clinical Tip", "Comparison")
+  // GRAPH CONTEXT
+  prerequisiteId      String?
+  prerequisite        Prerequisite?      @relation(fields: [prerequisiteId], references: [id], onDelete: SetNull)
+  clinicalCorrelation String?
+  topicId             String?
+  topic               Topic?             @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  subtopicId String?
+  subtopic   Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  // Source exam question (if generated from analyzed exam question)
+  sourceExamQuestionId String?
+  sourceExamQuestion   ExamQuestion? @relation("GeneratedFromExam", fields: [sourceExamQuestionId], references: [id], onDelete: SetNull)
+
+  // Question card metadata
+  difficulty      Difficulty? // EASY, MEDIUM, HARD (based on pattern confidence)
+  scenarioType    String? // e.g., "Clinical case", "Direct fact", "Comparison" (legacy, use difficulty instead)
+  optionsMetadata Json? // Structured option data: { A: { text, wouldBeCorrectIf?, isCorrect }, B: {...}, ... }
+  mainExplanation String? // Main teaching explanation (separate from trap-specific explanations)
+
+  // Source knowledge points
+  questionKnowledgePoints QuestionKnowledgePoint[]
+
+  // Similarity check
+  similarityChecked  Boolean  @default(false)
+  similarQuestionIds String[] // IDs of similar past exam questions
+
+  // Admin approval
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  approvedBy     String? // Admin user ID
+
+  // Usage tracking
+  timesShown      Int                               @default(0)
+  correctRate     Float? // Percentage of correct answers
+  spatialContexts GeneratedQuestionSpatialContext[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userAnswers UserAnswer[]
+
+  @@index([approvalStatus])
+  @@index([scenarioType])
+  @@index([difficulty])
+  @@index([sourceExamQuestionId])
+}
+
+model QuestionKnowledgePoint {
+  id               String         @id @default(uuid())
+  questionCardId   String?
+  questionCard     QuestionCard?  @relation(fields: [questionCardId], references: [id], onDelete: Cascade)
+  knowledgePointId String
+  knowledgePoint   KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  // Relationship type
+  relationshipType RelationshipType // MEASURED, CONTEXT
+
+  createdAt DateTime @default(now())
+
+  @@unique([questionCardId, knowledgePointId, relationshipType])
+  @@index([questionCardId])
+  @@index([knowledgePointId])
+}
+
+model QuestionSimilarity {
+  id               String       @id @default(uuid())
+  sourceQuestionId String // ExamQuestion or GeneratedQuestion ID
+  sourceQuestion   ExamQuestion @relation("SourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Cascade)
+  targetQuestionId String // ExamQuestion or GeneratedQuestion ID
+  targetQuestion   ExamQuestion @relation("TargetQuestion", fields: [targetQuestionId], references: [id], onDelete: Cascade)
+  similarityScore  Float // 0-1 similarity score
+
+  createdAt DateTime @default(now())
+
+  @@unique([sourceQuestionId, targetQuestionId])
+  @@index([sourceQuestionId])
+  @@index([targetQuestionId])
+}
+
+enum SolveRole {
+  STUDENT
+  ADMIN
+}
+
+model SolvedQuestionCard {
+  id                  String    @id @default(uuid())
+  userId              String
+  generatedQuestionId String
+  selectedOption      String
+  isCorrect           Boolean
+  attempt             Int
+  roleAtSolve         SolveRole
+  solvedAt            DateTime  @default(now())
+}
+
+// ============================================
+// USER SYSTEM & ANALYTICS
+// ============================================
+
+model User {
+  id    String  @id @default(uuid())
+  email String  @unique
+  name  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flashcardProgress UserFlashcardProgress[]
+  patternMastery    PatternMastery[]
+  answers           UserAnswer[]
+  weaknesses        UserWeakness[]
+}
+
+model UserFlashcardProgress {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcardId String
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  // Status-based learning system
+  status     CardMasteryStatus @default(UNSEEN)
+  lastReview DateTime?
+
+  // Performance
+  totalReviews   Int @default(0)
+  correctCount   Int @default(0)
+  incorrectCount Int @default(0)
+
+  // Trap Pattern Tracking
+  fellForTrap    Boolean @default(false) // Did user fall for trap on last review?
+  trapLoopActive Boolean @default(false) // Is user stuck in trap-loop?
+  trapLoopCount  Int     @default(0) // How many times fell for same trap
+  lastResponse   String? // "CORRECT" | "INCORRECT" | "FELL_FOR_TRAP"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, flashcardId])
+  @@index([userId])
+  @@index([flashcardId])
+  @@index([userId, status])
+  @@index([userId, status, lastReview])
+  @@index([trapLoopActive])
+}
+
+enum CardMasteryStatus {
+  UNSEEN // Hiç görüntülenmemiş
+  EASY // Kolay
+  MEDIUM // Orta
+  HARD // Zor
+}
+
+// Pattern Mastery tracking for adaptive learning
+model PatternMastery {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User & Pattern
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examPattern String // e.g., "except-trap-innervation", "lesion-cranial-nerve"
+
+  // Mastery Tracking
+  masteryScore  Float @default(0.0) // 0.0 to 1.0 (calculated from card performance)
+  cardsTotal    Int   @default(0) // Total cards in this pattern
+  cardsMastered Int   @default(0) // Cards with easeFactor >= 2.5 and interval >= 7
+
+  // Adaptive Backtracking
+  needsBacktrack       Boolean   @default(false) // Trigger backtracking if < 60% mastery
+  prerequisitePatterns String[]  @default([]) // Patterns to backtrack to
+  backtrackTriggeredAt DateTime?
+
+  @@unique([userId, examPattern])
+  @@index([userId])
+  @@index([examPattern])
+  @@index([needsBacktrack])
+}
+
+model UserAnswer {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionCardId String
+  questionCard   QuestionCard @relation(fields: [questionCardId], references: [id], onDelete: Cascade)
+
+  selectedAnswer String // User's selected answer
+  isCorrect      Boolean
+  timeSpent      Int? // Time in seconds
+  answeredAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([questionCardId])
+  @@index([answeredAt])
+}
+
+model UserWeakness {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledgePointId String
+  knowledgePoint   KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  // Weakness metrics
+  incorrectCount  Int       @default(0)
+  totalAttempts   Int       @default(0)
+  lastIncorrectAt DateTime?
+  weaknessScore   Float     @default(0.0) // 0-1, higher = weaker
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, knowledgePointId])
+  @@index([userId])
+  @@index([knowledgePointId])
+  @@index([weaknessScore])
+}
+
+// ============================================
+// AI TASK CONFIGURATION
+// ============================================
+
+enum AITaskType {
+  VISION_PARSE
+  CONTENT_CLASSIFY
+  KNOWLEDGE_EXTRACTION
+  FLASHCARD_GENERATION
+  QUESTION_GENERATION
+  EMBEDDING
+  EXAM_QUESTION_ANALYSIS
+}
+
+enum AIProviderType {
+  OPENAI
+  GEMINI
+}
+
+model AITaskConfig {
+  id          String         @id @default(uuid())
+  taskType    AITaskType     @unique
+  provider    AIProviderType
+  model       String
+  temperature Float
+  maxTokens   Int
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([taskType])
+  @@index([isActive])
+}
+
+// ============================================
+// AI TOKEN USAGE TRACKING
+// ============================================
+
+model AITokenUsage {
+  id String @id @default(uuid())
+
+  taskType AITaskType
+  provider AIProviderType
+  model    String
+
+  inputTokens  Int
+  outputTokens Int
+  totalTokens  Int
+  costUSD      Float?
+
+  batchId          String?
+  pageId           String?
+  topicId          String?
+  knowledgePointId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskType])
+  @@index([provider])
+  @@index([model])
+  @@index([batchId])
+  @@index([pageId])
+  @@index([topicId])
+  @@index([knowledgePointId])
+  @@index([createdAt])
+}
+
+// ============================================
+// LESSON-FLASHCARD TYPE MAPPING
+// ============================================
+
+model LessonFlashcardType {
+  id String @id @default(uuid())
+
+  lesson   String // Lesson name (e.g., "Dahiliye", "Pediatri")
+  cardType CardType // Allowed flashcard type for this lesson
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lesson, cardType])
+  @@index([lesson])
+  @@index([cardType])
+}
+
+// ============================================
+// PREREQUISITE LEARNING GRAPH
+// ============================================
+
+model Concept {
+  id              String        @id @default(uuid())
+  preferredLabel  String
+  normalizedLabel String
+  conceptType     ConceptType   @default(STRUCTURE)
+  description     String?
+  status          ConceptStatus @default(ACTIVE)
+  mergedIntoId    String? // If MERGED, points to target concept
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  aliases                          ConceptAlias[]
+  prerequisites                    PrerequisiteConcept[]
+  questions                        QuestionConcept[]
+  mergedInto                       Concept?                          @relation("ConceptMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedConcepts                   Concept[]                         @relation("ConceptMerge")
+  subtopic                         Subtopic?                         @relation(fields: [subtopicId], references: [id])
+  subtopicId                       String?
+  generatedQuestionSpatialContexts GeneratedQuestionSpatialContext[]
+
+  @@unique([normalizedLabel])
+  @@index([preferredLabel])
+  @@index([status])
+  @@index([conceptType])
+}
+
+model ConceptAlias {
+  id              String        @id @default(uuid())
+  conceptId       String
+  alias           String
+  normalizedAlias String
+  language        AliasLanguage @default(EN)
+  source          AliasSource   @default(ADMIN)
+  usageCount      Int           @default(0)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([normalizedAlias])
+  @@index([conceptId])
+  @@index([isActive])
+}
+
+model QuestionConcept {
+  id         String       @id @default(uuid())
+  questionId String
+  conceptId  String
+  confidence Float?       @default(1.0)
+  createdAt  DateTime     @default(now())
+  question   ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  concept    Concept      @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, conceptId])
+  @@index([questionId])
+  @@index([conceptId])
+}
+
+enum ConceptType {
+  NERVE
+  MUSCLE
+  VESSEL
+  STRUCTURE
+  ORGAN
+  BONE
+  JOINT
+  LIGAMENT
+  SPACE
+  FORAMEN
+  FASCIA
+  PLEXUS
+}
+
+enum ConceptStatus {
+  ACTIVE
+  NEEDS_REVIEW
+  MERGED
+}
+
+enum AliasLanguage {
+  TR
+  EN
+  LA
+}
+
+enum AliasSource {
+  AI
+  ADMIN
+  IMPORT
+}
+
+// ============================================
+// UNRESOLVED CONCEPT HINTS
+// ============================================
+
+model UnresolvedConceptHint {
+  id             String               @id @default(uuid())
+  hint           String
+  normalizedHint String
+  questionId     String?
+  lessonId       String?
+  topicId        String?
+  subtopicId     String?
+  source         String               @default("QUESTION_ANALYSIS")
+  count          Int                  @default(1)
+  status         UnresolvedHintStatus @default(PENDING)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  question       ExamQuestion?        @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@unique([normalizedHint, topicId, subtopicId])
+  @@index([status])
+  @@index([count])
+}
+
+enum UnresolvedHintStatus {
+  PENDING
+  RESOLVED
+  IGNORED
+}
+
+enum PrerequisiteStatus {
+  ACTIVE
+  NEEDS_REVIEW
+  DEPRECATED
+}
+
+model Prerequisite {
+  id           String             @id @default(uuid())
+  canonicalKey String             @unique
+  name         String
+  displayName  String? // AI / admin label
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  status       PrerequisiteStatus @default(ACTIVE)
+  reviewReason String? // Reason for NEEDS_REVIEW status
+  // ACTIVE | NEEDS_REVIEW  
+
+  concepts      PrerequisiteConcept[]
+  edges         PrerequisiteTopicEdge[]
+  questionCards QuestionCard[]
+
+  @@index([canonicalKey])
+  @@index([status])
+  @@map("PrerequisiteNode")
+}
+
+model PrerequisiteConcept {
+  id             String   @id @default(uuid())
+  prerequisiteId String
+  conceptId      String
+  createdAt      DateTime @default(now())
+
+  prerequisite Prerequisite @relation(fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  concept      Concept      @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([prerequisiteId, conceptId])
+  @@index([conceptId])
+  @@index([prerequisiteId])
+}
+
+enum EdgeStrength {
+  WEAK // frequency <= 3
+  MEDIUM // frequency 4-9
+  STRONG // frequency >= 10
+}
+
+model PrerequisiteTopicEdge {
+  id             String       @id @default(uuid())
+  prerequisiteId String
+  topicId        String
+  subtopicId     String?
+  frequency      Int          @default(1) // How many questions created this edge
+  strength       EdgeStrength @default(WEAK)
+  source         String       @default("QUESTION_ANALYSIS") // Source of the edge
+  lastUpdatedAt  DateTime     @default(now())
+
+  // Relationships
+  subtopic     Subtopic?    @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  prerequisite Prerequisite @relation(fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  topic        Topic        @relation("PrerequisiteEdges", fields: [topicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([prerequisiteId, topicId])
+  @@index([prerequisiteId])
+  @@index([topicId])
+  @@index([subtopicId])
+  @@index([strength])
+  @@index([frequency])
+}
+
+// ============================================
+// LESSON, TOPIC, SUBTOPIC REGISTRY
+// ============================================
+
+model Lesson {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., "Anatomi", "Dahiliye"
+  displayName String? // Optional display name
+  description String? // Optional description
+
+  // Statistics
+  questionCount       Int @default(0)
+  knowledgePointCount Int @default(0)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  subtopics       Subtopic[]
+  topics          Topic[]
+  examQuestions   ExamQuestion[]
+  parsedBlocks    ParsedBlock[]
+  flashcards      Flashcard[]
+  questionCards   QuestionCard[]
+  knowledgePoints KnowledgePoint[]
+
+  @@index([name])
+  @@index([questionCount])
+}
+
+model Topic {
+  id          String      @id @default(uuid())
+  name        String // e.g., "Orbit", "Skull base"
+  displayName String? // Optional display name
+  description String? // Optional description
+  status      TopicStatus @default(ACTIVE)
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id])
+
+  // Merge tracking
+  mergedIntoId String? // If status=MERGED, points to target topic
+  mergedInto   Topic?  @relation("TopicMerge", fields: [mergedIntoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mergedFrom   Topic[] @relation("TopicMerge")
+
+  // Statistics
+  questionCount       Int @default(0)
+  knowledgePointCount Int @default(0)
+
+  // Prerequisite learning graph relationships
+  prerequisiteEdges PrerequisiteTopicEdge[] @relation("PrerequisiteEdges")
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  examQuestions   ExamQuestion[]
+  subtopics       Subtopic[]
+  parsedBlocks    ParsedBlock[]
+  knowledgePoints KnowledgePoint[]
+  flashcards      Flashcard[]
+  questionCards   QuestionCard[]
+
+  @@unique([name, lessonId])
+  @@index([name])
+  @@index([questionCount])
+  @@index([status])
+  @@index([mergedIntoId])
+}
+
+enum TopicStatus {
+  ACTIVE
+  MERGED
+  ARCHIVED
+}
+
+model Subtopic {
+  id String @id @default(uuid())
+
+  name        String // canonical (AI-friendly)
+  displayName String? // admin/UI
+  description String?
+
+  // 🔗 RELATIONS (EN KRİTİK DEĞİŞİM)
+  topicId String
+  topic   Topic  @relation(fields: [topicId], references: [id])
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id])
+
+  // 📊 cached / derived
+  questionCount       Int @default(0)
+  knowledgePointCount Int @default(0)
+
+  // 🔗 içerik
+  examQuestions ExamQuestion[]
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  concepts              Concept[]
+  parsedBlocks          ParsedBlock[]
+  knowledgePoints       KnowledgePoint[]
+  flashcards            Flashcard[]
+  questionCards         QuestionCard[]
+  PrerequisiteTopicEdge PrerequisiteTopicEdge[]
+
+  @@unique([name, topicId])
+  @@index([name])
+  @@index([topicId])
+  @@index([lessonId])
+}
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+model AdminAuditLog {
+  id String @id @default(uuid())
+
+  // Actor
+  adminUserId String // Admin user ID who performed the action
+
+  // Action details
+  actionType String // e.g., "KNOWLEDGE_EXTRACTION", "FLASHCARD_GENERATION", "QUESTION_GENERATION", "ONTOLOGY_RESOLUTION"
+  actionMode String? // e.g., "APPEND", "REPLACE", "MAP_EXISTING", "CREATE_NEW", "IGNORE"
+  provider   AIProviderType? // AI provider used
+
+  // Affected entities
+  batchId           String?
+  approvedContentId String?
+  topicId           String?
+  subtopicId        String? // For ontology resolution
+  lessonId          String? // For ontology resolution
+  knowledgePointId  String?
+
+  // Results
+  success      Boolean
+  resultCount  Int? // Number of items created/processed
+  skippedCount Int? // Number of items skipped
+  deletedCount Int? // Number of items deleted (for REPLACE mode)
+
+  // Error tracking
+  errorMessage String?
+
+  // Metadata
+  metadata Json? // Additional context (e.g., coverage report)
+
+  createdAt DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([actionType])
+  @@index([batchId])
+  @@index([topicId])
+  @@index([createdAt])
+}
