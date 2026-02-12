@@ -1,7 +1,7 @@
 # ============================================
-# Stage 1: Builder
+# Stage 1: Dependencies
 # ============================================
-FROM node:20-alpine AS builder
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
@@ -9,11 +9,22 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies (including dev dependencies for build)
+# Install dependencies
 RUN npm ci
 
 # Generate Prisma Client
 RUN npx prisma generate
+
+# ============================================
+# Stage 2: Builder
+# ============================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package*.json ./
 
 # Copy source code
 COPY . .
@@ -22,7 +33,7 @@ COPY . .
 RUN npm run build
 
 # ============================================
-# Stage 2: Production
+# Stage 3: Production
 # ============================================
 FROM node:20-alpine AS production
 
@@ -43,7 +54,7 @@ COPY prisma ./prisma/
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy Prisma schema and generate client
+# Generate Prisma Client in production
 RUN npx prisma generate
 
 # Copy built application from builder stage
@@ -51,7 +62,7 @@ COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 
 # Create uploads directory with proper permissions
 RUN mkdir -p /app/uploads && \
-    chown -R nestjs:nodejs /app/uploads
+    chown -R nestjs:nodejs /app
 
 # Switch to non-root user
 USER nestjs
@@ -68,3 +79,4 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
 CMD ["node", "dist/main.js"]
+

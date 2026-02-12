@@ -36,6 +36,10 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSvg, setIsSvg] = useState(false);
   const [binding, setBinding] = useState(false);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [imageAssets, setImageAssets] = useState<any[]>([]);
+  const [assetSearch, setAssetSearch] = useState("");
+  const [loadingAssets, setLoadingAssets] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -114,6 +118,42 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
     }
   };
 
+  const loadImageAssets = async () => {
+    setLoadingAssets(true);
+    try {
+      const response = await api.getImageAssets({
+        search: assetSearch || undefined,
+        limit: 50,
+      });
+      setImageAssets(response?.assets || []);
+    } catch (error) {
+      console.error("Failed to load image assets:", error);
+      alert("Görseller yüklenemedi");
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
+
+  const handleBindExistingAsset = async (assetId: string) => {
+    setBinding(true);
+    try {
+      await api.bindFlashcardVisual(flashcard.id, { imageAssetId: assetId });
+      await onUpdate();
+      setShowAssetPicker(false);
+      alert("Mevcut görsel başarıyla bağlandı!");
+    } catch (error: any) {
+      setUploadError(error.message || "Bağlama başarısız oldu");
+    } finally {
+      setBinding(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showAssetPicker) {
+      loadImageAssets();
+    }
+  }, [showAssetPicker, assetSearch]);
+
   const handleReplace = () => {
     setPreviewUrl(null);
     setParsedRegions([]);
@@ -170,65 +210,58 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bağlam
+              Görsel Seç
             </label>
             <p className="text-gray-900">
-              {flashcard.visualContext || "Belirtilmemiş"}
+              {flashcard.imageAssetId
+                ? "Mevcut görsel bağlı"
+                : "Görsel seçilmedi"}
             </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Vurgu Bölgesi
-            </label>
-            <p className="text-gray-900">
-              {flashcard.highlightRegion || "Belirtilmemiş"}
-            </p>
-          </div>
-        </div>
-        <div className="mt-4">
-          <span
-            className={`px-3 py-1 text-sm font-semibold rounded ${
-              flashcard.visualStatus === "UPLOADED"
-                ? "bg-green-100 text-green-800"
-                : flashcard.visualStatus === "REQUIRED"
-                  ? "bg-red-100 text-red-800"
-                  : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {flashcard.visualStatus === "UPLOADED"
-              ? "Görsel Yüklendi"
-              : flashcard.visualStatus === "REQUIRED"
-                ? "Görsel Gerekli"
-                : "Görsel Gerekmiyor"}
-          </span>
         </div>
       </div>
 
-      {/* Upload Area */}
-      {!flashcard.imageAssetId && (
+      {/* Add Visual */}
+      {
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Görsel Yükle
+            Görsel Ekle
           </h3>
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-2">
-              Görsel dosyasını sürükleyip bırakın veya tıklayarak seçin
-            </p>
-            <p className="text-sm text-gray-500">
-              SVG, PNG veya JPG formatları desteklenir
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/svg+xml,image/png,image/jpeg,image/jpg"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
+
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 border-2 border-dashed border-blue-400 rounded-lg p-6 text-center hover:border-blue-600 transition-colors bg-blue-50"
+            >
+              <Upload className="mx-auto h-10 w-10 text-blue-600 mb-3" />
+              <p className="text-blue-900 font-semibold mb-1">
+                Yeni Görsel Yükle
+              </p>
+              <p className="text-sm text-blue-700">SVG, PNG veya JPG</p>
+            </button>
+
+            <button
+              onClick={() => setShowAssetPicker(true)}
+              className="flex-1 border-2 border-dashed border-green-400 rounded-lg p-6 text-center hover:border-green-600 transition-colors bg-green-50"
+            >
+              <CheckCircle className="mx-auto h-10 w-10 text-green-600 mb-3" />
+              <p className="text-green-900 font-semibold mb-1">
+                Mevcut Görsel Seç
+              </p>
+              <p className="text-sm text-green-700">
+                Daha önce yüklenen görseller
+              </p>
+            </button>
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/svg+xml,image/png,image/jpeg,image/jpg"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
           {uploading && (
             <div className="mt-4 text-center">
               <RefreshCw className="animate-spin mx-auto h-6 w-6 text-blue-600" />
@@ -236,7 +269,72 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
             </div>
           )}
         </div>
+      }
+
+      {/* Asset Picker */}
+      {showAssetPicker && !flashcard.imageAssetId && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Mevcut Görselleri Seç
+            </h3>
+            <button
+              onClick={() => setShowAssetPicker(false)}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              ← Geri Dön
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Görsel ara..."
+              value={assetSearch}
+              onChange={(e) => setAssetSearch(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {loadingAssets ? (
+            <div className="text-center py-8">
+              <RefreshCw className="animate-spin mx-auto h-8 w-8 text-blue-600" />
+              <p className="text-sm text-gray-600 mt-2">
+                Görseller yükleniyor...
+              </p>
+            </div>
+          ) : imageAssets.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p>Henüz yüklenmiş görsel bulunmuyor.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              {imageAssets.map((asset) => (
+                <div
+                  key={asset.id}
+                  className="border-2 border-gray-200 rounded-lg p-3 hover:border-blue-500 transition-colors cursor-pointer"
+                  onClick={() => handleBindExistingAsset(asset.id)}
+                >
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${asset.id}`}
+                    alt={asset.fileName}
+                    className="w-full h-32 object-cover rounded mb-2"
+               
+                  />
+                  <p className="text-xs text-gray-700 truncate font-medium">
+                    {asset.fileName}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {asset._count?.flashcards || 0} flashcard
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
+ 
 
       {/* Preview */}
       {previewUrl && (

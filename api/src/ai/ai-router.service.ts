@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 import {
   Injectable,
   Logger,
@@ -22,6 +23,7 @@ import { buildPathologyExamQuestionAnalysisPrompt } from './prompts/exam-questio
 import { AIProviderType } from '@prisma/client';
 import { PricingService } from './pricing.service';
 import { PrerequisiteLearningService } from '../exam-question/prerequisite-learning.service';
+import { buildFizyolojiExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-fizyoloji.prompt';
 
 @Injectable()
 export class AIRouterService {
@@ -505,28 +507,27 @@ export class AIRouterService {
     const lessonLower = payload.lesson.toLowerCase();
     let systemPrompt: string;
     let userPrompt: string;
+    let prerequisiteContext: string[] | undefined;
+    if (payload.topic) {
+      try {
+        prerequisiteContext =
+          await this.prerequisiteLearningService.getPrerequisiteContextForTopic(
+            payload.topic,
+          );
+        this.logger.debug(
+          `Fetched ${prerequisiteContext.length} prerequisite contexts for topic: ${payload.topic}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch prerequisite context for topic ${payload.topic}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        // Continue without prerequisite context
+      }
+    }
 
     // Select lesson-specific prompt based on lesson name
     if (lessonLower === 'anatomi') {
       // Fetch prerequisite context for anatomy questions if topic is available
-      let prerequisiteContext: string[] | undefined;
-      if (payload.topic) {
-        try {
-          prerequisiteContext =
-            await this.prerequisiteLearningService.getPrerequisiteContextForTopic(
-              payload.topic,
-            );
-          this.logger.debug(
-            `Fetched ${prerequisiteContext.length} prerequisite contexts for topic: ${payload.topic}`,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Failed to fetch prerequisite context for topic ${payload.topic}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          );
-          // Continue without prerequisite context
-        }
-      }
-
       const result = buildAnatomyExamQuestionAnalysisPrompt({
         ...payload,
         prerequisiteContext,
@@ -535,6 +536,13 @@ export class AIRouterService {
       userPrompt = result.userPrompt;
     } else if (lessonLower === 'farmakoloji') {
       const result = buildPharmacologyExamQuestionAnalysisPrompt(payload);
+      systemPrompt = result.systemPrompt;
+      userPrompt = result.userPrompt;
+    } else if (lessonLower === 'fizyoloji') {
+      const result = buildFizyolojiExamQuestionAnalysisPrompt({
+        ...payload,
+        prerequisiteContext,
+      });
       systemPrompt = result.systemPrompt;
       userPrompt = result.userPrompt;
     } else if (lessonLower === 'dahiliye') {

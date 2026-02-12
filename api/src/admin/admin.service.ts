@@ -2525,15 +2525,16 @@ export class AdminService {
       throw new NotFoundException(`Flashcard ${id} not found`);
     }
 
-    // Guard: if visual is required but not uploaded, reject
-    if (
-      flashcard.useVisual &&
-      flashcard.visualStatus !== VisualStatus.UPLOADED
-    ) {
-      throw new ConflictException(
-        'Bu flashcard görsel gerektiriyor. Lütfen görsel yükleyin.',
-      );
-    }
+    // Note: Visual can be uploaded after approval if needed
+    // Guard removed to allow approval without visual upload
+    // if (
+    //   flashcard.useVisual &&
+    //   flashcard.visualStatus !== VisualStatus.UPLOADED
+    // ) {
+    //   throw new ConflictException(
+    //     'Bu flashcard görsel gerektiriyor. Lütfen görsel yükleyin.',
+    //   );
+    // }
 
     // Update approval status
     const updated = await this.prisma.flashcard.update({
@@ -2584,7 +2585,16 @@ export class AdminService {
    */
   async updateFlashcard(
     id: string,
-    data: { front?: string; back?: string; cardType?: string },
+    data: {
+      front?: string;
+      back?: string;
+      cardType?: string;
+      useVisual?: boolean;
+      visualRequirement?: string;
+      visualContext?: string;
+      highlightRegion?: string;
+      visualStatus?: string;
+    },
   ) {
     this.logger.log(`Updating flashcard: ${id}`);
 
@@ -2596,16 +2606,31 @@ export class AdminService {
       throw new NotFoundException(`Flashcard ${id} not found`);
     }
 
+    // Prepare update data
+    const updateData: any = {};
+    if (data.front !== undefined) updateData.front = data.front;
+    if (data.back !== undefined) updateData.back = data.back;
+    if (data.cardType !== undefined) updateData.cardType = data.cardType;
+    if (data.useVisual !== undefined) updateData.useVisual = data.useVisual;
+    if (data.visualRequirement !== undefined)
+      updateData.visualRequirement = data.visualRequirement;
+    if (data.visualContext !== undefined)
+      updateData.visualContext = data.visualContext;
+    if (data.highlightRegion !== undefined)
+      updateData.highlightRegion = data.highlightRegion;
+    if (data.visualStatus !== undefined)
+      updateData.visualStatus = data.visualStatus;
+
+    // Auto-update visualStatus based on useVisual
+    if (data.useVisual === true && !flashcard.imageAssetId) {
+      updateData.visualStatus = VisualStatus.REQUIRED;
+    } else if (data.useVisual === false) {
+      updateData.visualStatus = VisualStatus.NOT_REQUIRED;
+    }
+
     const updated = await this.prisma.flashcard.update({
       where: { id },
-      data: {
-        front: data.front !== undefined ? data.front : flashcard.front,
-        back: data.back !== undefined ? data.back : flashcard.back,
-        cardType:
-          data.cardType !== undefined
-            ? (data.cardType as any)
-            : flashcard.cardType,
-      },
+      data: updateData,
       include: {
         knowledgePoint: {
           select: {

@@ -604,22 +604,12 @@ export class PrerequisiteLearningService {
   /**
    * Get prerequisite graph for a specific topic
    */
-  async getTopicPrerequisites(
-    topicId: string,
-    lesson: string = 'Anatomi',
-  ): Promise<{
+  async getTopicPrerequisites(topicId: string): Promise<{
     topic: GraphNode;
     prerequisites: Array<
       GraphNode & { frequency: number; strength: EdgeStrength }
     >;
   }> {
-    const lessonId = await this.prisma.lesson.findUnique({
-      where: { name: lesson },
-      select: { id: true },
-    });
-    if (!lessonId) {
-      throw new Error(`Lesson "${lesson}" not found`);
-    }
     const topic = await this.prisma.topic.findUnique({
       where: {
         id: topicId,
@@ -634,7 +624,7 @@ export class PrerequisiteLearningService {
     });
 
     if (!topic) {
-      throw new Error(`Topic "${topicId}" in lesson "${lesson}" not found`);
+      throw new Error(`Topic "${topicId}" not found`);
     }
 
     const prerequisites = topic.prerequisiteEdges.map((edge) => ({

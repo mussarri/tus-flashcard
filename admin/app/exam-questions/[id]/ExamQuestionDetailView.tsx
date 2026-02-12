@@ -139,7 +139,7 @@ export default function ExamQuestionDetailView({
       const kpResponse = await api.getKnowledgePoints(id);
       const questionData = {
         ...response.examQuestion,
-        knowledgePoints: kpResponse.knowledgePoints,
+        knowledgePoints: kpResponse.data.knowledgePoints,
       };
       setExamQuestion({
         ...questionData,
@@ -705,7 +705,9 @@ export default function ExamQuestionDetailView({
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
                 >
                   <FileQuestion className="w-4 h-4" />
-                  {generatingKPs ? "Generating..." : "Generate Knowledge Points"}
+                  {generatingKPs
+                    ? "Generating..."
+                    : "Generate Knowledge Points"}
                 </button>
                 <button
                   onClick={() => setShowReplicaWarning(true)}
@@ -847,606 +849,250 @@ export default function ExamQuestionDetailView({
                     )}
                   </div>
 
-                  {/* Anatomy-specific 5-layer analysis */}
-                  {examQuestion.analysisPayload.lesson === "Anatomi" &&
-                    examQuestion.analysisPayload && (
-                      <>
-                        {/* Spot Rule */}
-                        {examQuestion.analysisPayload.spotRule && (
+                  {examQuestion.analysisPayload && (
+                    <>
+                      {/* Spot Rule */}
+                      {examQuestion.analysisPayload.spotRule && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Spot Rule
+                          </h3>
+                          <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                            <p className="text-gray-900 font-medium">
+                              {examQuestion.analysisPayload.spotRule}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Option Analysis */}
+                      {examQuestion.analysisPayload.optionAnalysis &&
+                        examQuestion.analysisPayload.optionAnalysis.length >
+                          0 && (
                           <div>
                             <h3 className="text-lg font-semibold mb-2">
-                              Spot Rule
+                              Option Analysis (Next Question Method)
                             </h3>
-                            <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                              <p className="text-gray-900 font-medium">
-                                {examQuestion.analysisPayload.spotRule}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Option Analysis */}
-                        {examQuestion.analysisPayload.optionAnalysis &&
-                          examQuestion.analysisPayload.optionAnalysis.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Option Analysis (Next Question Method)
-                              </h3>
-                              <div className="space-y-4">
-                                {examQuestion.analysisPayload.optionAnalysis.map(
-                                  (item: any, idx: number) => (
-                                    <div
-                                      key={idx}
-                                      className={`border rounded p-4 ${
-                                        item.importance === "HIGH"
-                                          ? "bg-yellow-50 border-yellow-300"
-                                          : "bg-gray-50 border-gray-200"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">
-                                          Option{" "}
-                                          {item.option || item.optionLabel}
+                            <div className="space-y-4">
+                              {examQuestion.analysisPayload.optionAnalysis.map(
+                                (item: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className={`border rounded p-4 ${
+                                      item.importance === "HIGH"
+                                        ? "bg-yellow-50 border-yellow-300"
+                                        : "bg-gray-50 border-gray-200"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">
+                                        Option {item.option || item.optionLabel}
+                                      </span>
+                                      {item.importance === "HIGH" && (
+                                        <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                                          HIGH IMPORTANCE
                                         </span>
-                                        {item.importance === "HIGH" && (
-                                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
-                                            HIGH IMPORTANCE
-                                          </span>
-                                        )}
-                                        {item.examFrequency && (
-                                          <span
-                                            className={`px-2 py-1 text-xs font-semibold rounded ${
-                                              item.examFrequency === "HIGH"
-                                                ? "bg-green-100 text-green-800"
-                                                : item.examFrequency ===
-                                                    "MEDIUM"
-                                                  ? "bg-yellow-100 text-yellow-800"
-                                                  : "bg-gray-100 text-gray-800"
-                                            }`}
-                                          >
-                                            Frequency: {item.examFrequency}
-                                          </span>
-                                        )}
-                                        {item.confusionRisk && (
-                                          <span
-                                            className={`px-2 py-1 text-xs font-semibold rounded ${
-                                              item.confusionRisk === "HIGH"
-                                                ? "bg-orange-100 text-orange-800"
-                                                : "bg-gray-100 text-gray-800"
-                                            }`}
-                                          >
-                                            Confusion Risk: {item.confusionRisk}
-                                          </span>
-                                        )}
-                                      </div>
-                                      {item.structure && (
-                                        <div className="mb-2">
-                                          <p className="text-sm font-medium text-gray-700">
-                                            Structure:
-                                          </p>
-                                          <p className="text-gray-900">
-                                            {item.structure}
-                                          </p>
-                                        </div>
                                       )}
+                                      {item.examFrequency && (
+                                        <span
+                                          className={`px-2 py-1 text-xs font-semibold rounded ${
+                                            item.examFrequency === "HIGH"
+                                              ? "bg-green-100 text-green-800"
+                                              : item.examFrequency === "MEDIUM"
+                                                ? "bg-yellow-100 text-yellow-800"
+                                                : "bg-gray-100 text-gray-800"
+                                          }`}
+                                        >
+                                          Frequency: {item.examFrequency}
+                                        </span>
+                                      )}
+                                      {item.confusionRisk && (
+                                        <span
+                                          className={`px-2 py-1 text-xs font-semibold rounded ${
+                                            item.confusionRisk === "HIGH"
+                                              ? "bg-orange-100 text-orange-800"
+                                              : "bg-gray-100 text-gray-800"
+                                          }`}
+                                        >
+                                          Confusion Risk: {item.confusionRisk}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {item.structure && (
                                       <div className="mb-2">
                                         <p className="text-sm font-medium text-gray-700">
-                                          Would be correct if:
+                                          Structure:
                                         </p>
                                         <p className="text-gray-900">
-                                          {item.wouldBeCorrectIf}
+                                          {item.structure}
                                         </p>
                                       </div>
-                                      {item.clinicalOutcome && (
-                                        <div className="mb-2">
-                                          <p className="text-sm font-medium text-gray-700">
-                                            Clinical Outcome:
-                                          </p>
-                                          <p className="text-gray-900">
-                                            {item.clinicalOutcome}
-                                          </p>
-                                        </div>
-                                      )}
+                                    )}
+                                    <div className="mb-2">
+                                      <p className="text-sm font-medium text-gray-700">
+                                        Would be correct if:
+                                      </p>
+                                      <p className="text-gray-900">
+                                        {item.wouldBeCorrectIf}
+                                      </p>
                                     </div>
-                                  ),
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-600 mt-2">
-                                <strong>Note:</strong> This analysis shows what
-                                question each wrong option would be correct for.
-                                Options marked as HIGH IMPORTANCE are
-                                exam-critical and commonly confused.
-                              </p>
-                            </div>
-                          )}
-
-                        {/* Spatial Context */}
-                        {examQuestion.analysisPayload.spatialContext && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Spatial Context
-                            </h3>
-                            <ul className="list-disc list-inside space-y-1">
-                              {examQuestion.analysisPayload.spatialContext.map(
-                                (item: string, idx: number) => (
-                                  <li key={idx} className="text-gray-900">
-                                    {item}
-                                  </li>
+                                    {item.clinicalOutcome && (
+                                      <div className="mb-2">
+                                        <p className="text-sm font-medium text-gray-700">
+                                          Clinical Outcome:
+                                        </p>
+                                        <p className="text-gray-900">
+                                          {item.clinicalOutcome}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
                                 ),
                               )}
-                            </ul>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">
+                              <strong>Note:</strong> This analysis shows what
+                              question each wrong option would be correct for.
+                              Options marked as HIGH IMPORTANCE are
+                              exam-critical and commonly confused.
+                            </p>
                           </div>
                         )}
 
-                        {/* Clinical Correlation */}
-                        {examQuestion.analysisPayload.clinicalCorrelation && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Clinical Correlation
-                            </h3>
-                            <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {
-                                  examQuestion.analysisPayload
-                                    .clinicalCorrelation
-                                }
-                              </p>
-                            </div>
+                      {/* Spatial Context */}
+                      {examQuestion.analysisPayload.spatialContext && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Spatial Context
+                          </h3>
+                          <ul className="list-disc list-inside space-y-1">
+                            {examQuestion.analysisPayload.spatialContext.map(
+                              (item: string, idx: number) => (
+                                <li key={idx} className="text-gray-900">
+                                  {item}
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Clinical Correlation */}
+                      {examQuestion.analysisPayload.clinicalCorrelation && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Clinical Correlation
+                          </h3>
+                          <div className="bg-gray-50 border border-gray-200 rounded p-4">
+                            <p className="text-gray-900">
+                              {examQuestion.analysisPayload.clinicalCorrelation}
+                            </p>
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {/* Exam Trap */}
-                        {examQuestion.analysisPayload.examTrap && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Exam Trap
-                            </h3>
-                            <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
-                              <p className="text-gray-900">
-                                <strong>Confused with:</strong>{" "}
-                                {
-                                  examQuestion.analysisPayload.examTrap
-                                    .confusedWith
-                                }
-                              </p>
-                              <p className="text-gray-900 mt-2">
-                                <strong>Key difference:</strong>{" "}
-                                {
-                                  examQuestion.analysisPayload.examTrap
-                                    .keyDifference
-                                }
-                              </p>
-                            </div>
+                      {/* Exam Trap */}
+                      {examQuestion.analysisPayload.examTrap && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Exam Trap
+                          </h3>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+                            <p className="text-gray-900">
+                              <strong>Confused with:</strong>{" "}
+                              {
+                                examQuestion.analysisPayload.examTrap
+                                  .confusedWith
+                              }
+                            </p>
+                            <p className="text-gray-900 mt-2">
+                              <strong>Key difference:</strong>{" "}
+                              {
+                                examQuestion.analysisPayload.examTrap
+                                  .keyDifference
+                              }
+                            </p>
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {/* Prerequisites */}
-                        {examQuestion.analysisPayload.prerequisites &&
-                          Array.isArray(
-                            examQuestion.analysisPayload.prerequisites,
-                          ) &&
-                          examQuestion.analysisPayload.prerequisites.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Prerequisites (Önkoşul Bilgiler)
-                              </h3>
-                              <div className="bg-purple-50 border border-purple-200 rounded p-4">
-                                <p className="text-sm text-purple-800 mb-3">
-                                  Bu soruyu çözebilmek için gerekli temel
-                                  bilgiler:
-                                </p>
-                                <ul className="list-disc pl-2 space-y-2">
-                                  {examQuestion.analysisPayload.prerequisites.map(
-                                    (
-                                      prereq:
-                                        | {
-                                            label?: string;
-                                            conceptHints?: string[];
-                                          }
-                                        | string,
-                                      idx: number,
-                                    ) => {
-                                      const label =
-                                        typeof prereq === "string"
-                                          ? prereq
-                                          : prereq.label ||
-                                            prereq.conceptHints?.[0] ||
-                                            "N/A";
-                                      const hints =
-                                        typeof prereq === "string"
-                                          ? []
-                                          : prereq.conceptHints || [];
-                                      return (
-                                        <li key={idx} className="text-gray-900">
-                                          <div className="font-medium">
-                                            {label}
-                                          </div>
-                                          {hints.length > 0 && (
-                                            <div className="mt-1 flex flex-wrap gap-2">
-                                              {hints.map((hint, hintIdx) => (
-                                                <span
-                                                  key={`${idx}-${hintIdx}`}
-                                                  className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700"
-                                                >
-                                                  {hint}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </li>
-                                      );
-                                    },
-                                  )}
-                                </ul>
-                              </div>
-                            </div>
-                          )}
-                      </>
-                    )}
-
-                  {examQuestion.analysisPayload.lesson === "Farmakoloji" &&
-                    examQuestion.analysisPayload && (
-                      <>
-                        {/* Mechanism of Action */}
-                        {examQuestion.analysisPayload.mechanismOfAction && (
+                      {/* Prerequisites */}
+                      {examQuestion.analysisPayload.prerequisites &&
+                        Array.isArray(
+                          examQuestion.analysisPayload.prerequisites,
+                        ) &&
+                        examQuestion.analysisPayload.prerequisites.length >
+                          0 && (
                           <div>
                             <h3 className="text-lg font-semibold mb-2">
-                              Mechanism of Action
-                            </h3>
-                            <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {examQuestion.analysisPayload.mechanismOfAction}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Pharmacokinetics */}
-                        {examQuestion.analysisPayload.pharmacokinetics && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Pharmacokinetics
-                            </h3>
-                            <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {examQuestion.analysisPayload.pharmacokinetics}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Drug Interactions */}
-                        {examQuestion.analysisPayload.drugInteractions &&
-                          examQuestion.analysisPayload.drugInteractions.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Drug Interactions
-                              </h3>
-                              <div className="space-y-2">
-                                {examQuestion.analysisPayload.drugInteractions.map(
-                                  (interaction: any, idx: number) => (
-                                    <div
-                                      key={idx}
-                                      className="bg-yellow-50 border border-yellow-200 rounded p-3"
-                                    >
-                                      <p className="font-medium text-gray-900">
-                                        {interaction.drug}
-                                      </p>
-                                      <p className="text-sm text-gray-700">
-                                        {interaction.interaction}
-                                      </p>
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Side Effects */}
-                        {examQuestion.analysisPayload.sideEffects &&
-                          examQuestion.analysisPayload.sideEffects.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Side Effects
-                              </h3>
-                              <div className="flex flex-wrap gap-2">
-                                {examQuestion.analysisPayload.sideEffects.map(
-                                  (effect: string, idx: number) => (
-                                    <span
-                                      key={idx}
-                                      className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                                    >
-                                      {effect}
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Contraindications */}
-                        {examQuestion.analysisPayload.contraindications &&
-                          examQuestion.analysisPayload.contraindications
-                            .length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Contraindications
-                              </h3>
-                              <div className="flex flex-wrap gap-2">
-                                {examQuestion.analysisPayload.contraindications.map(
-                                  (contra: string, idx: number) => (
-                                    <span
-                                      key={idx}
-                                      className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm"
-                                    >
-                                      {contra}
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-                      </>
-                    )}
-
-                  {examQuestion.analysisPayload.lesson === "Dahiliye" &&
-                    examQuestion.analysisPayload && (
-                      <>
-                        {/* Clinical Findings */}
-                        {examQuestion.analysisPayload.clinicalFindings &&
-                          examQuestion.analysisPayload.clinicalFindings.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Clinical Findings
-                              </h3>
-                              <ul className="list-disc list-inside space-y-1">
-                                {examQuestion.analysisPayload.clinicalFindings.map(
-                                  (finding: string, idx: number) => (
-                                    <li key={idx} className="text-gray-900">
-                                      {finding}
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                        {/* Diagnostic Criteria */}
-                        {examQuestion.analysisPayload.diagnosticCriteria && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Diagnostic Criteria
-                            </h3>
-                            <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {
-                                  examQuestion.analysisPayload
-                                    .diagnosticCriteria
-                                }
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Treatment Protocol */}
-                        {examQuestion.analysisPayload.treatmentProtocol && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Treatment Protocol
-                            </h3>
-                            <div className="bg-green-50 border border-green-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {examQuestion.analysisPayload.treatmentProtocol}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Complications */}
-                        {examQuestion.analysisPayload.complications &&
-                          examQuestion.analysisPayload.complications.length >
-                            0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Complications
-                              </h3>
-                              <div className="flex flex-wrap gap-2">
-                                {examQuestion.analysisPayload.complications.map(
-                                  (complication: string, idx: number) => (
-                                    <span
-                                      key={idx}
-                                      className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                                    >
-                                      {complication}
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Differential Diagnosis */}
-                        {examQuestion.analysisPayload.differentialDiagnosis &&
-                          examQuestion.analysisPayload.differentialDiagnosis
-                            .length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Differential Diagnosis
-                              </h3>
-                              <div className="space-y-2">
-                                {examQuestion.analysisPayload.differentialDiagnosis.map(
-                                  (diff: any, idx: number) => (
-                                    <div
-                                      key={idx}
-                                      className="bg-yellow-50 border border-yellow-200 rounded p-3"
-                                    >
-                                      <p className="font-medium text-gray-900">
-                                        {diff.condition}
-                                      </p>
-                                      <p className="text-sm text-gray-700 mt-1">
-                                        {diff.keyDifference}
-                                      </p>
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-                      </>
-                    )}
-
-                  {examQuestion.analysisPayload.lesson === "Patoloji" &&
-                    examQuestion.analysisPayload && (
-                      <>
-                        {/* Histopathological Features */}
-                        {examQuestion.analysisPayload
-                          .histopathologicalFeatures &&
-                          examQuestion.analysisPayload.histopathologicalFeatures
-                            .length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Histopathological Features
-                              </h3>
-                              <ul className="list-disc list-inside space-y-1">
-                                {examQuestion.analysisPayload.histopathologicalFeatures.map(
-                                  (feature: string, idx: number) => (
-                                    <li key={idx} className="text-gray-900">
-                                      {feature}
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                        {/* Diagnostic Criteria */}
-                        {examQuestion.analysisPayload.diagnosticCriteria && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Diagnostic Criteria
-                            </h3>
-                            <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {
-                                  examQuestion.analysisPayload
-                                    .diagnosticCriteria
-                                }
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Immunohistochemistry */}
-                        {examQuestion.analysisPayload.immunohistochemistry &&
-                          examQuestion.analysisPayload.immunohistochemistry
-                            .length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Immunohistochemistry
-                              </h3>
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full border border-gray-200">
-                                  <thead className="bg-gray-50">
-                                    <tr>
-                                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border">
-                                        Marker
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border">
-                                        Result
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border">
-                                        Significance
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {examQuestion.analysisPayload.immunohistochemistry.map(
-                                      (ihc: any, idx: number) => (
-                                        <tr
-                                          key={idx}
-                                          className="hover:bg-gray-50"
-                                        >
-                                          <td className="px-4 py-2 border font-medium">
-                                            {ihc.marker}
-                                          </td>
-                                          <td className="px-4 py-2 border">
-                                            <span
-                                              className={`px-2 py-1 text-xs rounded ${
-                                                ihc.result === "Pozitif" ||
-                                                ihc.result === "Positive"
-                                                  ? "bg-green-100 text-green-800"
-                                                  : ihc.result === "Negatif" ||
-                                                      ihc.result === "Negative"
-                                                    ? "bg-red-100 text-red-800"
-                                                    : "bg-gray-100 text-gray-800"
-                                              }`}
-                                            >
-                                              {ihc.result}
-                                            </span>
-                                          </td>
-                                          <td className="px-4 py-2 border text-sm">
-                                            {ihc.significance}
-                                          </td>
-                                        </tr>
-                                      ),
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Differential Diagnosis */}
-                        {examQuestion.analysisPayload.differentialDiagnosis &&
-                          examQuestion.analysisPayload.differentialDiagnosis
-                            .length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-semibold mb-2">
-                                Differential Diagnosis
-                              </h3>
-                              <div className="space-y-2">
-                                {examQuestion.analysisPayload.differentialDiagnosis.map(
-                                  (diff: any, idx: number) => (
-                                    <div
-                                      key={idx}
-                                      className="bg-yellow-50 border border-yellow-200 rounded p-3"
-                                    >
-                                      <p className="font-medium text-gray-900">
-                                        {diff.condition}
-                                      </p>
-                                      <p className="text-sm text-gray-700 mt-1">
-                                        {diff.keyDifference}
-                                      </p>
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Clinical-Pathological Correlation */}
-                        {examQuestion.analysisPayload
-                          .clinicalPathologicalCorrelation && (
-                          <div>
-                            <h3 className="text-lg font-semibold mb-2">
-                              Clinical-Pathological Correlation
+                              Prerequisites (Önkoşul Bilgiler)
                             </h3>
                             <div className="bg-purple-50 border border-purple-200 rounded p-4">
-                              <p className="text-gray-900">
-                                {
-                                  examQuestion.analysisPayload
-                                    .clinicalPathologicalCorrelation
-                                }
+                              <p className="text-sm text-purple-800 mb-3">
+                                Bu soruyu çözebilmek için gerekli temel
+                                bilgiler:
                               </p>
+                              <ul className="list-disc pl-2 space-y-2">
+                                {examQuestion.analysisPayload.prerequisites.map(
+                                  (
+                                    prereq:
+                                      | {
+                                          label?: string;
+                                          conceptHints?: string[];
+                                        }
+                                      | string,
+                                    idx: number,
+                                  ) => {
+                                    const label =
+                                      typeof prereq === "string"
+                                        ? prereq
+                                        : prereq.label ||
+                                          prereq.conceptHints?.[0] ||
+                                          "N/A";
+                                    const hints =
+                                      typeof prereq === "string"
+                                        ? []
+                                        : prereq.conceptHints || [];
+                                    return (
+                                      <li key={idx} className="text-gray-900">
+                                        <div className="font-medium">
+                                          {label}
+                                        </div>
+                                        {hints.length > 0 && (
+                                          <div className="mt-1 flex flex-wrap gap-2">
+                                            {hints.map((hint, hintIdx) => (
+                                              <span
+                                                key={`${idx}-${hintIdx}`}
+                                                className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700"
+                                              >
+                                                {hint}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </li>
+                                    );
+                                  },
+                                )}
+                              </ul>
                             </div>
                           </div>
                         )}
-                      </>
+                    </>
+                  )}
+
+                  {examQuestion.analysisPayload &&
+                    examQuestion.analysisPayload.lesson === "Fizyoloji" && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">
+                          Mechanizm Chain
+                        </h3>
+                        <div className="bg-green-50 border border-green-200 rounded p-4">
+                          <p className="text-gray-900 whitespace-pre-wrap">
+                            {examQuestion.analysisPayload.mechanismChain}
+                          </p>
+                        </div>
+                      </div>
                     )}
 
                   {/* Traps (for all lessons) */}
@@ -1505,27 +1151,6 @@ export default function ExamQuestionDetailView({
                       </div>
                     </div>
                   )}
-
-                  {/* General analysis (for other lessons or fallback) */}
-                  {examQuestion.analysisPayload.lesson &&
-                    examQuestion.analysisPayload.lesson !== "Anatomi" &&
-                    examQuestion.analysisPayload.lesson !== "Farmakoloji" &&
-                    examQuestion.analysisPayload.lesson !== "Dahiliye" &&
-                    examQuestion.analysisPayload.lesson !== "Patoloji" &&
-                    examQuestion.analysisPayload && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">
-                          Analysis Details
-                        </h3>
-                        <pre className="bg-gray-50 border border-gray-200 rounded p-4 overflow-x-auto text-sm">
-                          {JSON.stringify(
-                            examQuestion.analysisPayload,
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </div>
-                    )}
                 </div>
               )}
             </>

@@ -71,8 +71,9 @@ async function bootstrap() {
       }),
     );
     logger.log('Global validation pipe configured');
+    console.log(process.env.PORT);
 
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 5000;
     await app.listen(port);
     logger.log(`🚀 API server running on http://localhost:${port}`);
   } catch (error) {

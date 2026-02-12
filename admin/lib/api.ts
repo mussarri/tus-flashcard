@@ -487,7 +487,16 @@ export const api = {
 
   updateFlashcard: (
     id: string,
-    data: { front?: string; back?: string; cardType?: string },
+    data: {
+      front?: string;
+      back?: string;
+      cardType?: string;
+      useVisual?: boolean;
+      visualRequirement?: string;
+      visualContext?: string;
+      highlightRegion?: string;
+      visualStatus?: string;
+    },
   ) =>
     apiRequest<{ success: boolean; flashcard: any }>(`admin/flashcards/${id}`, {
       method: "PATCH",

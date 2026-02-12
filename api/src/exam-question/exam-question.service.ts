@@ -591,17 +591,14 @@ export class ExamQuestionService {
       /* =========================
        5️⃣ ANATOMY TRAPS
     ========================== */
-      if (analysis.lesson === 'Anatomi') {
-        updateData.traps = {
-          spotRule: analysis.spotRule,
-          optionAnalysis: analysis.optionAnalysis || [],
-          spatialContext: analysis.spatialContext || [],
-          clinicalCorrelation: analysis.clinicalCorrelation,
-          examTrap: analysis.examTrap,
-        };
-      } else {
-        updateData.traps = analysis.traps || [];
-      }
+
+      updateData.traps = {
+        spotRule: analysis.spotRule,
+        optionAnalysis: analysis.optionAnalysis || [],
+        spatialContext: analysis.spatialContext || [],
+        clinicalCorrelation: analysis.clinicalCorrelation,
+        examTrap: analysis.examTrap,
+      };
 
       /* =========================
        6️⃣ TOPIC RESOLUTION

@@ -59,20 +59,19 @@ export class ExamQuestionProcessor extends WorkerHost {
       }
 
       // Update prerequisite graph for anatomy questions
-      if (result.lesson === 'Anatomi') {
-        try {
-          await this.prerequisiteLearningService.processAnalyzedQuestion(
-            examQuestionId,
-          );
-          this.logger.log(
-            `Prerequisite graph updated for question ${examQuestionId}`,
-          );
-        } catch (prereqError) {
-          this.logger.error(
-            `Failed to update prerequisite graph for question ${examQuestionId}: ${prereqError instanceof Error ? prereqError.message : 'Unknown error'}`,
-          );
-          // Don't fail the job if prerequisite learning fails
-        }
+
+      try {
+        await this.prerequisiteLearningService.processAnalyzedQuestion(
+          examQuestionId,
+        );
+        this.logger.log(
+          `Prerequisite graph updated for question ${examQuestionId}`,
+        );
+      } catch (prereqError) {
+        this.logger.error(
+          `Failed to update prerequisite graph for question ${examQuestionId}: ${prereqError instanceof Error ? prereqError.message : 'Unknown error'}`,
+        );
+        // Don't fail the job if prerequisite learning fails
       }
 
       this.logger.log(
