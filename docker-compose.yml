@@ -37,7 +37,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: tus-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes
     ports:
       - "${REDIS_PORT:-6380}:6379"
     volumes:
@@ -71,7 +71,7 @@ services:
     container_name: tus-api
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-tus}:${POSTGRES_PASSWORD:-tus_password}@postgres:5432/${POSTGRES_DB:-tus_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+      REDIS_URL: redis://redis:6379
       NODE_ENV: production
       PORT: 5000
       UPLOAD_DIR: /app/uploads
