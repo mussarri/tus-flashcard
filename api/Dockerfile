@@ -5,6 +5,9 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
+# Install OpenSSL 1.1 compatibility for Prisma
+RUN apk add --no-cache openssl1.1-compat
+
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -39,8 +42,8 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and OpenSSL 1.1 for Prisma
+RUN apk add --no-cache dumb-init openssl1.1-compat
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
