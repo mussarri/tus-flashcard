@@ -7,7 +7,7 @@ import { AITaskType } from '../ai/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import * as pdf from 'pdf-poppler';
+// import * as pdf from 'pdf-poppler'; // Removed: Not compatible with Alpine Linux
 
 export interface ExtractedQuestion {
   stem: string;
@@ -238,6 +238,10 @@ export class VisionService {
     pdfPath: string,
     pageNumber: number,
   ): Promise<Buffer> {
+    throw new Error(
+      'PDF processing is currently disabled. Please convert PDF to images manually and upload images instead.',
+    );
+    /* PDF processing disabled - pdf-poppler not compatible with Alpine Linux
     try {
       const tempDir = os.tmpdir();
       const timestamp = Date.now();
@@ -252,14 +256,12 @@ export class VisionService {
 
       await pdf.convert(pdfPath, options);
 
-      // pdf-poppler outputs files as {prefix}-{page}.png
       const outputPath = path.join(
         tempDir,
         `${outputPrefix}-${pageNumber}.png`,
       );
       const imageBuffer = await fs.readFile(outputPath);
 
-      // Clean up temp file
       try {
         await fs.unlink(outputPath);
       } catch {
@@ -273,27 +275,27 @@ export class VisionService {
       );
       throw error;
     }
+    */
   }
 
   async analyzePDF(filePath: string): Promise<BlocksAnalysis[]> {
+    throw new Error(
+      'PDF processing is currently disabled. Please convert PDF to images manually and upload images instead.',
+    );
+    /* PDF processing disabled - pdf-poppler not compatible with Alpine Linux
     try {
       this.logger.log(`Analyzing PDF: ${filePath}`);
 
-      // Check if file exists
       try {
         await fs.access(filePath);
       } catch {
         throw new Error(`File not found: ${filePath}`);
       }
 
-      // Get PDF page count by converting first page and checking output
-      // pdf-poppler doesn't have a direct info method, so we'll convert all pages
-      // For now, let's use a workaround: convert all pages and count them
       const tempDir = os.tmpdir();
       const timestamp = Date.now();
       const outputPrefix = `pdf-info-${timestamp}`;
 
-      // Convert all pages to get count
       const options = {
         format: 'png',
         out_dir: tempDir,
@@ -302,14 +304,12 @@ export class VisionService {
 
       await pdf.convert(filePath, options);
 
-      // Count the generated files
       const files = await fs.readdir(tempDir);
       const pageFiles = files.filter(
         (f) => f.startsWith(outputPrefix) && f.endsWith('.png'),
       );
       const numPages = pageFiles.length;
 
-      // Clean up temp files
       for (const file of pageFiles) {
         try {
           await fs.unlink(path.join(tempDir, file));
@@ -322,18 +322,15 @@ export class VisionService {
 
       const analyses: BlocksAnalysis[] = [];
 
-      // Process each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
         this.logger.log(`Processing page ${pageNum}/${numPages}`);
 
         try {
-          // Convert PDF page to image
           const imageBuffer = await this.convertPDFPageToImage(
             filePath,
             pageNum,
           );
 
-          // Analyze image using AI Router
           const analysis = await this.analyzeImageBuffer(
             imageBuffer,
             'image/png',
@@ -344,8 +341,6 @@ export class VisionService {
           this.logger.error(
             `Failed to analyze page ${pageNum}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
-          // Continue with other pages even if one fails
-          // You might want to add a placeholder analysis here
         }
       }
 
@@ -369,6 +364,7 @@ export class VisionService {
         502,
       );
     }
+    */
   }
 
   /**

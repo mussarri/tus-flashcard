@@ -1,15 +1,9 @@
 # ============================================
 # Stage 1: Dependencies
 # ============================================
-FROM node:20-slim AS deps
+FROM node:20-alpine AS deps
 
 WORKDIR /app
-
-# Install system dependencies for Prisma and pdf-poppler
-RUN apt-get update && apt-get install -y \
-    openssl \
-    poppler-utils \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -24,7 +18,7 @@ RUN npx prisma generate
 # ============================================
 # Stage 2: Builder
 # ============================================
-FROM node:20-slim AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -41,20 +35,16 @@ RUN npm run build
 # ============================================
 # Stage 3: Production
 # ============================================
-FROM node:20-slim AS production
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install system dependencies and dumb-init
-RUN apt-get update && apt-get install -y \
-    openssl \
-    poppler-utils \
-    dumb-init \
-    && rm -rf /var/lib/apt/lists/*
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
 
 # Create non-root user
-RUN groupadd -g 1001 nodejs && \
-    useradd -r -u 1001 -g nodejs nestjs
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
 
 # Copy package files
 COPY package*.json ./
@@ -89,3 +79,4 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
 CMD ["node", "dist/src/main.js"]
+

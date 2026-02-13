@@ -449,12 +449,7 @@ export class KnowledgeExtractionService {
    */
   async generateKnowledgePointsFromExamQuestion(
     examQuestionId: string,
-  ): Promise<{
-    knowledgePoints: string[];
-    spotRuleCount: number;
-    clinicalCorrelationCount: number;
-    examTrapCount: number;
-  }> {
+  ): Promise<any> {
     this.logger.log(
       `Generating knowledge points from exam question: ${examQuestionId}`,
     );
@@ -487,16 +482,6 @@ export class KnowledgeExtractionService {
       );
     }
 
-    // Validation 3: Must be Anatomy lesson
-    if (examQuestion.lesson?.name !== 'Anatomi') {
-      this.logger.debug(
-        `ExamQuestion lesson is not Anatomi: ${examQuestion.lesson?.name}`,
-      );
-      throw new BadRequestException(
-        `Only Anatomy lessons supported. Current lesson: ${examQuestion.lesson?.name || 'Unknown'}`,
-      );
-    }
-
     const hasKnowledgePoints = await this.prisma.knowledgePoint.findFirst({
       where: { createdFromExamQuestionId: examQuestionId },
     });
@@ -510,14 +495,40 @@ export class KnowledgeExtractionService {
         `Knowledge points have already been generated for ExamQuestion ${examQuestionId}`,
       );
     }
+    switch (examQuestion.lesson?.name) {
+      case 'Anatomi':
+        return await this.anatomiQuestionToKnowledgePointTemplate(
+          examQuestion,
+          examQuestionId,
+        );
+      case 'Fizyoloji':
+        return await this.fizyolojiQuestionToKnowledgePointTemplate(
+          examQuestion,
+          examQuestionId,
+        );
+      default:
+        throw new BadRequestException(
+          `ExamQuestion ${examQuestionId} is not an anatomy question`,
+        );
+    }
+  }
 
-    const payload = examQuestion.analysisPayload as any;
+  async anatomiQuestionToKnowledgePointTemplate(
+    examQuestion: any,
+    examQuestionId,
+  ) {
+    if (!examQuestion.analysisPayload) {
+      throw new BadRequestException(
+        `ExamQuestion ${examQuestionId} has no analysisPayload`,
+      );
+    }
+
+    const payload = examQuestion.analysisPayload;
     const createdKpIds: string[] = [];
     let spotRuleCount = 0;
     let clinicalCorrelationCount = 0;
     let examTrapCount = 0;
 
-    // Extract 1: spotRule
     if (
       payload.spotRule &&
       typeof payload.spotRule === 'string' &&
@@ -750,6 +761,142 @@ export class KnowledgeExtractionService {
       spotRuleCount,
       clinicalCorrelationCount,
       examTrapCount,
+    };
+  }
+  async fizyolojiQuestionToKnowledgePointTemplate(
+    examQuestion: any,
+    examQuestionId: string,
+  ): Promise<any> {
+    // Fizyoloji için lesson kontrolü sonrası:
+    if (!examQuestion.analysisPayload) {
+      throw new BadRequestException(
+        `ExamQuestion ${examQuestionId} has no analysisPayload`,
+      );
+    }
+
+    const payload = examQuestion.analysisPayload;
+    const createdKpIds: string[] = [];
+
+    // Extract 1: mechanismChain (Fizyoloji'nin En Değerli Verisi)
+    if (
+      payload.mechanismChain &&
+      typeof payload.mechanismChain === 'string' &&
+      payload.mechanismChain.trim().length > 0
+    ) {
+      const normalizedKey = this.generateNormalizedKey(payload.mechanismChain);
+
+      const kp = await this.prisma.knowledgePoint.upsert({
+        where: { normalizedKey },
+        create: {
+          normalizedKey,
+          fact: `Mekanizma Akışı: ${payload.mechanismChain.trim()}`,
+          source: 'EXAM_ANALYSIS',
+          lessonId: examQuestion.lessonId,
+          topicId: examQuestion.topicId,
+          subtopicId: examQuestion.subtopicId,
+          createdFromExamQuestionId: examQuestionId,
+          priority: 8, // Mekanizmalar fizyolojide en yüksek önceliktir
+          examRelevance: 0.9,
+          examPattern: 'MECHANISM_FLOW',
+          sourceCount: 1,
+        },
+        update: {
+          sourceCount: { increment: 1 },
+          priority: { increment: 1 },
+          examRelevance: 0.95,
+        },
+      });
+
+      await this.prisma.examQuestionKnowledgePoint.create({
+        data: {
+          examQuestionId,
+          knowledgePointId: kp.id,
+          relationshipType: 'CONTEXT', // Mekanizma tüm sorunun bağlamıdır
+        },
+      });
+      createdKpIds.push(kp.id);
+    }
+
+    // Extract 2: spotRule (Genel Kanun/Kural)
+    if (payload.spotRule) {
+      const normalizedKey = this.generateNormalizedKey(payload.spotRule);
+      const kp = await this.prisma.knowledgePoint.upsert({
+        where: { normalizedKey },
+        create: {
+          normalizedKey,
+          fact: payload.spotRule.trim(),
+          source: 'EXAM_ANALYSIS',
+          lessonId: examQuestion.lessonId,
+          topicId: examQuestion.topicId,
+          subtopicId: examQuestion.subtopicId,
+          createdFromExamQuestionId: examQuestionId,
+          priority: 7,
+          examRelevance: 0.85,
+          examPattern: payload.patternType || null,
+          sourceCount: 1,
+        },
+        update: {
+          sourceCount: { increment: 1 },
+          priority: { increment: 1 },
+        },
+      });
+
+      await this.prisma.examQuestionKnowledgePoint.create({
+        data: {
+          examQuestionId,
+          knowledgePointId: kp.id,
+          relationshipType: 'MEASURED', // Direkt ölçülen kural
+        },
+      });
+      createdKpIds.push(kp.id);
+    }
+
+    // Extract 3: optionAnalysis (Physiological Outcomes)
+    if (payload.optionAnalysis && Array.isArray(payload.optionAnalysis)) {
+      for (const opt of payload.optionAnalysis) {
+        const isHighImportance = opt.importance === 'HIGH';
+
+        // Fizyolojide physiologicalOutcome bir KP olarak çok değerlidir (Örn: "pH düşer")
+        if (
+          (isHighImportance && opt.physiologicalOutcome) ||
+          (isHighImportance && opt.clinicalOutcome)
+        ) {
+          const normalizedKey = this.generateNormalizedKey(
+            opt.physiologicalOutcome || opt.clinicalOutcome,
+          );
+
+          const kp = await this.prisma.knowledgePoint.upsert({
+            where: { normalizedKey },
+            create: {
+              normalizedKey,
+              fact: opt.physiologicalOutcome,
+              priority: 6,
+              source: 'EXAM_ANALYSIS',
+              lessonId: examQuestion.lessonId,
+              topicId: examQuestion.topicId,
+              subtopicId: examQuestion.subtopicId,
+              createdFromExamQuestionId: examQuestionId,
+              examRelevance: 0.8,
+              sourceCount: 1,
+            },
+            update: {
+              sourceCount: { increment: 1 },
+            },
+          });
+
+          await this.prisma.examQuestionKnowledgePoint.create({
+            data: {
+              examQuestionId,
+              knowledgePointId: kp.id,
+              relationshipType: 'CLINICAL_OUTCOME', // Fizyolojik sonuçlar bu kategoriye girer
+            },
+          });
+          createdKpIds.push(kp.id);
+        }
+      }
+    }
+    return {
+      knowledgePoints: createdKpIds,
     };
   }
 }

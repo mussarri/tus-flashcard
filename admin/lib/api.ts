@@ -365,7 +365,7 @@ export const api = {
   getKnowledgePoints: (queryString: string = "") =>
     apiRequest<{
       success: boolean;
-      data: any[];
+      data: any;
       pagination: {
         page: number;
         limit: number;
