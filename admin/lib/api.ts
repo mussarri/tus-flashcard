@@ -659,12 +659,54 @@ export const api = {
     ),
 
   // Knowledge Review
-  getKnowledgePointsForReview: (batchId?: string) => {
-    const query = batchId ? `?batchId=${batchId}` : "";
-    return apiRequest<{ success: boolean; knowledgePoints: any[] }>(
-      `admin/knowledge/review${query}`,
+  getKnowledgePointsForReview: (params?: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: string;
+    filterByLesson?: string;
+    filterByPattern?: string;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
+    if (params?.filterByLesson) queryParams.append("filterByLesson", params.filterByLesson);
+    if (params?.filterByPattern) queryParams.append("filterByPattern", params.filterByPattern);
+    
+    const query = queryParams.toString();
+    return apiRequest<{ 
+      success: boolean; 
+      data: any[];
+      pagination: {
+        total: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+      };
+    }>(
+      `admin/knowledge/review${query ? `?${query}` : ""}`,
     );
   },
+
+  bulkApproveKnowledgePoints: (ids: string[]) =>
+    apiRequest<{ success: boolean; successful: number }>(
+      "admin/knowledge/bulk-approve",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      },
+    ),
+
+  bulkRejectKnowledgePoints: (ids: string[], reason: string) =>
+    apiRequest<{ success: boolean; successful: number }>(
+      "admin/knowledge/bulk-reject",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids, reason }),
+      },
+    ),
 
   approveKnowledgePoint: (knowledgePointId: string) =>
     apiRequest<{ success: boolean; knowledgePoint: any }>(

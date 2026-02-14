@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../lib/api";
 import {
   Brain,
@@ -343,22 +343,18 @@ export default function KnowledgeReviewClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Fetch knowledge points
-  const fetchKnowledgePoints = async () => {
+  const fetchKnowledgePoints = useCallback(async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
+
+      const result = await api.getKnowledgePointsForReview({
+        page,
+        limit,
         sortBy,
         sortOrder,
+        filterByLesson: filterLesson || undefined,
+        filterByPattern: filterPattern || undefined,
       });
-      if (filterLesson) params.append("filterByLesson", filterLesson);
-      if (filterPattern) params.append("filterByPattern", filterPattern);
-
-      const response = await fetch(
-        `/api/proxy/admin/knowledge/review?${params}`,
-      );
-      const result = await response.json();
 
       if (result.success) {
         setCandidates(result.data || []);
@@ -392,11 +388,11 @@ export default function KnowledgeReviewClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, sortBy, sortOrder, filterLesson, filterPattern]);
 
   useEffect(() => {
     fetchKnowledgePoints();
-  }, [page, sortBy, sortOrder, filterLesson, filterPattern]);
+  }, [fetchKnowledgePoints]);
 
   const handleApprove = async (candidateId: string) => {
     try {
@@ -478,12 +474,9 @@ export default function KnowledgeReviewClient() {
     }
 
     try {
-      const response = await fetch("/api/proxy/admin/knowledge/bulk-approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
-      });
-      const result = await response.json();
+      const result = await api.bulkApproveKnowledgePoints(
+        Array.from(selectedIds),
+      );
 
       if (result.success) {
         alert(`Approved ${result.successful} knowledge points`);
@@ -506,12 +499,10 @@ export default function KnowledgeReviewClient() {
     if (!reason) return;
 
     try {
-      const response = await fetch("/api/proxy/admin/knowledge/bulk-reject", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds), reason }),
-      });
-      const result = await response.json();
+      const result = await api.bulkRejectKnowledgePoints(
+        Array.from(selectedIds),
+        reason,
+      );
 
       if (result.success) {
         alert(`Rejected ${result.successful} knowledge points`);
