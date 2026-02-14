@@ -22,6 +22,9 @@ export async function serverFetch<T>(
     },
     cache: "no-store", // Default: no cache, can be overridden with options
   });
+  console.log(url, "url");
+
+  console.log(response);
 
   if (!response.ok) {
     const error = await response
