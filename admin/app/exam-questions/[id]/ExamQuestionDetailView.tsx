@@ -136,10 +136,10 @@ export default function ExamQuestionDetailView({
     setLoading(true);
     try {
       const response = await api.getExamQuestionById(id);
-      const kpResponse = await api.getKnowledgePoints(id);
+      const kpResponse = await api.getKnowledgePointsForExamQuestion(id);
       const questionData = {
         ...response.examQuestion,
-        knowledgePoints: kpResponse.data.knowledgePoints,
+        knowledgePoints: kpResponse.knowledgePoints,
       };
       setExamQuestion({
         ...questionData,

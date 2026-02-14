@@ -1944,7 +1944,7 @@ export class AdminController {
     }
   }
 
-  @Post('process-anlyzed-question/:id')
+  @Post('process-analyzed-question/:id')
   async processAnalyzedQuestion(@Param('id') id: string) {
     try {
       const result = await this.adminService.processAnalyzedQuestion(id);

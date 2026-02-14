@@ -17,7 +17,7 @@ const getApiBaseUrl = (): string => {
       console.warn(`Invalid API_URL: ${envUrl}, using default`);
     }
   }
-  return "http://localhost:3000";
+  return "http://localhost:5000";
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -128,26 +128,26 @@ async function handleProxyRequest(
       if (contentType?.includes("multipart/form-data")) {
         // Handle file uploads - FormData
         body = await request.formData();
-        console.log('body (FormData):', 'FormData object');
+        console.log("body (FormData):", "FormData object");
         // Don't set Content-Type header for FormData, browser will set it with boundary
       } else if (contentType?.includes("application/json")) {
         // Handle JSON
         headers["Content-Type"] = "application/json";
         try {
           body = await request.text();
-          console.log('body (JSON):', body);
+          console.log("body (JSON):", body);
         } catch {
           // No body
-          console.log('body: No JSON body');
+          console.log("body: No JSON body");
         }
       } else {
         // Try to get as text for other content types
         try {
           body = await request.text();
-          console.log('body (text):', body);
+          console.log("body (text):", body);
         } catch {
           // No body
-          console.log('body: No body');
+          console.log("body: No body");
         }
       }
     }

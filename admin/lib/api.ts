@@ -1,5 +1,3 @@
-import { id } from "zod/v4/locales";
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const baseUrl = process.env.SITE_URL || "http://localhost:3000";
 const API_BASE = `${baseUrl}/api/proxy`;
@@ -79,17 +77,39 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  uploadFiles: (batchId: string, formData: FormData) =>
-    fetch(`${API_BASE}/api/upload/batch/${batchId}/files`, {
-      method: "POST",
-      body: formData,
-    }).then((res) => res.json()),
+  uploadFiles: async (batchId: string, formData: FormData) => {
+    const response = await fetch(
+      `${API_BASE}/api/upload/batch/${batchId}/files`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
 
-  addPagesToBatch: (batchId: string, formData: FormData) =>
-    fetch(`${API_BASE}/api/upload/batch/${batchId}/pages`, {
-      method: "POST",
-      body: formData,
-    }).then((res) => res.json()),
+  addPagesToBatch: async (batchId: string, formData: FormData) => {
+    const response = await fetch(
+      `${API_BASE}/api/upload/batch/${batchId}/pages`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
 
   getBatch: (batchId: string) =>
     apiRequest<{ success: boolean; batch: any }>(`api/upload/batch/${batchId}`),
@@ -279,26 +299,34 @@ export const api = {
       `api/approval/batch/${batchId}/approved`,
     ),
 
-  getApprovedContentForBatch: (batchId: string) =>
-    apiRequest<{ success: boolean; approvedBlocks: any[] }>(
-      `api/approval/batch/${batchId}/approved`,
-    ).then((response) => ({
-      success: response.success,
-      approvedContent: response.approvedBlocks || [],
-    })),
-
   // Vision
-  analyzeImage: (formData: FormData) =>
-    fetch(`${API_BASE}/admin/vision/analyze-image`, {
+  analyzeImage: async (formData: FormData) => {
+    const response = await fetch(`${API_BASE}/admin/vision/analyze-image`, {
       method: "POST",
       body: formData,
-    }).then((res) => res.json()),
+    });
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
 
-  analyzePDF: (formData: FormData) =>
-    fetch(`${API_BASE}/admin/vision/analyze-pdf`, {
+  analyzePDF: async (formData: FormData) => {
+    const response = await fetch(`${API_BASE}/admin/vision/analyze-pdf`, {
       method: "POST",
       body: formData,
-    }).then((res) => res.json()),
+    });
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
 
   // AI Usage Analytics
   getAIUsageSummary: () =>
@@ -601,49 +629,6 @@ export const api = {
       },
     ),
 
-  // QuestionCard (newer admin endpoints for solve-review flow)
-  getGeneratedQuestionById: (id: string) =>
-    apiRequest<{ success: boolean; question: any }>(
-      `admin/generated-questions/${id}`,
-    ),
-
-  approveQuestionCard: (id: string) =>
-    apiRequest<{ success: boolean; message: string }>(
-      `admin/generated-questions/${id}/approve`,
-      {
-        method: "POST",
-        body: JSON.stringify({ approvedBy: "admin" }),
-      },
-    ),
-
-  rejectQuestionCard: (id: string, reason: string) =>
-    apiRequest<{ success: boolean; message: string }>(
-      `admin/generated-questions/${id}/reject`,
-      {
-        method: "POST",
-        body: JSON.stringify({ rejectedBy: "admin", reason }),
-      },
-    ),
-
-  updateQuestionCard: (
-    id: string,
-    data: {
-      mainExplanation?: string;
-      optionsMetadata?: Record<string, any>;
-      clinicalCorrelation?: string;
-      question?: string;
-      options?: Record<string, string>;
-      correctAnswer?: string;
-    },
-  ) =>
-    apiRequest<{ success: boolean; message: string }>(
-      `admin/generated-questions/${id}/edit`,
-      {
-        method: "POST",
-        body: JSON.stringify({ ...data, editedBy: "admin" }),
-      },
-    ),
-
   // Questions
   getQuestionsForBatch: (batchId: string) =>
     apiRequest<{ success: boolean; batchId: string; questions: any[] }>(
@@ -887,7 +872,7 @@ export const api = {
 
   processAnalyzedQuestion: (id: string) =>
     apiRequest<{ success: boolean; examQuestionId: string }>(
-      `admin/process-anlyzed-question/${id}`,
+      `admin/process-analyzed-question/${id}`,
       {
         method: "POST",
       },
@@ -929,6 +914,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ questionIds }),
     }),
+
+  getKnowledgePointsForExamQuestion: (examQuestionId: string) =>
+    apiRequest<{ success: boolean; knowledgePoints: any[] }>(
+      `admin/exam-questions/${examQuestionId}/knowledge-points`,
+    ),
 
   linkKnowledgePoint: (
     id: string,

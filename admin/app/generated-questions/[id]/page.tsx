@@ -67,7 +67,7 @@ export default function QuestionReviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.getGeneratedQuestionById(id);
+      const result = await api.getGeneratedQuestion(id);
       setQuestionCard(result.question);
     } catch (err) {
       console.error("Failed to load question:", err);
@@ -105,7 +105,7 @@ export default function QuestionReviewPage() {
     if (!confirmed) return;
 
     try {
-      await api.approveQuestionCard(id);
+      await api.approveGeneratedQuestion(id);
       alert("✅ Question approved!");
       router.push("/generated-questions");
     } catch (err) {
@@ -119,7 +119,7 @@ export default function QuestionReviewPage() {
     if (!reason) return;
 
     try {
-      await api.rejectQuestionCard(id, reason);
+      await api.rejectGeneratedQuestion(id, "admin", reason);
       alert("Question rejected");
       router.push("/generated-questions");
     } catch (err) {
@@ -131,7 +131,7 @@ export default function QuestionReviewPage() {
   const handleSaveExplanations = async (data: any) => {
     setSaving(true);
     try {
-      await api.updateQuestionCard(id, data);
+      await api.editGeneratedQuestion(id, data);
       await loadQuestion();
       setShowEditModal(false);
       alert("✅ Explanations updated");
