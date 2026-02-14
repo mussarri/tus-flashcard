@@ -25,7 +25,7 @@ async function bootstrap() {
     logger.log(`Static assets configured: ${uploadsPath} -> /uploads/`);
 
     // Enable CORS for admin panel and mobile app
-    const adminUrl = process.env.ADMIN_URL || 'http://localhost:3001';
+    const adminUrl = process.env.ADMIN_URL || 'http://localhost:3000';
     const allowedOrigins = [
       adminUrl,
       'http://localhost:8081', // Expo dev server

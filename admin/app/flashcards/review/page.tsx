@@ -115,15 +115,7 @@ export default function FlashcardsReviewPage() {
 
   const handleApprove = async (id: string) => {
     try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/flashcards/${id}/publish`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      await api.publishFlashcard(id);
       await loadFlashcards();
       alert("Flashcard approved successfully!");
     } catch (error) {
@@ -190,18 +182,7 @@ export default function FlashcardsReviewPage() {
 
     try {
       setIsBulkApproving(true);
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/flashcards/bulk-publish`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ ids: Array.from(selectedCards) }),
-        },
-      );
-
-      const result = await response.json();
+      const result = await api.bulkPublishFlashcards(Array.from(selectedCards));
 
       if (result.success) {
         alert(

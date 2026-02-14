@@ -138,10 +138,7 @@ export default function FlashcardsPage() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/flashcards/admin/stats`,
-      );
-      const data = await response.json();
+      const data = await api.getFlashcardStats();
       setStats(data);
     } catch (error) {
       console.error("Failed to load stats:", error);

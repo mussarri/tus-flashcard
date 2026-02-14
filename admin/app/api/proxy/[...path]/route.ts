@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-// Get API base URL - ensure it's a valid absolute URL
+// Get backend API URL from environment or use localhost for development
 const getApiBaseUrl = (): string => {
+  // Try NEXT_PUBLIC_API_URL first (accessible on client), then API_URL (server only)
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL;
 
-  // Check if envUrl exists and is not empty after trimming
   if (envUrl && typeof envUrl === "string" && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/$/, "");
     // Validate it's an absolute URL
@@ -13,21 +13,24 @@ const getApiBaseUrl = (): string => {
       new URL(trimmed);
       return trimmed;
     } catch {
-      // If it's not a valid URL, fall back to default
-      console.warn(`Invalid API_URL: ${envUrl}, using default`);
+      console.warn(`Invalid API_URL in env: ${envUrl}, using default`);
     }
   }
-  return "http://localhost:5000";
+  
+  // Default to localhost backend for development
+  const defaultUrl = "http://localhost:3001";
+  console.log(`Using default backend URL: ${defaultUrl}`);
+  return defaultUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log(`Proxy configured to forward requests to: ${API_BASE_URL}`);
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> | { path: string[] } },
 ) {
   const resolvedParams = await Promise.resolve(params);
-  console.log("resolvedParams", resolvedParams);
   return handleProxyRequest(request, resolvedParams.path, "GET");
 }
 
@@ -124,30 +127,24 @@ async function handleProxyRequest(
     const contentType = request.headers.get("content-type");
 
     if (["POST", "PUT", "PATCH"].includes(method)) {
-      console.log("contentType", contentType);
       if (contentType?.includes("multipart/form-data")) {
         // Handle file uploads - FormData
         body = await request.formData();
-        console.log("body (FormData):", "FormData object");
         // Don't set Content-Type header for FormData, browser will set it with boundary
       } else if (contentType?.includes("application/json")) {
         // Handle JSON
         headers["Content-Type"] = "application/json";
         try {
           body = await request.text();
-          console.log("body (JSON):", body);
         } catch {
           // No body
-          console.log("body: No JSON body");
         }
       } else {
         // Try to get as text for other content types
         try {
           body = await request.text();
-          console.log("body (text):", body);
         } catch {
           // No body
-          console.log("body: No body");
         }
       }
     }
@@ -181,7 +178,6 @@ async function handleProxyRequest(
     // Get response data as JSON
     const data = await response.json().catch(() => ({}));
 
-    console.log("data", data);
     // Return response with same status
     return NextResponse.json(data, {
       status: response.status,

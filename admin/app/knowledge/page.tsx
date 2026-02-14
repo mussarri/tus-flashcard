@@ -25,7 +25,7 @@ export default function KnowledgePage() {
     const fetchApproved = async () => {
       try {
         setLoading(true);
-        const res = await api.getApprovedContents?.("limit=200");
+        const res = await api.getApprovedContents("limit=200");
         if (res && res.success) {
           // API returns `approvedContents` array
           setApprovedContent(res.approvedContents || []);
@@ -54,7 +54,7 @@ export default function KnowledgePage() {
 
     setExtracting(contentId);
     try {
-      await api.extractKnowledgeForContent?.(contentId);
+      await api.extractKnowledgeForContent(contentId);
       // Refresh list
       window.location.reload();
     } catch (error: any) {

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const baseUrl = process.env.SITE_URL || "http://localhost:3000";
-const API_BASE = `${baseUrl}/api/proxy`;
+// Client-side requests go through Next.js proxy (relative URL)
+const API_BASE = "/api/proxy";
+// Server-side requests go directly to backend
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
 
 // Server-side GET requests - direct to backend (no proxy)
@@ -20,9 +21,6 @@ export async function serverFetch<T>(
     },
     cache: "no-store", // Default: no cache, can be overridden with options
   });
-  console.log(url, "url");
-
-  console.log(response);
 
   if (!response.ok) {
     const error = await response
@@ -457,7 +455,7 @@ export const api = {
   // Flashcard Visual
   getFlashcardsWithVisual: (queryString: string) =>
     apiRequest<{ success: boolean; flashcards: any[] }>(
-      `admin/flashcards?${queryString}`,
+      `admin/flashcards${queryString ? `?${queryString}` : ""}`,
     ),
 
   getFlashcardDetail: (id: string) =>
@@ -541,6 +539,27 @@ export const api = {
         method: "DELETE",
       },
     ),
+
+  getFlashcardStats: () =>
+    apiRequest<{
+      total: number;
+      pending: number;
+      approved: number;
+      rejected: number;
+      requiresVisual: number;
+      visualUploaded: number;
+      byCardType: Array<{ cardType: string; _count: number }>;
+    }>("flashcards/admin/stats"),
+
+  bulkPublishFlashcards: (ids: string[]) =>
+    apiRequest<{
+      success: boolean;
+      successful: string[];
+      failed: Array<{ id: string; reason: string }>;
+    }>("admin/flashcards/bulk-publish", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 
   // Generated Questions
   listGeneratedQuestions: (filters?: {
