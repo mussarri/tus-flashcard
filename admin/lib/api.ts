@@ -1,7 +1,7 @@
 import { id } from "zod/v4/locales";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const baseUrl = process.env.SITE_URL || "http://localhost:3000";
 const API_BASE = `${baseUrl}/api/proxy`;
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
 
