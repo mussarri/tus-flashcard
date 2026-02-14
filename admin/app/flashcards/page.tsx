@@ -127,6 +127,8 @@ export default function FlashcardsPage() {
       if (sortOrder) params.append("sortOrder", sortOrder);
 
       const response = await api.getFlashcardsWithVisual(params.toString());
+      console.log(response);
+
       setFlashcards(response.flashcards || []);
     } catch (error) {
       console.error("Failed to load flashcards:", error);
@@ -604,7 +606,7 @@ export default function FlashcardsPage() {
                                     alt="Visual"
                                     className="max-w-full max-h-32 mx-auto rounded-lg object-contain"
                                     onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.style.display = "none";
                                     }}
                                   />
                                 </div>
