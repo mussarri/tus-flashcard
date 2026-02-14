@@ -63,6 +63,8 @@ export default function FlashcardStartScreen() {
         limit: cardCount,
       });
 
+      alert("Bağlantı  " + response); // Telefon ekranında hatayı görmeni sağlar
+
       // Navigate to session screen with sessionId
       router.push({
         pathname: "/(flashcards)/session",
@@ -96,8 +98,9 @@ export default function FlashcardStartScreen() {
         new: selectedLessonStats.new,
         due: selectedLessonStats.due,
         learning: selectedLessonStats.learning,
+        hard: selectedLessonStats.hard || 0,
       }
-    : { new: 0, due: 0, learning: 0 };
+    : { new: 0, due: 0, learning: 0, hard: 0 };
 
   const availableCards =
     studyMode === "SRS"

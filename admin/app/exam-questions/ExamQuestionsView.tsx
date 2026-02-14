@@ -200,20 +200,7 @@ export default function ExamQuestionsView({
     setBulkProgress({ current: 0, total: questionIds.length });
 
     try {
-      const response = await fetch(
-        "/api/proxy/admin/exam-questions/bulk/analyze",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionIds }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Bulk analysis failed");
-      }
-
-      const result = await response.json();
+      const result = await api.bulkAnalyzeQuestions(questionIds);
 
       alert(
         `Bulk analysis queued successfully!\nQueued: ${result.queued}\nSkipped: ${result.skipped}\nAlready Processing: ${result.alreadyProcessing}`,
@@ -251,20 +238,7 @@ export default function ExamQuestionsView({
     setBulkProcessing(true);
 
     try {
-      const response = await fetch(
-        "/api/proxy/admin/exam-questions/bulk/process",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionIds }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Bulk processing failed");
-      }
-
-      const result = await response.json();
+      const result = await api.bulkProcessQuestions(questionIds);
 
       alert(
         `Bulk processing complete!\nProcessed: ${result.processed}\nSkipped: ${result.skipped}\nErrors: ${result.errors}`,
@@ -330,20 +304,7 @@ export default function ExamQuestionsView({
     setBulkGeneratingKPs(true);
 
     try {
-      const response = await fetch(
-        "/api/proxy/knowledge-extraction/admin/generate/exam-questions",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ examQuestionIds: questionIds }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Knowledge point generation failed");
-      }
-
-      const result = await response.json();
+      const result = await api.bulkGenerateKnowledgePoints(questionIds);
 
       // Calculate totals
       const totalKps = result.results

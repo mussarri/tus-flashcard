@@ -489,8 +489,6 @@ export class KnowledgeExtractionService {
     if (hasKnowledgePoints) {
       this.logger.warn('Knowledge points already exist for this ExamQuestion');
 
-      console.log();
-
       throw new BadRequestException(
         `Knowledge points have already been generated for ExamQuestion ${examQuestionId}`,
       );

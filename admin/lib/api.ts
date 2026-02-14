@@ -933,6 +933,47 @@ export const api = {
       body: JSON.stringify({ questionIds }),
     }),
 
+  bulkAnalyzeQuestions: (questionIds: string[]) =>
+    apiRequest<{
+      success: boolean;
+      queued: number;
+      skipped: number;
+      alreadyProcessing: number;
+    }>(`admin/exam-questions/bulk/analyze`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds }),
+    }),
+
+  bulkProcessQuestions: (questionIds: string[]) =>
+    apiRequest<{
+      success: boolean;
+      processed: number;
+      skipped: number;
+      errors: number;
+    }>(`admin/exam-questions/bulk/process`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds }),
+    }),
+
+  bulkGenerateKnowledgePoints: (questionIds: string[]) =>
+    apiRequest<{
+      success: boolean;
+      successful: number;
+      failed: number;
+      results: Array<{
+        examQuestionId: string;
+        success: boolean;
+        kpCount?: number;
+        spotRuleCount?: number;
+        clinicalCorrelationCount?: number;
+        examTrapCount?: number;
+        error?: string;
+      }>;
+    }>(`knowledge-extraction/admin/generate/exam-questions`, {
+      method: "POST",
+      body: JSON.stringify({ examQuestionIds: questionIds }),
+    }),
+
   getKnowledgePointsForExamQuestion: (examQuestionId: string) =>
     apiRequest<{ success: boolean; knowledgePoints: any[] }>(
       `admin/exam-questions/${examQuestionId}/knowledge-points`,
