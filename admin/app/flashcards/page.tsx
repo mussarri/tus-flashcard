@@ -85,6 +85,10 @@ export default function FlashcardsPage() {
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showBack, setShowBack] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
     loadLessonsAndTopics();
@@ -101,6 +105,8 @@ export default function FlashcardsPage() {
     searchQuery,
     sortBy,
     sortOrder,
+    currentPage,
+    pageSize,
   ]);
 
   const loadLessonsAndTopics = async () => {
@@ -125,11 +131,16 @@ export default function FlashcardsPage() {
       if (searchQuery.trim()) params.append("search", searchQuery.trim());
       if (sortBy) params.append("sortBy", sortBy);
       if (sortOrder) params.append("sortOrder", sortOrder);
+      params.append("page", currentPage.toString());
+      params.append("pageSize", pageSize.toString());
 
       const response = await api.getFlashcardsWithVisual(params.toString());
-      console.log(response);
 
       setFlashcards(response.flashcards || []);
+      if (response.pagination) {
+        setTotalPages(response.pagination.totalPages);
+        setTotalCount(response.pagination.total);
+      }
     } catch (error) {
       console.error("Failed to load flashcards:", error);
       setFlashcards([]);
@@ -162,12 +173,22 @@ export default function FlashcardsPage() {
   const clearFilters = () => {
     setFilter("all");
     setCardTypeFilter("all");
-
     setLessonFilter("all");
     setTopicFilter("all");
     setSearchQuery("");
     setSortBy("createdAt");
     setSortOrder("desc");
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
   };
 
   const handleDelete = async (id: string) => {
@@ -485,8 +506,9 @@ export default function FlashcardsPage() {
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-900 font-medium">
-                    Found {flashcards.length} flashcard
-                    {flashcards.length !== 1 ? "s" : ""}
+                    Showing {flashcards.length} of {totalCount} flashcard
+                    {totalCount !== 1 ? "s" : ""} (Page {currentPage} of{" "}
+                    {totalPages})
                   </span>
                   <div className="flex gap-4 text-blue-700">
                     <span>
@@ -675,6 +697,96 @@ export default function FlashcardsPage() {
                   );
                 })}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      Items per page:
+                    </span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) =>
+                        handlePageSizeChange(Number(e.target.value))
+                      }
+                      className="px-3 py-1 border border-gray-300 rounded text-sm"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handlePageChange(1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      First
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex gap-1">
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handlePageChange(pageNum)}
+                              className={`px-3 py-2 border rounded text-sm ${
+                                currentPage === pageNum
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "border-gray-300 hover:bg-gray-50"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Next
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Last
+                    </button>
+                  </div>
+
+                  <div className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>

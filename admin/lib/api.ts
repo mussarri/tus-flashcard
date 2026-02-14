@@ -2,7 +2,8 @@
 // Client-side requests go through Next.js proxy (relative URL)
 const API_BASE = "/tus-admin/api/proxy";
 // Server-side requests go directly to backend
-const BACKEND_URL = process.env.BACKEND_URL || process.env.API_URL || "http://api:5000";
+const BACKEND_URL =
+  process.env.BACKEND_URL || process.env.API_URL || "http://api:5000";
 
 // Server-side GET requests - direct to backend (no proxy)
 export async function serverFetch<T>(
@@ -454,7 +455,7 @@ export const api = {
 
   // Flashcard Visual
   getFlashcardsWithVisual: (queryString: string) =>
-    apiRequest<{ success: boolean; flashcards: any[] }>(
+    apiRequest<{ success: boolean; flashcards: any[]; pagination?: any }>(
       `admin/flashcards${queryString ? `?${queryString}` : ""}`,
     ),
 

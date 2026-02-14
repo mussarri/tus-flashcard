@@ -2334,6 +2334,14 @@ export class AdminService {
     const orderBy: any = {};
     orderBy[sortBy] = sortOrder;
 
+    // Pagination
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const pageSize = query.pageSize ? parseInt(query.pageSize, 10) : 20;
+    const skip = (page - 1) * pageSize;
+
+    // Get total count
+    const total = await this.prisma.flashcard.count({ where });
+
     const flashcards = await this.prisma.flashcard.findMany({
       where,
       include: {
@@ -2361,12 +2369,22 @@ export class AdminService {
         },
       },
       orderBy,
+      skip,
+      take: pageSize,
     });
 
     this.logger.log(
-      `Retrieved ${flashcards.length} flashcards with visual filters`,
+      `Retrieved ${flashcards.length} flashcards with visual filters (page ${page}, total: ${total})`,
     );
-    return flashcards;
+    return {
+      flashcards,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   /**
