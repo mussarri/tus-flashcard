@@ -2,6 +2,8 @@
 import { serverFetch } from "@/lib/api";
 import ConceptsView from "./ConceptsView";
 
+export const dynamic = 'force-dynamic';
+
 export interface Concept {
   id: string;
   preferredLabel: string;

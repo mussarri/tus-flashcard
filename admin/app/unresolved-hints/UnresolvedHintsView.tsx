@@ -104,7 +104,9 @@ export default function UnresolvedHintsView() {
   >(null);
 
   // Bulk selection
-  const [selectedHintIds, setSelectedHintIds] = useState<Set<string>>(new Set());
+  const [selectedHintIds, setSelectedHintIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
@@ -247,7 +249,9 @@ export default function UnresolvedHintsView() {
   const handleBulkIgnore = async () => {
     if (selectedHintIds.size === 0) return;
 
-    if (!confirm(`Are you sure you want to ignore ${selectedHintIds.size} hints?`)) {
+    if (
+      !confirm(`Are you sure you want to ignore ${selectedHintIds.size} hints?`)
+    ) {
       return;
     }
 
@@ -291,8 +295,8 @@ export default function UnresolvedHintsView() {
 
       alert(
         `Successfully approved ${result.addedAliases} hints as aliases to "${result.conceptLabel}". ` +
-        `Skipped ${result.skippedDuplicates} duplicates. ` +
-        `Linked ${result.linkedQuestions} questions.`
+          `Skipped ${result.skippedDuplicates} duplicates. ` +
+          `Linked ${result.linkedQuestions} questions.`,
       );
 
       setSelectedHintIds(new Set());
@@ -314,11 +318,11 @@ export default function UnresolvedHintsView() {
   };
 
   const toggleSelectAll = () => {
-    const pendingHints = filteredHints.filter(h => h.status === "PENDING");
+    const pendingHints = filteredHints.filter((h) => h.status === "PENDING");
     if (selectedHintIds.size === pendingHints.length) {
       setSelectedHintIds(new Set());
     } else {
-      setSelectedHintIds(new Set(pendingHints.map(h => h.id)));
+      setSelectedHintIds(new Set(pendingHints.map((h) => h.id)));
     }
   };
 
@@ -498,7 +502,12 @@ export default function UnresolvedHintsView() {
               {statusFilter === "PENDING" && (
                 <TableHead className="w-[50px]">
                   <Checkbox
-                    checked={selectedHintIds.size > 0 && selectedHintIds.size === filteredHints.filter(h => h.status === "PENDING").length}
+                    checked={
+                      selectedHintIds.size > 0 &&
+                      selectedHintIds.size ===
+                        filteredHints.filter((h) => h.status === "PENDING")
+                          .length
+                    }
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
@@ -824,8 +833,8 @@ export default function UnresolvedHintsView() {
             <Button variant="outline" onClick={closeDialog}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleBulkApproveSubmit} 
+            <Button
+              onClick={handleBulkApproveSubmit}
               disabled={!selectedConcept}
             >
               Approve All as Aliases
@@ -833,7 +842,6 @@ export default function UnresolvedHintsView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
     </div>
   );
 }

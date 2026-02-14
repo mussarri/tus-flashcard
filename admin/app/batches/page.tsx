@@ -2,6 +2,8 @@
 import { serverFetch } from '@/lib/api';
 import BatchesView from './BatchesView';
 
+export const dynamic = 'force-dynamic';
+
 export default async function BatchesPage() {
   try {
     const response = await serverFetch<{ success: boolean; batches: any[] }>(

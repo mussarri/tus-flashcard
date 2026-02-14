@@ -1,6 +1,8 @@
 import { serverFetch } from '@/lib/api';
 import AIAnalyticsView from './AIAnalyticsView';
 
+export const dynamic = 'force-dynamic';
+
 interface SummaryData {
   total: {
     requests: number;

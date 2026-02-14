@@ -588,12 +588,15 @@ export default function ConceptDetailView({ concept }: ConceptDetailViewProps) {
                   <select
                     required
                     value={editFormData.conceptType}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target
+                        .value as ConceptDetail["conceptType"];
+
                       setEditFormData({
                         ...editFormData,
-                        conceptType: e.target.value,
-                      })
-                    }
+                        conceptType: value,
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="NERVE">NERVE</option>
@@ -621,7 +624,7 @@ export default function ConceptDetailView({ concept }: ConceptDetailViewProps) {
                     onChange={(e) =>
                       setEditFormData({
                         ...editFormData,
-                        status: e.target.value,
+                        status: e.target.value as ConceptDetail["status"],
                       })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

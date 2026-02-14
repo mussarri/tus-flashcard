@@ -51,7 +51,10 @@ export interface ConceptDetail {
     | "ORGAN"
     | "BONE"
     | "JOINT"
-    | "LIGAMENT";
+    | "LIGAMENT"
+    | "PLEXUS"
+    | "FASCIA";
+
   status: "ACTIVE" | "NEEDS_REVIEW" | "MERGED";
   aliases: ConceptAlias[];
   prerequisites: ConceptPrerequisite[];

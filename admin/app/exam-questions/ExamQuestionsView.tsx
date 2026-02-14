@@ -115,7 +115,8 @@ export default function ExamQuestionsView({
       if (filters.lesson) query.lesson = filters.lesson;
       if (filters.topic) query.topic = filters.topic;
       if (filters.analysisStatus) query.analysisStatus = filters.analysisStatus;
-      if (filters.hasKnowledgePoints) query.hasKnowledgePoints = filters.hasKnowledgePoints;
+      if (filters.hasKnowledgePoints)
+        query.hasKnowledgePoints = filters.hasKnowledgePoints;
       if (filters.sortBy) query.sortBy = filters.sortBy;
       if (filters.sortOrder) query.sortOrder = filters.sortOrder;
       if (filters.createdAfter) query.createdAfter = filters.createdAfter;
@@ -137,9 +138,6 @@ export default function ExamQuestionsView({
       setLoading(false);
     }
   };
-
-  console.log(examQuestions);
-  
 
   const handleItemsPerPageChange = (newLimit: number) => {
     setItemsPerPage(newLimit);

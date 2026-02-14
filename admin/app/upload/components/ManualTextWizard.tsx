@@ -75,7 +75,7 @@ export default function ManualTextWizard({ onCancel }: ManualTextWizardProps) {
     resolver: zodResolver(textContentSchema),
   });
 
-  const summaId: data.topicIdForm<SummaryFormData>({
+  const summaryForm = useForm<SummaryFormData>({
     resolver: zodResolver(summarySchema),
   });
 
@@ -95,7 +95,7 @@ export default function ManualTextWizard({ onCancel }: ManualTextWizardProps) {
       setError(null);
 
       const response = await api.createManualContent({
-        topic: data.topic,
+        topicId: data.topicId,
         description: data.description,
         contentType: wizardData.contentType!,
         textContent: wizardData.textContent!,
@@ -138,19 +138,17 @@ export default function ManualTextWizard({ onCancel }: ManualTextWizardProps) {
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center flex-1">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                  step >= s
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step >= s
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-600'
+                  }`}
               >
                 {s}
               </div>
               {s < 3 && (
                 <div
-                  className={`flex-1 h-1 mx-2 ${
-                    step > s ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
+                  className={`flex-1 h-1 mx-2 ${step > s ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
                 />
               )}
             </div>
@@ -270,85 +268,76 @@ export default function ManualTextWizard({ onCancel }: ManualTextWizardProps) {
             <div className="mb-4 p-4 bg-gray-50 rounded-md">
               <div className="mb-3">
                 <label className="block text-sm font-semibold text-gray-900 mb-1">
-                  Content Type
-              {loadingTopics ? (
-                <div className="text-sm text-gray-500">Loading topics...</div>
-              ) : (
-                <select
-                  {...summaryForm.register('topicId')}
-                  className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a topic</option>
-                  {topics.map((topic) => {
-                    const lesson = lessons.find((l) => l.id === topic.lessonId);
-                    const lessonName = lesson?.displayName || lesson?.name || 'Unknown';
-                    return (
-                      <option key={topic.id} value={topic.id}>
-                        {topic.displayName || topic.name} ({lessonName})
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-              {summaryForm.formState.errors.topicId && (
-                <p className="mt-1 text-sm text-red-600">
-                  {summaryForm.formState.errors.topicId
+                  Topic *
+                </label>
+                {loadingTopics ? (
+                  <div className="text-sm text-gray-500">Loading topics...</div>
+                ) : (
+                  <select
+                    {...summaryForm.register('topicId')}
+                    className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select a topic</option>
+                    {topics.map((topic) => {
+                      const lesson = lessons.find((l) => l.id === topic.lessonId);
+                      const lessonName = lesson?.displayName || lesson?.name || 'Unknown';
+                      return (
+                        <option key={topic.id} value={topic.id}>
+                          {topic.displayName || topic.name} ({lessonName})
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+                {summaryForm.formState.errors.topicId && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {summaryForm.formState.errors.topicId.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-900 mb-1">
+                  Text Content Preview
                 </label>
                 <div className="max-h-40 overflow-y-auto p-3 bg-white border border-gray-200 rounded text-sm text-gray-700 whitespace-pre-wrap">
                   {wizardData.textContent || 'No content'}
                 </div>
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-900 mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  {...summaryForm.register('description')}
+                  rows={3}
+                  className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Brief description of this batch..."
+                />
+              </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-900 mb-1">
-                Topic *
-              </label>
-              <input
-                {...summaryForm.register('topic')}
-                type="text"
-                className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Cardiology - Arrhythmias"
-              />
-              {summaryForm.formState.errors.topic && (
-                <p className="mt-1 text-sm text-red-600">
-                  {summaryForm.formState.errors.topic.message}
-                </p>
-              )}
+            <div className="flex justify-between">
+              <button
+                type="button"
+                onClick={goBack}
+                disabled={submitting}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:bg-gray-300"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !summaryForm.formState.isValid}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting...' : 'Submit'}
+              </button>
             </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-900 mb-1">
-                Description (Optional)
-              </label>
-              <textarea
-                {...summaryForm.register('description')}
-                rows={3}
-                className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Brief description of this batch..."
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={submitting}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:bg-gray-300"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !summaryForm.formState.isValid}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Submitting...' : 'Submit'}
-            </button>
           </div>
         </form>
       )}
-    </div>
+    </div >
   );
 }
