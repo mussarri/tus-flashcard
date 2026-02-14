@@ -135,11 +135,12 @@ export default function FlashcardsPage() {
       params.append("pageSize", pageSize.toString());
 
       const response = await api.getFlashcardsWithVisual(params.toString());
+      console.log(response);
 
-      setFlashcards(response.flashcards || []);
-      if (response.pagination) {
-        setTotalPages(response.pagination.totalPages);
-        setTotalCount(response.pagination.total);
+      setFlashcards(response.flashcards.flashcards || []);
+      if (response.flashcards.pagination) {
+        setTotalPages(response.flashcards.pagination.totalPages);
+        setTotalCount(response.flashcards.pagination.total);
       }
     } catch (error) {
       console.error("Failed to load flashcards:", error);
@@ -622,7 +623,7 @@ export default function FlashcardsPage() {
                               {flashcard.imageAssetId && (
                                 <div className="mb-4 w-full">
                                   <img
-                                    src={`${process.env.API_URL}/admin/visual-assets/${flashcard.imageAssetId}`}
+                                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${flashcard.imageAssetId}`}
                                     alt="Visual"
                                     className="max-w-full max-h-32 mx-auto rounded-lg object-contain"
                                     onError={(e) => {

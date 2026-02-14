@@ -455,9 +455,13 @@ export const api = {
 
   // Flashcard Visual
   getFlashcardsWithVisual: (queryString: string) =>
-    apiRequest<{ success: boolean; flashcards: any[]; pagination?: any }>(
-      `admin/flashcards${queryString ? `?${queryString}` : ""}`,
-    ),
+    apiRequest<{
+      success: boolean;
+      flashcards: {
+        flashcards: any[];
+        pagination?: any;
+      };
+    }>(`admin/flashcards${queryString ? `?${queryString}` : ""}`),
 
   getFlashcardDetail: (id: string) =>
     apiRequest<{ success: boolean; flashcard: any }>(`admin/flashcards/${id}`),

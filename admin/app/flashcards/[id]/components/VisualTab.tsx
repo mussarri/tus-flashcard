@@ -48,7 +48,7 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
       // Fetch image URL from backend
       setPreviewUrl(
         process.env.NEXT_PUBLIC_API_URL +
-          `/uploads/visual-assets/${flashcard.imageAssetId}.jpeg`,
+          `/admin/visual-assets/${flashcard.imageAssetId}`,
       );
     }
   }, [flashcard.imageAssetId]);
@@ -317,10 +317,9 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
                   onClick={() => handleBindExistingAsset(asset.id)}
                 >
                   <img
-                    src={`${process.env.API_URL}/admin/visual-assets/${asset.id}`}
+                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${asset.id}`}
                     alt={asset.fileName}
                     className="w-full h-32 object-cover rounded mb-2"
-               
                   />
                   <p className="text-xs text-gray-700 truncate font-medium">
                     {asset.fileName}
@@ -334,7 +333,6 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
           )}
         </div>
       )}
- 
 
       {/* Preview */}
       {previewUrl && (
