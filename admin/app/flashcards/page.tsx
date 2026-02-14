@@ -134,13 +134,13 @@ export default function FlashcardsPage() {
       params.append("page", currentPage.toString());
       params.append("pageSize", pageSize.toString());
 
-      const response = await api.getFlashcardsWithVisual(params.toString());
-      console.log(response);
+      const res = await api.getFlashcardsWithVisual(params.toString());
+      const response = res.flashcards;
 
-      setFlashcards(response.flashcards.flashcards || []);
-      if (response.flashcards.pagination) {
-        setTotalPages(response.flashcards.pagination.totalPages);
-        setTotalCount(response.flashcards.pagination.total);
+      setFlashcards(response.flashcards || []);
+      if (response.pagination) {
+        setTotalPages(response.pagination.totalPages);
+        setTotalCount(response.pagination.total);
       }
     } catch (error) {
       console.error("Failed to load flashcards:", error);
