@@ -216,8 +216,6 @@ export default function FlashcardsPage() {
     );
   };
 
-  console.log(flashcards);
-
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
@@ -602,7 +600,7 @@ export default function FlashcardsPage() {
                               {flashcard.imageAssetId && (
                                 <div className="mb-4 w-full">
                                   <img
-                                    src={`/api/proxy/uploads/visual-assets/${flashcard.imageAssetId}.jpeg`}
+                                    src={`${process.env.API_URL}/admin/visual-assets/${flashcard.imageAssetId}`}
                                     alt="Visual"
                                     className="max-w-full max-h-32 mx-auto rounded-lg object-contain"
                                     onError={(e) => {

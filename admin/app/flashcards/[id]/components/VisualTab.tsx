@@ -317,7 +317,7 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
                   onClick={() => handleBindExistingAsset(asset.id)}
                 >
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${asset.id}`}
+                    src={`${process.env.API_URL}/admin/visual-assets/${asset.id}`}
                     alt={asset.fileName}
                     className="w-full h-32 object-cover rounded mb-2"
                
