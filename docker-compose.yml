@@ -149,36 +149,36 @@ services:
   # ============================================
   # Next.js Admin Panel
   # ============================================
-  # admin:
-  #   build:
-  #     context: ./admin
-  #     dockerfile: Dockerfile
-  #     target: production
-  #   container_name: tus-admin
-  #   environment:
-  #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
-  #     NODE_ENV: production
-  #     PORT: 3001
-  #   ports:
-  #     - "3001:3001"
-  #   networks:
-  #     - tus-network
-  #   depends_on:
-  #     - api
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: '1'
-  #         memory: 1G
-  #       reservations:
-  #         cpus: '0.5'
-  #         memory: 512M
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+      target: production
+    container_name: tus-admin
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    networks:
+      - tus-network
+    depends_on:
+      - api
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # Nginx Reverse Proxy
