@@ -154,9 +154,9 @@ services:
       context: ./admin
       dockerfile: Dockerfile
       target: production
-    container_name: tus-admin
-    args: # <--- BURAYI EKLE
-      NEXT_PUBLIC_API_URL: https://myrix.site/tus
+      args: # <--- BURAYI EKLE
+        NEXT_PUBLIC_API_URL: https://myrix.site/tus
+    container_name: tus-admin   
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
       API_URL: ${API_URL:-http://api:5000}
