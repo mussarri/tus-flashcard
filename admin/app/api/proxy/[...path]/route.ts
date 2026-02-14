@@ -3,12 +3,10 @@ import { cookies } from "next/headers";
 
 // Get backend API URL from environment or use localhost for development
 const getApiBaseUrl = (): string => {
-  // Try NEXT_PUBLIC_API_URL first (accessible on client), then API_URL (server only)
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL;
+  const envUrl = process.env.API_URL;
 
   if (envUrl && typeof envUrl === "string" && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/$/, "");
-    // Validate it's an absolute URL
     try {
       new URL(trimmed);
       return trimmed;
@@ -17,14 +15,18 @@ const getApiBaseUrl = (): string => {
     }
   }
   
-  // Default to localhost backend for development
-  const defaultUrl = "http://localhost:3001";
-  console.log(`Using default backend URL: ${defaultUrl}`);
+  // Default: Docker service name or localhost
+  const defaultUrl = "http://api:5000";
+  if (process.env.NODE_ENV === "development") {
+    console.log(`Using default backend URL: ${defaultUrl}`);
+  }
   return defaultUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
-console.log(`Proxy configured to forward requests to: ${API_BASE_URL}`);
+if (process.env.NODE_ENV === "development") {
+  console.log(`Proxy configured to forward requests to: ${API_BASE_URL}`);
+}
 
 export async function GET(
   request: NextRequest,
@@ -93,7 +95,7 @@ async function handleProxyRequest(
     let url: URL;
     try {
       url = new URL(urlString);
-    } catch (urlError) {
+    } catch {
       console.error("Failed to construct URL:", {
         baseUrl,
         path,

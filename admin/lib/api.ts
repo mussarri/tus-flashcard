@@ -2,7 +2,7 @@
 // Client-side requests go through Next.js proxy (relative URL)
 const API_BASE = "/api/proxy";
 // Server-side requests go directly to backend
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL || process.env.API_URL || "http://api:5000";
 
 // Server-side GET requests - direct to backend (no proxy)
 export async function serverFetch<T>(

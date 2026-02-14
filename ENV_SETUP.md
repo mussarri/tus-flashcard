@@ -2,7 +2,7 @@
 
 Bu proje hem **admin panel (Next.js)** hem de **backend API (NestJS)** için environment variable'lar kullanıyor.
 
-## 🔧 Development (Localhost)
+## � Docker Setup (Önerilen)
 
 ### 1. Admin Panel (Next.js)
 
@@ -13,9 +13,7 @@ cp .env.example .env.local
 
 `.env.local` içeriği:
 ```env
-API_URL=http://localhost:3001
-NEXT_PUBLIC_API_URL=http://localhost:3001
-BACKEND_URL=http://localhost:3001
+API_URL=http://api:5000
 ```
 
 ### 2. Backend API (NestJS)
@@ -27,8 +25,40 @@ cp .env.example .env
 
 `.env` içeriği:
 ```env
+DATABASE_URL="postgresql://user:password@db:5432/tus?schema=public"
+PORT=5000
+NODE_ENV=development
+ADMIN_URL=http://admin:3000
+VISUAL_ASSETS_DIR=./uploads
+OPENAI_API_KEY=your-openai-key
+GEMINI_API_KEY=your-gemini-key
+```
+
+## 💻 Local Development (Docker olmadan)
+
+### 1. Admin Panel
+
+```bash
+cd admin
+cp .env.example .env.local
+```
+
+`.env.local` içeriği:
+```env
+API_URL=http://localhost:5000
+```
+
+### 2. Backend API
+
+```bash
+cd api
+cp .env.example .env
+```
+
+`.env` içeriği:
+```env
 DATABASE_URL="postgresql://user:password@localhost:5432/tus?schema=public"
-PORT=3001
+PORT=5000
 NODE_ENV=development
 ADMIN_URL=http://localhost:3000
 VISUAL_ASSETS_DIR=./uploads
@@ -44,13 +74,7 @@ Production environment variables (Vercel, Netlify, vb.):
 
 ```env
 API_URL=https://api.yourdomain.com
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
-BACKEND_URL=https://api.yourdomain.com
 ```
-
-⚠️ **Önemli**: 
-- `NEXT_PUBLIC_` prefix'li variable'lar client-side'da kullanılabilir
-- `API_URL` (prefix olmadan) sadece server-side'da kullanılabilir
 
 ### 2. Backend API
 
@@ -58,7 +82,7 @@ Production environment variables:
 
 ```env
 DATABASE_URL="your-production-database-url"
-PORT=3001
+PORT=5000
 NODE_ENV=production
 ADMIN_URL=https://admin.yourdomain.com
 VISUAL_ASSETS_DIR=/app/uploads
@@ -70,20 +94,25 @@ GEMINI_API_KEY=your-production-gemini-key
 
 ### API URL Yapılandırması
 
-- **Development**: İstekler `localhost:3000` → Next.js Proxy → `localhost:3001` Backend
-- **Production**: İstekler production domain → Next.js Proxy → Production Backend URL
+- **Docker**: `http://api:5000` (servis adı)
+- **Local**: `http://localhost:5000`
+- **Production**: `https://api.yourdomain.com`
 
 ### CORS Ayarları
 
 Backend'de CORS, `ADMIN_URL` environment variable'ını kullanarak admin panel'den gelen isteklere izin verir.
 
+- **Docker**: `http://admin:3000` (servis adı)
+- **Local**: `http://localhost:3000`
+- **Production**: `https://admin.yourdomain.com`
+
 ### Deployment Checklist
 
-- [ ] Admin panel environment variables ayarlandı
-- [ ] Backend environment variables ayarlandı
+- [ ] Admin panel environment variables ayarlandı (`API_URL`)
+- [ ] Backend environment variables ayarlandı (`ADMIN_URL`, `DATABASE_URL`, API keys)
 - [ ] Database bağlantısı test edildi
 - [ ] CORS yapılandırması doğrulandı
-- [ ] API URL'leri production'a göre güncellendi
+- [ ] Port 5000 kullanılıyor
 
 ## 🐛 Sorun Giderme
 
@@ -96,8 +125,8 @@ Backend'de CORS, `ADMIN_URL` environment variable'ını kullanarak admin panel'd
 
 2. Environment variable'ları kontrol edin:
    ```bash
-   # Admin panelde
-   echo $NEXT_PUBLIC_API_URL
+   # Admin panelde (terminal)
+   echo $API_URL
    
    # Backend'de
    echo $ADMIN_URL
@@ -108,12 +137,18 @@ Backend'de CORS, `ADMIN_URL` environment variable'ını kullanarak admin panel'd
 ### "CORS error" alıyorum
 
 Backend `.env` dosyasında `ADMIN_URL` doğru ayarlanmış mı kontrol edin:
-```env
-ADMIN_URL=http://localhost:3000  # Development için
+- **Docker**: `ADMIN_URL=http://admin:3000`
+- **Local**: `ADMIN_URL=http://localhost:3000`
+
+### Docker'da servisler birbirini göremiyor
+
+Docker Compose kullanıyorsanız, servis adlarının (api, admin, db) doğru olduğundan emin olun:
+```yaml
+services:
+  api:
+    # Backend port 5000
+  admin:
+    # Frontend port 3000
+  db:
+    # PostgreSQL port 5432
 ```
-
-### Production'da hala localhost kullanıyor
-
-1. Environment variable'ların production ortamında doğru set edildiğinden emin olun
-2. Next.js'i yeniden build edin: `npm run build`
-3. Vercel/Netlify gibi platformlarda environment variable'ları dashboard'tan ayarlayın

@@ -25,7 +25,7 @@ async function bootstrap() {
     logger.log(`Static assets configured: ${uploadsPath} -> /uploads/`);
 
     // Enable CORS for admin panel and mobile app
-    const adminUrl = process.env.ADMIN_URL || 'http://localhost:3000';
+    const adminUrl = process.env.ADMIN_URL || 'http://admin:3000';
     const allowedOrigins = [
       adminUrl,
       'http://localhost:8081', // Expo dev server
@@ -71,7 +71,6 @@ async function bootstrap() {
       }),
     );
     logger.log('Global validation pipe configured');
-    console.log(process.env.PORT);
 
     const port = process.env.PORT || 5000;
     await app.listen(port);
