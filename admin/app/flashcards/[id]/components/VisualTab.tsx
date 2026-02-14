@@ -42,6 +42,7 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
   const [loadingAssets, setLoadingAssets] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  console.log(process.env.NEXT_PUBLIC_API_URL);
 
   useEffect(() => {
     if (flashcard.imageAssetId) {
