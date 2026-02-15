@@ -87,10 +87,15 @@ export default function KnowledgePointsPage() {
         params.append("hasFlashcard", filterHasFlashcard);
 
       const queryString = params.toString();
-      const response = await api.getKnowledgePoints(
-        queryString ? `?${queryString}` : "",
-      );
+      console.log(queryString);
 
+      const response = await api.getKnowledgePoints(queryString);
+      console.log(response);
+      
+      const resTopics = await api.getTopics();
+      if (resTopics && resTopics.lessons) {
+        setLessons(resTopics.lessons.map((l: any) => l.name));
+      }
       if (response && response.success) {
         setKnowledgePoints(response.data || []);
         setPagination(
@@ -101,16 +106,6 @@ export default function KnowledgePointsPage() {
             hasPrevPage: false,
           },
         );
-
-        // Extract unique lessons
-        const uniqueLessons = [
-          ...new Set(
-            response.data
-              .map((kp: KnowledgePoint) => kp.lesson?.name)
-              .filter(Boolean),
-          ),
-        ];
-        setLessons(uniqueLessons as string[]);
       }
     } catch (error) {
       console.error("Failed to fetch knowledge points:", error);
@@ -121,6 +116,7 @@ export default function KnowledgePointsPage() {
 
   useEffect(() => {
     fetchKnowledgePoints();
+    console.log("fetch");
   }, [
     page,
     limit,

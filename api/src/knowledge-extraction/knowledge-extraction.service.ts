@@ -518,7 +518,9 @@ export class KnowledgeExtractionService {
   /**
    * Queue knowledge point generation for multiple exam questions (bulk operation)
    */
-  async queueKnowledgePointGenerationForExamQuestions(examQuestionIds: string[]): Promise<{
+  async queueKnowledgePointGenerationForExamQuestions(
+    examQuestionIds: string[],
+  ): Promise<{
     queued: number;
     skipped: number;
     jobIds: string[];
@@ -586,8 +588,7 @@ export class KnowledgeExtractionService {
       } catch (error) {
         errors.push({
           examQuestionId,
-          reason:
-            error instanceof Error ? error.message : 'Validation failed',
+          reason: error instanceof Error ? error.message : 'Validation failed',
         });
       }
     }
