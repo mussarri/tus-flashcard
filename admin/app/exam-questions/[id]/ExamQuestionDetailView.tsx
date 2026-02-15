@@ -487,6 +487,9 @@ export default function ExamQuestionDetailView({
     );
   };
 
+  console.log(examQuestion.analysisPayload);
+  
+
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center gap-4">

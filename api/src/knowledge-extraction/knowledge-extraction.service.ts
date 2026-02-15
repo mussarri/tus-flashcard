@@ -897,50 +897,88 @@ export class KnowledgeExtractionService {
       );
     }
 
-    // Extract 3: optionAnalysis (Physiological Outcomes)
-    if (payload.optionAnalysis && Array.isArray(payload.optionAnalysis)) {
+    if (payload.options && Array.isArray(payload.options)) {
+      // optionAnalysis döngüsü içinde:
       for (const opt of payload.optionAnalysis) {
-        const isHighImportance = opt.importance === 'HIGH';
+        // 1. KRİTER: Bilgi atomik ve değerli mi?
+        const isHighImportance =
+          opt.importance === 'HIGH' || opt.importance === 'MEDIUM';
+        const isCorrectAnswer = opt.wouldBeCorrectIf.includes('Correct Answer');
+        const hasSubstantialFact =
+          opt.wouldBeCorrectIf !== 'N/A' && opt.wouldBeCorrectIf.length > 25;
 
-        // Fizyolojide physiologicalOutcome bir KP olarak çok değerlidir (Örn: "pH düşer")
-        if (
-          (isHighImportance && opt.physiologicalOutcome) ||
-          (isHighImportance && opt.clinicalOutcome)
-        ) {
-          const normalizedKey = this.generateNormalizedKey(
-            opt.physiologicalOutcome || opt.clinicalOutcome,
-          );
+        if ((isHighImportance && hasSubstantialFact) || isCorrectAnswer) {
+          // 2. İşlem: Clinical Outcome'dan Klinik KP Üret
+          const normalizedKey = this.generateNormalizedKey(opt.clinicalOutcome);
+          if (opt.clinicalOutcome && opt.importance === 'HIGH') {
+            const kp = await this.prisma.knowledgePoint.upsert({
+              where: { normalizedKey },
+              create: {
+                normalizedKey,
+                fact: opt.clinicalOutcome,
+                priority: 6, // Klinik öncelik
+                source: 'EXAM_ANALYSIS',
+                lessonId: examQuestion.lessonId,
+                topicId: examQuestion.topicId,
+                subtopicId: examQuestion.subtopicId,
+                createdFromExamQuestionId: examQuestionId,
+                examRelevance: 0.9,
+                examPattern: payload.patternType || null,
+                sourceCount: 1,
+              },
+              update: {
+                sourceCount: { increment: 1 },
+                priority: { increment: 2 }, // Higher boost for traps
+                examRelevance: 1.0, // Maximum relevance
+                examPattern: payload.patternType || undefined,
+              },
+            });
+            const examQuestionKp =
+              await this.prisma.examQuestionKnowledgePoint.create({
+                data: {
+                  examQuestionId,
+                  knowledgePointId: kp.id,
+                  relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
+                },
+              });
+          }
 
-          const kp = await this.prisma.knowledgePoint.upsert({
-            where: { normalizedKey },
-            create: {
-              normalizedKey,
-              fact: opt.physiologicalOutcome,
-              priority: 6,
-              source: 'EXAM_ANALYSIS',
-              lessonId: examQuestion.lessonId,
-              topicId: examQuestion.topicId,
-              subtopicId: examQuestion.subtopicId,
-              createdFromExamQuestionId: examQuestionId,
-              examRelevance: 0.8,
-              sourceCount: 1,
-            },
-            update: {
-              sourceCount: { increment: 1 },
-            },
-          });
-
-          await this.prisma.examQuestionKnowledgePoint.create({
-            data: {
-              examQuestionId,
-              knowledgePointId: kp.id,
-              relationshipType: 'CLINICAL_OUTCOME', // Fizyolojik sonuçlar bu kategoriye girer
-            },
-          });
-          createdKpIds.push(kp.id);
+          // 3. İşlem: WouldBeCorrectIf'ten Spot KP Üret
+          if (hasSubstantialFact && !isCorrectAnswer) {
+            const kp = await this.prisma.knowledgePoint.upsert({
+              where: { normalizedKey },
+              create: {
+                normalizedKey,
+                fact: opt.clinicalOutcome,
+                priority: 6, // Klinik öncelik
+                source: 'EXAM_ANALYSIS',
+                lessonId: examQuestion.lessonId,
+                topicId: examQuestion.topicId,
+                subtopicId: examQuestion.subtopicId,
+                createdFromExamQuestionId: examQuestionId,
+                examRelevance: 0.9,
+                examPattern: payload.patternType || null,
+                sourceCount: 1,
+              },
+              update: {
+                sourceCount: { increment: 1 },
+                priority: { increment: 2 }, // Higher boost for traps
+                examRelevance: 1.0, // Maximum relevance
+                examPattern: payload.patternType || undefined,
+              },
+            });
+            await this.prisma.examQuestionKnowledgePoint.create({
+              data: {
+                examQuestionId,
+                knowledgePointId: kp.id,
+                relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
+              },
+            });
+          }
         }
       }
     }
+
     return {
       knowledgePoints: createdKpIds,
     };
