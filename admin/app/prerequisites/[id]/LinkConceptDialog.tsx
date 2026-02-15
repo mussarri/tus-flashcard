@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,11 +63,9 @@ export function LinkConceptDialog({
     setLoading(true);
     const debounce = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `/api/admin/concepts/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
+        const data = await apiRequest<{ concepts: Concept[] }>(
+          `admin/concepts/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
         );
-        if (!response.ok) throw new Error("Search failed");
-        const data = await response.json();
         setSearchResults(data.concepts || []);
         setError(null);
       } catch (err) {
@@ -86,11 +85,9 @@ export function LinkConceptDialog({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/admin/concepts/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
+      const data = await apiRequest<{ concepts: Concept[] }>(
+        `admin/concepts/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
       );
-      if (!response.ok) throw new Error("Search failed");
-      const data = await response.json();
       setSearchResults(data.concepts || []);
     } catch (err) {
       setError("Failed to search concepts");
@@ -112,15 +109,13 @@ export function LinkConceptDialog({
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/admin/prerequisite-learning/prerequisites/${prerequisite.id}/link-concepts`,
+      await apiRequest(
+        `admin/prerequisite-learning/prerequisites/${prerequisite.id}/link-concepts`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ conceptIds: selectedConcepts }),
         },
       );
-      if (!response.ok) throw new Error("Failed to link concepts");
       onComplete();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");

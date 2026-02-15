@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { apiRequest } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -136,13 +137,9 @@ export default function PrerequisiteLearningPage() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        "/api/proxy/admin/prerequisite-learning/analytics",
+      const data = await apiRequest<{ analytics: PrerequisiteAnalytics }>(
+        "admin/prerequisite-learning/analytics",
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch analytics");
-      }
-      const data = await response.json();
       setAnalytics(data.analytics);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -176,11 +173,10 @@ export default function PrerequisiteLearningPage() {
         params.append("minFrequency", minFrequency.toString());
       }
 
-      const response = await fetch(
-        `/api/proxy/admin/prerequisite-learning/prerequisites?${params.toString()}`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch prerequisites");
-      const data = await response.json();
+      const data = await apiRequest<{
+        prerequisites: PrerequisiteDetail[];
+        pagination: { total: number; totalPages: number };
+      }>(`admin/prerequisite-learning/prerequisites?${params.toString()}`);
       console.log(data.prerequisites);
 
       setPrerequisites(data.prerequisites || []);
@@ -205,11 +201,9 @@ export default function PrerequisiteLearningPage() {
   const fetchAllTopics = async () => {
     try {
       // Fetch all topics from dedicated endpoint
-      const response = await fetch(
-        "/api/proxy/admin/prerequisite-learning/topics",
+      const data = await apiRequest<{ topics: any[] }>(
+        "admin/prerequisite-learning/topics",
       );
-      if (!response.ok) throw new Error("Failed to fetch topics");
-      const data = await response.json();
 
       // Map the data to match our interface
       const topics = data.topics.map((topic: any) => ({
@@ -228,16 +222,12 @@ export default function PrerequisiteLearningPage() {
   const processAllQuestions = async () => {
     try {
       setProcessing(true);
-      const response = await fetch(
-        "/api/proxy/admin/prerequisite-learning/process-all",
+      const result = await apiRequest<{ processed: number }>(
+        "admin/prerequisite-learning/process-all",
         {
           method: "POST",
         },
       );
-      if (!response.ok) {
-        throw new Error("Failed to process questions");
-      }
-      const result = await response.json();
       alert(`Processed ${result.processed} questions successfully`);
       await fetchAnalytics();
       await fetchAllPrerequisites();

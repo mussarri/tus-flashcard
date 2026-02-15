@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -92,18 +93,15 @@ export function MergePrerequisiteDialog({
 
       setIsSearching(true);
       try {
-        const response = await fetch(
-          `/api/admin/prerequisites/search?q=${encodeURIComponent(searchQuery)}`,
+        const data = await apiRequest<{ prerequisites: SearchResult[] }>(
+          `admin/prerequisites/search?q=${encodeURIComponent(searchQuery)}`,
         );
-        if (response.ok) {
-          const data = await response.json();
-          // Filter out the current prerequisite
-          setSearchResults(
-            data.prerequisites.filter(
-              (p: SearchResult) => p.id !== prerequisite.id,
-            ),
-          );
-        }
+        // Filter out the current prerequisite
+        setSearchResults(
+          data.prerequisites.filter(
+            (p: SearchResult) => p.id !== prerequisite.id,
+          ),
+        );
       } catch (err) {
         console.error("Search error:", err);
       } finally {
@@ -125,13 +123,10 @@ export function MergePrerequisiteDialog({
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/admin/prerequisites/${prerequisite.id}/merge`,
+      await apiRequest(
+        `admin/prerequisites/${prerequisite.id}/merge`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             targetPrerequisiteId: selectedPrerequisiteId,
           }),

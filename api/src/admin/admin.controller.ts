@@ -176,16 +176,17 @@ export class AdminController {
   }
 
   @Post('knowledge-points/bulk-delete')
-  async bulkDeleteKnowledgePoints(@Body() body: { knowledgePointIds: string[] }) {
+  async bulkDeleteKnowledgePoints(
+    @Body() body: { knowledgePointIds: string[] },
+  ) {
     try {
       this.logger.log(
         `Bulk deleting ${body.knowledgePointIds.length} knowledge points`,
       );
 
-      const result =
-        await this.adminService.bulkDeleteKnowledgePoints(
-          body.knowledgePointIds,
-        );
+      const result = await this.adminService.bulkDeleteKnowledgePoints(
+        body.knowledgePointIds,
+      );
 
       return {
         success: true,

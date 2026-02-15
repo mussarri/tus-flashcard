@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -49,22 +50,14 @@ export function EditPrerequisiteDialog({
     setError(null);
 
     try {
-      const response = await fetch(`/api/proxy/admin/prerequisites/${prerequisite.id}`, {
+      await apiRequest(`admin/prerequisites/${prerequisite.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           name: name.trim(),
           canonicalKey: canonicalKey.trim() || null,
           notes: notes.trim() || undefined,
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update prerequisite");
-      }
 
       onComplete();
     } catch (err) {

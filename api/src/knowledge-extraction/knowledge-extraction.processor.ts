@@ -6,7 +6,8 @@ import { KnowledgeExtractionService } from './knowledge-extraction.service';
 import { StateMachineValidator } from '../common/validators/state-machine.validator';
 
 interface KnowledgeExtractionJobData {
-  approvedContentId: string;
+  approvedContentId?: string;
+  examQuestionId?: string;
 }
 
 @Processor('knowledge-extraction')
@@ -21,8 +22,67 @@ export class KnowledgeExtractionProcessor extends WorkerHost {
   }
 
   async process(job: Job<KnowledgeExtractionJobData>) {
-    const { approvedContentId } = job.data;
+    const { approvedContentId, examQuestionId } = job.data;
 
+    // Route to appropriate handler based on job data
+    if (examQuestionId) {
+      return this.processExamQuestionJob(job, examQuestionId);
+    } else if (approvedContentId) {
+      return this.processApprovedContentJob(job, approvedContentId);
+    } else {
+      throw new BadRequestException(
+        'Job data must include either approvedContentId or examQuestionId',
+      );
+    }
+  }
+
+  /**
+   * Process knowledge extraction for exam questions
+   */
+  private async processExamQuestionJob(
+    job: Job<KnowledgeExtractionJobData>,
+    examQuestionId: string,
+  ) {
+    this.logger.log(
+      `Processing knowledge extraction job for examQuestion: ${examQuestionId}`,
+    );
+
+    try {
+      // Generate knowledge points from exam question
+      const result =
+        await this.knowledgeExtractionService.generateKnowledgePointsFromExamQuestion(
+          examQuestionId,
+        );
+
+      this.logger.log(
+        `Knowledge extraction completed for examQuestion: ${examQuestionId}, created ${result.knowledgePoints.length} knowledge points`,
+      );
+
+      return {
+        success: true,
+        examQuestionId,
+        knowledgePointsCreated: result.knowledgePoints.length,
+        spotRuleCount: result.spotRuleCount,
+        clinicalCorrelationCount: result.clinicalCorrelationCount,
+        examTrapCount: result.examTrapCount,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Knowledge extraction job failed for examQuestion ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      throw error;
+    }
+  }
+
+  /**
+   * Process knowledge extraction for approved content
+   */
+  private async processApprovedContentJob(
+    job: Job<KnowledgeExtractionJobData>,
+    approvedContentId: string,
+  ) {
     this.logger.log(
       `Processing knowledge extraction job for approvedContent: ${approvedContentId}`,
     );

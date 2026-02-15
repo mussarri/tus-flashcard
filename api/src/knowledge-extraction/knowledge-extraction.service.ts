@@ -48,6 +48,8 @@ export class KnowledgeExtractionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiRouter: AIRouterService,
+    @InjectQueue(QueueName.KNOWLEDGE_EXTRACTION)
+    private readonly knowledgeExtractionQueue: Queue,
     @InjectQueue(QueueName.FLASHCARD_GENERATION)
     private readonly flashcardGenerationQueue: Queue,
     @InjectQueue(QueueName.QUESTION_GENERATION)
@@ -511,6 +513,111 @@ export class KnowledgeExtractionService {
           `ExamQuestion ${examQuestionId} is not an anatomy question`,
         );
     }
+  }
+
+  /**
+   * Queue knowledge point generation for multiple exam questions (bulk operation)
+   */
+  async queueKnowledgePointGenerationForExamQuestions(examQuestionIds: string[]): Promise<{
+    queued: number;
+    skipped: number;
+    jobIds: string[];
+    errors: Array<{ examQuestionId: string; reason: string }>;
+  }> {
+    this.logger.log(
+      `Queueing knowledge point generation for ${examQuestionIds.length} exam questions`,
+    );
+
+    const jobIds: string[] = [];
+    const errors: Array<{ examQuestionId: string; reason: string }> = [];
+
+    // Validate all exam questions before queueing
+    const validExamQuestions: string[] = [];
+
+    for (const examQuestionId of examQuestionIds) {
+      try {
+        // Check if exam question exists and is analyzed
+        const examQuestion = await this.prisma.examQuestion.findUnique({
+          where: { id: examQuestionId },
+          select: {
+            id: true,
+            analysisStatus: true,
+            analysisPayload: true,
+            _count: {
+              select: { knowledgePoints: true },
+            },
+          },
+        });
+
+        if (!examQuestion) {
+          errors.push({
+            examQuestionId,
+            reason: 'Exam question not found',
+          });
+          continue;
+        }
+
+        if (examQuestion.analysisStatus !== 'ANALYZED') {
+          errors.push({
+            examQuestionId,
+            reason: `Exam question not analyzed (status: ${examQuestion.analysisStatus})`,
+          });
+          continue;
+        }
+
+        if (!examQuestion.analysisPayload) {
+          errors.push({
+            examQuestionId,
+            reason: 'Exam question has no analysisPayload',
+          });
+          continue;
+        }
+
+        // Skip if already has knowledge points (optional - can be removed to allow regeneration)
+        if (examQuestion._count.knowledgePoints > 0) {
+          errors.push({
+            examQuestionId,
+            reason: `Already has ${examQuestion._count.knowledgePoints} knowledge points`,
+          });
+          continue;
+        }
+
+        validExamQuestions.push(examQuestionId);
+      } catch (error) {
+        errors.push({
+          examQuestionId,
+          reason:
+            error instanceof Error ? error.message : 'Validation failed',
+        });
+      }
+    }
+
+    // Queue valid exam questions using addBulk for performance
+    if (validExamQuestions.length > 0) {
+      const jobs = validExamQuestions.map((examQuestionId) => ({
+        name: 'extract-knowledge-exam-question',
+        data: { examQuestionId },
+        opts: {
+          attempts: 3,
+          backoff: { type: 'exponential' as const, delay: 2000 },
+          jobId: `kp-gen-${examQuestionId}`,
+        },
+      }));
+
+      const queuedJobs = await this.knowledgeExtractionQueue.addBulk(jobs);
+      jobIds.push(...queuedJobs.map((job) => job.id || ''));
+
+      this.logger.log(
+        `Successfully queued ${validExamQuestions.length} exam questions for knowledge point generation`,
+      );
+    }
+
+    return {
+      queued: validExamQuestions.length,
+      skipped: errors.length,
+      jobIds,
+      errors,
+    };
   }
 
   async anatomiQuestionToKnowledgePointTemplate(

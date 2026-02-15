@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -59,11 +60,8 @@ export function CreateConceptDialog({
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/concepts", {
+      await apiRequest("admin/concepts", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           preferredLabel: preferredLabel.trim(),
           conceptType,

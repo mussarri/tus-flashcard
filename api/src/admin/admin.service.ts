@@ -430,9 +430,7 @@ export class AdminService {
    * Bulk delete knowledge points
    * @param knowledgePointIds - Array of knowledge point IDs to delete
    */
-  async bulkDeleteKnowledgePoints(
-    knowledgePointIds: string[],
-  ): Promise<{
+  async bulkDeleteKnowledgePoints(knowledgePointIds: string[]): Promise<{
     deleted: number;
     failed: number;
     errors: Array<{ id: string; error: string }>;
@@ -498,7 +496,9 @@ export class AdminService {
           error instanceof Error ? error.message : 'Unknown error';
         errors.push({ id: kpId, error: errorMsg });
         failed++;
-        this.logger.error(`Failed to delete knowledge point ${kpId}: ${errorMsg}`);
+        this.logger.error(
+          `Failed to delete knowledge point ${kpId}: ${errorMsg}`,
+        );
       }
     }
 
