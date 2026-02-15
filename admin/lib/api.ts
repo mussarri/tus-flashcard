@@ -442,6 +442,18 @@ export const api = {
       body: JSON.stringify({ knowledgePointIds }),
     }),
 
+  // Bulk delete knowledge points
+  bulkDeleteKnowledgePoints: (knowledgePointIds: string[]) =>
+    apiRequest<{
+      success: boolean;
+      deleted: number;
+      failed: number;
+      errors: Array<{ id: string; error: string }>;
+    }>("admin/knowledge-points/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ knowledgePointIds }),
+    }),
+
   // Flashcards
   getFlashcardsForBatch: (batchId: string) =>
     apiRequest<{ success: boolean; batchId: string; flashcards: any[] }>(

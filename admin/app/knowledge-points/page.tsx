@@ -13,6 +13,7 @@ import {
   XCircle,
   GitMerge,
   Clock,
+  Trash2,
 } from "lucide-react";
 
 interface KnowledgePoint {
@@ -63,6 +64,7 @@ export default function KnowledgePointsPage() {
   // Selection
   const [selectedKPs, setSelectedKPs] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Available lessons (we'll populate this from the data)
   const [lessons, setLessons] = useState<string[]>([]);
@@ -184,6 +186,41 @@ export default function KnowledgePointsPage() {
       alert("Failed to generate flashcards. Check console for details.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedKPs.size === 0) {
+      alert("Please select at least one knowledge point");
+      return;
+    }
+
+    if (
+      !confirm(
+        `Are you sure you want to delete ${selectedKPs.size} knowledge point${selectedKPs.size > 1 ? "s" : ""}? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const result = await api.bulkDeleteKnowledgePoints(
+        Array.from(selectedKPs),
+      );
+
+      alert(
+        `Success! Deleted: ${result.deleted}${result.failed > 0 ? `, Failed: ${result.failed}` : ""}${result.errors.length > 0 ? `\nErrors: ${result.errors.map((e) => e.error).join(", ")}` : ""}`,
+      );
+
+      // Clear selection and refresh
+      setSelectedKPs(new Set());
+      fetchKnowledgePoints();
+    } catch (error) {
+      console.error("Failed to delete knowledge points:", error);
+      alert("Failed to delete knowledge points. Check console for details.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -396,23 +433,42 @@ export default function KnowledgePointsPage() {
                 Clear selection
               </button>
             </div>
-            <button
-              onClick={handleGenerateFlashcards}
-              disabled={isGenerating}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <span className="animate-spin">⚡</span>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <span>🎴</span>
-                  Generate Flashcards
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBulkDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="animate-spin">⚡</span>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Selected
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleGenerateFlashcards}
+                disabled={isGenerating}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <span className="animate-spin">⚡</span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span>🎴</span>
+                    Generate Flashcards
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

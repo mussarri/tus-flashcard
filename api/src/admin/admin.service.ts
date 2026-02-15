@@ -427,6 +427,93 @@ export class AdminService {
   }
 
   /**
+   * Bulk delete knowledge points
+   * @param knowledgePointIds - Array of knowledge point IDs to delete
+   */
+  async bulkDeleteKnowledgePoints(
+    knowledgePointIds: string[],
+  ): Promise<{
+    deleted: number;
+    failed: number;
+    errors: Array<{ id: string; error: string }>;
+  }> {
+    this.logger.log(
+      `Bulk deleting ${knowledgePointIds.length} knowledge points`,
+    );
+
+    let deleted = 0;
+    let failed = 0;
+    const errors: Array<{ id: string; error: string }> = [];
+
+    for (const kpId of knowledgePointIds) {
+      try {
+        // Check if knowledge point exists
+        const kp = await this.prisma.knowledgePoint.findUnique({
+          where: { id: kpId },
+          include: {
+            flashcards: {
+              select: { id: true },
+            },
+            questionKnowledgePoints: {
+              select: { id: true },
+            },
+          },
+        });
+
+        if (!kp) {
+          errors.push({ id: kpId, error: 'Knowledge point not found' });
+          failed++;
+          continue;
+        }
+
+        // Delete related flashcards first
+        if (kp.flashcards.length > 0) {
+          await this.prisma.flashcard.deleteMany({
+            where: { knowledgePointId: kpId },
+          });
+          this.logger.debug(
+            `Deleted ${kp.flashcards.length} flashcards for knowledge point ${kpId}`,
+          );
+        }
+
+        // Delete question-knowledge point links
+        if (kp.questionKnowledgePoints.length > 0) {
+          await this.prisma.questionKnowledgePoint.deleteMany({
+            where: { knowledgePointId: kpId },
+          });
+          this.logger.debug(
+            `Deleted ${kp.questionKnowledgePoints.length} question links for knowledge point ${kpId}`,
+          );
+        }
+
+        // Delete the knowledge point
+        await this.prisma.knowledgePoint.delete({
+          where: { id: kpId },
+        });
+
+        deleted++;
+        this.logger.debug(`Successfully deleted knowledge point: ${kpId}`);
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error';
+        errors.push({ id: kpId, error: errorMsg });
+        failed++;
+        this.logger.error(`Failed to delete knowledge point ${kpId}: ${errorMsg}`);
+      }
+    }
+
+    this.logger.log(
+      `Bulk delete completed: ${deleted} deleted, ${failed} failed`,
+    );
+
+    return {
+      deleted,
+      failed,
+      errors,
+    };
+  }
+
+  /**
    * Generate questions for all knowledge points in a topic
    * @param topicId - The topic ID
    * @param mode - Generation mode (append or replace)

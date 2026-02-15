@@ -175,6 +175,39 @@ export class AdminController {
     }
   }
 
+  @Post('knowledge-points/bulk-delete')
+  async bulkDeleteKnowledgePoints(@Body() body: { knowledgePointIds: string[] }) {
+    try {
+      this.logger.log(
+        `Bulk deleting ${body.knowledgePointIds.length} knowledge points`,
+      );
+
+      const result =
+        await this.adminService.bulkDeleteKnowledgePoints(
+          body.knowledgePointIds,
+        );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to bulk delete knowledge points: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        `Failed to bulk delete knowledge points: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500,
+      );
+    }
+  }
+
   @Post('topics/merge')
   async mergeTopics(@Body() body: MergeTopicDto) {
     try {

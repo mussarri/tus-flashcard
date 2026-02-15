@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -15,6 +17,7 @@ import { QueueName } from '../queue/queues';
 import { AIRouterService } from '../ai/ai-router.service';
 import { AITaskType } from '../ai/types';
 import * as crypto from 'crypto';
+import { buildFizyolojiKnowledgeExtractionPrompt } from '../ai/prompts/fizyoloji-knowledge-extraction.prompt';
 
 export interface ExtractedKnowledgePoint {
   normalizedKey: string;
@@ -776,207 +779,115 @@ export class KnowledgeExtractionService {
     const createdKpIds: string[] = [];
     console.log(payload);
 
-    // Extract 1: mechanismChain (Fizyoloji'nin En Değerli Verisi)
-    if (
-      payload.mechanismChain &&
-      typeof payload.mechanismChain === 'string' &&
-      payload.mechanismChain.trim().length > 0
-    ) {
-      const normalizedKey = this.generateNormalizedKey(payload.mechanismChain);
-
-      const kp = await this.prisma.knowledgePoint.upsert({
-        where: { normalizedKey },
-        create: {
-          normalizedKey,
-          fact: `Mekanizma Akışı: ${payload.mechanismChain.trim()}`,
-          source: 'EXAM_ANALYSIS',
-          lessonId: examQuestion.lessonId,
-          topicId: examQuestion.topicId,
-          subtopicId: examQuestion.subtopicId,
-          createdFromExamQuestionId: examQuestionId,
-          priority: 8, // Mekanizmalar fizyolojide en yüksek önceliktir
-          examRelevance: 0.9,
-          examPattern: 'MECHANISM_FLOW',
-          sourceCount: 1,
-        },
-        update: {
-          sourceCount: { increment: 1 },
-          priority: { increment: 1 },
-          examRelevance: 0.95,
-        },
-      });
-
-      await this.prisma.examQuestionKnowledgePoint.create({
-        data: {
-          examQuestionId,
-          knowledgePointId: kp.id,
-          relationshipType: 'CONTEXT', // Mekanizma tüm sorunun bağlamıdır
-        },
-      });
-      createdKpIds.push(kp.id);
-    }
-
-    // Extract 2: spotRule (Genel Kanun/Kural)
-    if (payload.spotRule) {
-      const normalizedKey = this.generateNormalizedKey(payload.spotRule);
-      const kp = await this.prisma.knowledgePoint.upsert({
-        where: { normalizedKey },
-        create: {
-          normalizedKey,
-          fact: payload.spotRule.trim(),
-          source: 'EXAM_ANALYSIS',
-          lessonId: examQuestion.lessonId,
-          topicId: examQuestion.topicId,
-          subtopicId: examQuestion.subtopicId,
-          createdFromExamQuestionId: examQuestionId,
-          priority: 7,
-          examRelevance: 0.85,
-          examPattern: payload.patternType || null,
-          sourceCount: 1,
-        },
-        update: {
-          sourceCount: { increment: 1 },
-          priority: { increment: 1 },
-        },
-      });
-
-      await this.prisma.examQuestionKnowledgePoint.create({
-        data: {
-          examQuestionId,
-          knowledgePointId: kp.id,
-          relationshipType: 'MEASURED', // Direkt ölçülen kural
-        },
-      });
-      createdKpIds.push(kp.id);
-    }
-
-    if (
-      payload.clinicalCorrelation &&
-      typeof payload.clinicalCorrelation === 'string' &&
-      payload.clinicalCorrelation.trim().length > 0
-    ) {
-      const normalizedKey = this.generateNormalizedKey(
-        payload.clinicalCorrelation,
+    // AI ile Knowledge Point Extraction
+    try {
+      this.logger.log(
+        `Using AI to extract knowledge points from physiology question: ${examQuestionId}`,
       );
 
-      const kp = await this.prisma.knowledgePoint.upsert({
-        where: { normalizedKey },
-        create: {
-          normalizedKey,
-          fact: payload.clinicalCorrelation.trim(),
-          source: 'EXAM_ANALYSIS',
-          lessonId: examQuestion.lessonId,
-          topicId: examQuestion.topicId,
-          subtopicId: examQuestion.subtopicId,
-          createdFromExamQuestionId: examQuestionId,
-          priority: 6, // Clinical correlations are high priority
-          examRelevance: 0.85,
-          examPattern: payload.patternType || null,
-          sourceCount: 1,
-        },
-        update: {
-          sourceCount: { increment: 1 },
-          priority: { increment: 1 },
-          examRelevance: 0.95,
-          examPattern: payload.patternType || undefined,
-        },
-      });
+      const { systemPrompt, userPrompt } =
+        buildFizyolojiKnowledgeExtractionPrompt({
+          question: examQuestion.question,
+          options: examQuestion.options || {},
+          correctAnswer: examQuestion.correctAnswer,
+          explanation: examQuestion.explanation,
+          analysisPayload: payload,
+          lesson: examQuestion.lesson?.name,
+          topic: examQuestion.topic?.name,
+          subtopic: examQuestion.subtopic?.name,
+        });
 
-      const examQuestionKp =
+      const aiResponse = await this.aiRouter.runTask(
+        AITaskType.KNOWLEDGE_EXTRACTION,
+        {
+          systemPrompt,
+          userPrompt,
+        },
+      );
+
+      this.logger.debug(
+        `AI Knowledge Extraction Response: ${JSON.stringify(aiResponse)}`,
+      );
+
+      // Parse AI response
+      let extractedKPs: any;
+      if (typeof aiResponse === 'string') {
+        extractedKPs = JSON.parse(aiResponse);
+      } else {
+        extractedKPs = aiResponse;
+      }
+
+      if (
+        !extractedKPs.knowledgePoints ||
+        !Array.isArray(extractedKPs.knowledgePoints)
+      ) {
+        throw new Error('Invalid AI response format');
+      }
+
+      this.logger.log(
+        `AI extracted ${extractedKPs.knowledgePoints.length} knowledge points`,
+      );
+
+      // Create knowledge points from AI extraction
+      for (const kpData of extractedKPs.knowledgePoints) {
+        if (!kpData.fact || !kpData.normalizedKey) {
+          this.logger.warn('Skipping invalid knowledge point:', kpData);
+          continue;
+        }
+
+        const kp = await this.prisma.knowledgePoint.upsert({
+          where: { normalizedKey: kpData.normalizedKey },
+          create: {
+            normalizedKey: kpData.normalizedKey,
+            fact: kpData.fact.trim(),
+            source: 'EXAM_ANALYSIS',
+            lessonId: examQuestion.lessonId,
+            topicId: examQuestion.topicId,
+            subtopicId: examQuestion.subtopicId,
+            createdFromExamQuestionId: examQuestionId,
+            priority: kpData.priority || 7,
+            examRelevance: kpData.examRelevance || 0.85,
+            examPattern: kpData.examPattern || payload.patternType || null,
+            sourceCount: 1,
+          },
+          update: {
+            sourceCount: { increment: 1 },
+            priority: { increment: 1 },
+            examRelevance: Math.max(
+              kpData.examRelevance || 0.85,
+              0.9,
+            ) as number,
+            examPattern: kpData.examPattern || payload.patternType || undefined,
+          },
+        });
+
         await this.prisma.examQuestionKnowledgePoint.create({
           data: {
             examQuestionId,
             knowledgePointId: kp.id,
-            relationshipType: 'MEASURED',
+            relationshipType: kpData.relationshipType || 'MEASURED',
           },
         });
 
-      createdKpIds.push(kp.id);
-      this.logger.debug(
-        `Created/Updated KP from clinicalCorrelation: ${normalizedKey}`,
-      );
-    }
-
-    if (payload.options && Array.isArray(payload.options)) {
-      // optionAnalysis döngüsü içinde:
-      for (const opt of payload.optionAnalysis) {
-        // 1. KRİTER: Bilgi atomik ve değerli mi?
-        const isHighImportance =
-          opt.importance === 'HIGH' || opt.importance === 'MEDIUM';
-        const isCorrectAnswer = opt.wouldBeCorrectIf.includes('Correct Answer');
-        const hasSubstantialFact =
-          opt.wouldBeCorrectIf !== 'N/A' && opt.wouldBeCorrectIf.length > 25;
-
-        if ((isHighImportance && hasSubstantialFact) || isCorrectAnswer) {
-          // 2. İşlem: Clinical Outcome'dan Klinik KP Üret
-          const normalizedKey = this.generateNormalizedKey(opt.clinicalOutcome);
-          if (opt.clinicalOutcome && opt.importance === 'HIGH') {
-            const kp = await this.prisma.knowledgePoint.upsert({
-              where: { normalizedKey },
-              create: {
-                normalizedKey,
-                fact: opt.clinicalOutcome,
-                priority: 6, // Klinik öncelik
-                source: 'EXAM_ANALYSIS',
-                lessonId: examQuestion.lessonId,
-                topicId: examQuestion.topicId,
-                subtopicId: examQuestion.subtopicId,
-                createdFromExamQuestionId: examQuestionId,
-                examRelevance: 0.9,
-                examPattern: payload.patternType || null,
-                sourceCount: 1,
-              },
-              update: {
-                sourceCount: { increment: 1 },
-                priority: { increment: 2 }, // Higher boost for traps
-                examRelevance: 1.0, // Maximum relevance
-                examPattern: payload.patternType || undefined,
-              },
-            });
-            const examQuestionKp =
-              await this.prisma.examQuestionKnowledgePoint.create({
-                data: {
-                  examQuestionId,
-                  knowledgePointId: kp.id,
-                  relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
-                },
-              });
-          }
-
-          // 3. İşlem: WouldBeCorrectIf'ten Spot KP Üret
-          if (hasSubstantialFact && !isCorrectAnswer) {
-            const kp = await this.prisma.knowledgePoint.upsert({
-              where: { normalizedKey },
-              create: {
-                normalizedKey,
-                fact: opt.clinicalOutcome,
-                priority: 6, // Klinik öncelik
-                source: 'EXAM_ANALYSIS',
-                lessonId: examQuestion.lessonId,
-                topicId: examQuestion.topicId,
-                subtopicId: examQuestion.subtopicId,
-                createdFromExamQuestionId: examQuestionId,
-                examRelevance: 0.9,
-                examPattern: payload.patternType || null,
-                sourceCount: 1,
-              },
-              update: {
-                sourceCount: { increment: 1 },
-                priority: { increment: 2 }, // Higher boost for traps
-                examRelevance: 1.0, // Maximum relevance
-                examPattern: payload.patternType || undefined,
-              },
-            });
-            await this.prisma.examQuestionKnowledgePoint.create({
-              data: {
-                examQuestionId,
-                knowledgePointId: kp.id,
-                relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
-              },
-            });
-          }
-        }
+        createdKpIds.push(kp.id);
+        this.logger.debug(
+          `Created/Updated KP from AI extraction (${kpData.sourceType}): ${kpData.normalizedKey}`,
+        );
       }
+
+      this.logger.log(
+        `Successfully created ${createdKpIds.length} knowledge points using AI for question ${examQuestionId}`,
+      );
+
+      return {
+        knowledgePoints: createdKpIds,
+        aiExtracted: true,
+      };
+    } catch (aiError) {
+      this.logger.error(
+        `AI extraction failed for question ${examQuestionId}: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`,
+      );
+      this.logger.warn('Falling back to template-based extraction');
     }
 
     return {
