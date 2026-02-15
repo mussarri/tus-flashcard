@@ -809,6 +809,8 @@ export class KnowledgeExtractionService {
         `AI Knowledge Extraction Response: ${JSON.stringify(aiResponse)}`,
       );
 
+      console.log(aiResponse);
+
       // Parse AI response
       let extractedKPs: any;
       if (typeof aiResponse === 'string') {
