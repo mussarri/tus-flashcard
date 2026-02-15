@@ -13,8 +13,7 @@ import { OpenAIProvider } from './providers/openai.provider';
 import { GeminiProvider } from './providers/gemini.provider';
 import { buildVisionPrompt } from './prompts/vision.prompt';
 import { buildKnowledgeExtractionPrompt } from './prompts/knowledge.prompt';
-import { buildFlashcardPrompt } from './prompts/flashcard.prompt';
-import { buildAnatomyFlashcardPrompt } from './prompts/anatomy-flashcard.prompt';
+import { buildFlashcardPrompt } from './prompts/flashcard-prompt-builder';
 import { buildQuestionPrompt } from './prompts/question.prompt';
 import { buildAnatomyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-anatomy.prompt';
 import { buildPharmacologyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-pharmacology.prompt';
@@ -187,7 +186,7 @@ export class AIRouterService {
         }
 
         case AITaskType.FLASHCARD_GENERATION: {
-          const flashcardResult = await this.runFlashcardTask(
+          const flashcardResult = await this.runFlashcardTaskInternal(
             provider,
             taskPayload as {
               statement: string;
@@ -394,9 +393,9 @@ export class AIRouterService {
   }
 
   /**
-   * Run flashcard generation task
+   * Run flashcard generation task (internal - legacy)
    */
-  private async runFlashcardTask(
+  private async runFlashcardTaskInternal(
     provider: AIProvider,
     payload: {
       statement: string;
@@ -407,7 +406,16 @@ export class AIRouterService {
     options: AIModelOptions,
     model: string,
   ): Promise<{ content: string; usage?: TokenUsage }> {
-    const { systemPrompt, userPrompt } = buildFlashcardPrompt(payload);
+    // Legacy: use default target types if not provided
+    const payloadWithTypes = {
+      ...payload,
+      targetTypes: [
+        'FUNCTIONAL_ANATOMY',
+        'CLINICAL_CORRELATION',
+        'HIGH_YIELD_DISTINCTION',
+      ],
+    };
+    const { systemPrompt, userPrompt } = buildFlashcardPrompt(payloadWithTypes);
 
     const textOptions = {
       ...options,
@@ -418,16 +426,17 @@ export class AIRouterService {
   }
 
   /**
-   * Run anatomy flashcard generation task
+   * Run flashcard generation task (supports multiple lessons)
+   * Routes to lesson-specific prompts (Anatomi, Fizyoloji, etc.)
    */
-  async runAnatomyFlashcardTask(payload: {
+  async runFlashcardTask(payload: {
     statement: string;
     targetTypes: string[];
     lesson?: string;
     topic?: string;
     subtopic?: string;
   }): Promise<{ content: string; usage?: TokenUsage }> {
-    const { systemPrompt, userPrompt } = buildAnatomyFlashcardPrompt(payload);
+    const { systemPrompt, userPrompt } = buildFlashcardPrompt(payload);
 
     const taskConfig = await this.prisma.aITaskConfig.findUnique({
       where: { taskType: AITaskType.FLASHCARD_GENERATION },
@@ -453,9 +462,6 @@ export class AIRouterService {
     return await provider.runText(systemPrompt, userPrompt, model, textOptions);
   }
 
-  /**
-   * Run question generation task
-   */
   private async runQuestionTask(
     provider: AIProvider,
     payload: {

@@ -85,14 +85,17 @@ export class FlashcardGenerationService {
       }
 
       // Determine target card types based on exam pattern or default to core types
-      console.log(knowledgePoint.examPattern);
 
       const targetTypes = this.getTargetCardTypes(knowledgePoint.examPattern);
 
-      // Generate flashcards using AI
-      const cards = await this.generateCardsWithAI(statement, targetTypes);
-
       const lesson = knowledgePoint.topic?.lesson?.name || undefined;
+
+      // Generate flashcards using AI (lesson-specific prompts)
+      const cards = await this.generateCardsWithAI(
+        statement,
+        targetTypes,
+        lesson,
+      );
 
       // Validate flashcard types
       // const validatedFlashcards: GeneratedFlashcard[] = [];
@@ -129,16 +132,16 @@ export class FlashcardGenerationService {
   private async generateCardsWithAI(
     fact: string,
     targetTypes: CardType[],
+    lessonName?: string,
   ): Promise<GeneratedFlashcard[]> {
     try {
       this.logger.log(
-        `Generating flashcards with AI for fact: ${fact.substring(0, 50)}... (targetTypes: ${targetTypes.join(', ')})`,
+        `Generating flashcards with AI for fact: ${fact.substring(0, 50)}... (targetTypes: ${targetTypes.join(', ')}, lesson: ${lessonName || 'N/A'})`,
       );
-
-      // Call AI Router with anatomy flashcard prompt
-      const result = await this.aiRouter.runAnatomyFlashcardTask({
+      const result = await this.aiRouter.runFlashcardTask({
         statement: fact,
         targetTypes: targetTypes,
+        lesson: lessonName,
       });
 
       // Parse AI response

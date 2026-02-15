@@ -774,6 +774,7 @@ export class KnowledgeExtractionService {
 
     const payload = examQuestion.analysisPayload;
     const createdKpIds: string[] = [];
+    console.log(payload);
 
     // Extract 1: mechanismChain (Fizyoloji'nin En Değerli Verisi)
     if (
@@ -847,6 +848,53 @@ export class KnowledgeExtractionService {
         },
       });
       createdKpIds.push(kp.id);
+    }
+
+    if (
+      payload.clinicalCorrelation &&
+      typeof payload.clinicalCorrelation === 'string' &&
+      payload.clinicalCorrelation.trim().length > 0
+    ) {
+      const normalizedKey = this.generateNormalizedKey(
+        payload.clinicalCorrelation,
+      );
+
+      const kp = await this.prisma.knowledgePoint.upsert({
+        where: { normalizedKey },
+        create: {
+          normalizedKey,
+          fact: payload.clinicalCorrelation.trim(),
+          source: 'EXAM_ANALYSIS',
+          lessonId: examQuestion.lessonId,
+          topicId: examQuestion.topicId,
+          subtopicId: examQuestion.subtopicId,
+          createdFromExamQuestionId: examQuestionId,
+          priority: 6, // Clinical correlations are high priority
+          examRelevance: 0.85,
+          examPattern: payload.patternType || null,
+          sourceCount: 1,
+        },
+        update: {
+          sourceCount: { increment: 1 },
+          priority: { increment: 1 },
+          examRelevance: 0.95,
+          examPattern: payload.patternType || undefined,
+        },
+      });
+
+      const examQuestionKp =
+        await this.prisma.examQuestionKnowledgePoint.create({
+          data: {
+            examQuestionId,
+            knowledgePointId: kp.id,
+            relationshipType: 'MEASURED',
+          },
+        });
+
+      createdKpIds.push(kp.id);
+      this.logger.debug(
+        `Created/Updated KP from clinicalCorrelation: ${normalizedKey}`,
+      );
     }
 
     // Extract 3: optionAnalysis (Physiological Outcomes)
