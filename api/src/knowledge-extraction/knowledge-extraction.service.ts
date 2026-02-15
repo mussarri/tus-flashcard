@@ -17,7 +17,6 @@ import { QueueName } from '../queue/queues';
 import { AIRouterService } from '../ai/ai-router.service';
 import { AITaskType } from '../ai/types';
 import * as crypto from 'crypto';
-import { buildFizyolojiKnowledgeExtractionPrompt } from '../ai/prompts/fizyoloji-knowledge-extraction.prompt';
 
 export interface ExtractedKnowledgePoint {
   normalizedKey: string;
@@ -785,8 +784,10 @@ export class KnowledgeExtractionService {
         `Using AI to extract knowledge points from physiology question: ${examQuestionId}`,
       );
 
-      const { systemPrompt, userPrompt } =
-        buildFizyolojiKnowledgeExtractionPrompt({
+      // Send raw exam question data; AI router will select lesson-specific prompt
+      const aiResponse = await this.aiRouter.runTask(
+        AITaskType.KNOWLEDGE_EXTRACTION,
+        {
           question: examQuestion.question,
           options: examQuestion.options || {},
           correctAnswer: examQuestion.correctAnswer,
@@ -795,13 +796,6 @@ export class KnowledgeExtractionService {
           lesson: examQuestion.lesson?.name,
           topic: examQuestion.topic?.name,
           subtopic: examQuestion.subtopic?.name,
-        });
-
-      const aiResponse = await this.aiRouter.runTask(
-        AITaskType.KNOWLEDGE_EXTRACTION,
-        {
-          systemPrompt,
-          userPrompt,
         },
       );
 
