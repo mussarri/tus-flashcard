@@ -16,6 +16,8 @@ import {
   Settings,
   BarChart3,
   AlertCircle,
+  Menu,
+  X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
@@ -41,6 +43,7 @@ export default function EditorLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [workQueueCounts, setWorkQueueCounts] = useState<WorkQueueCounts>({
     batchesAwaitingReview: 0,
     contentAwaitingApproval: 0,
@@ -48,6 +51,11 @@ export default function EditorLayout({
     topicsWithoutFlashcards: 0,
     questionsNeedingReview: 0,
   });
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     // Fetch work queue counts
@@ -145,14 +153,38 @@ export default function EditorLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Left Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col">
+      <aside
+        className={`
+          fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          lg:translate-x-0
+          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">TUS Editor</h1>
-          <p className="text-xs text-gray-600 mt-1">
-            Medical Education Platform
-          </p>
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">TUS Editor</h1>
+            <p className="text-xs text-gray-600 mt-1">
+              Medical Education Platform
+            </p>
+          </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -193,7 +225,19 @@ export default function EditorLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 ml-64 flex flex-col">
+      <main className="flex-1 lg:ml-64 flex flex-col">
+        {/* Mobile Header with Menu Button */}
+        <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900">TUS Editor</h1>
+          <div className="w-10" /> {/* Spacer for alignment */}
+        </div>
+
         {/* Top Status Bar */}
         {activeContext && (
           <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">

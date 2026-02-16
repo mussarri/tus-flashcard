@@ -684,12 +684,14 @@ export const api = {
     if (params?.limit) queryParams.append("limit", params.limit.toString());
     if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
     if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
-    if (params?.filterByLesson) queryParams.append("filterByLesson", params.filterByLesson);
-    if (params?.filterByPattern) queryParams.append("filterByPattern", params.filterByPattern);
-    
+    if (params?.filterByLesson)
+      queryParams.append("filterByLesson", params.filterByLesson);
+    if (params?.filterByPattern)
+      queryParams.append("filterByPattern", params.filterByPattern);
+
     const query = queryParams.toString();
-    return apiRequest<{ 
-      success: boolean; 
+    return apiRequest<{
+      success: boolean;
       data: any[];
       pagination: {
         total: number;
@@ -697,9 +699,7 @@ export const api = {
         hasNextPage: boolean;
         hasPrevPage: boolean;
       };
-    }>(
-      `admin/knowledge/review${query ? `?${query}` : ""}`,
-    );
+    }>(`admin/knowledge/review${query ? `?${query}` : ""}`);
   },
 
   bulkApproveKnowledgePoints: (ids: string[]) =>
@@ -1011,18 +1011,9 @@ export const api = {
 
   bulkGenerateKnowledgePoints: (questionIds: string[]) =>
     apiRequest<{
-      success: boolean;
-      successful: number;
-      failed: number;
-      results: Array<{
-        examQuestionId: string;
-        success: boolean;
-        kpCount?: number;
-        spotRuleCount?: number;
-        clinicalCorrelationCount?: number;
-        examTrapCount?: number;
-        error?: string;
-      }>;
+      errors: string[];
+      queued: number;
+      skipped: number;
     }>(`knowledge-extraction/admin/generate/exam-questions`, {
       method: "POST",
       body: JSON.stringify({ examQuestionIds: questionIds }),

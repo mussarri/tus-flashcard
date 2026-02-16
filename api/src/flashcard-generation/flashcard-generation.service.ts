@@ -218,6 +218,17 @@ export class FlashcardGenerationService {
       ],
       CLINICAL_CORRELATION: ['CLINICAL_CORRELATION', 'LESION_ANATOMY'],
       EMBRYOLOGIC: ['EMBRYOLOGIC_ORIGIN', 'STRUCTURE_ID'],
+      VASCULAR_SUPPLY: [
+        'FUNCTIONAL_ANATOMY',
+        'HIGH_YIELD_DISTINCTION',
+        'TOPOGRAPHIC_MAP',
+      ],
+      NERVE_COURSE: ['CONTENTS_OF_SPACE', 'RELATIONS_BORDERS', 'EXCEPT_TRAP'],
+      SURGICAL_ANATOMY: [
+        'RELATIONS_BORDERS',
+        'CLINICAL_CORRELATION',
+        'TOPOGRAPHIC_MAP',
+      ],
     };
 
     if (examPattern && patternMap[examPattern]) {

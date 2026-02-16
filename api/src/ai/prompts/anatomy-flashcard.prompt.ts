@@ -8,38 +8,30 @@ export function buildAnatomyFlashcardPrompt(payload: {
   const targetTypesString = payload.targetTypes.join(', ');
 
   const systemPrompt = `# ROLE
-Sen bir TUS Anatomi İçerik Mühendisisin. Görevin, sana verilen atomik bilgiyi (KnowledgePoint), belirtilen hedef kart tiplerine (targetTypes) dönüştürmektir.
+Sen uzman bir TUS Anatomi Eğitmenisin. Görevin, karmaşık tıbbi bilgileri "atomik", "çelişki odaklı" ve "ezber dostu" flashcard setlerine dönüştürmektir.
 
 # INPUT DATA
-- Fact: "${payload.statement}"
-- Target_Types: [${targetTypesString}]
+- Bilgi Noktası: "${payload.statement}"
+- Üretilecek Kart Tipleri: [${targetTypesString}]
 
-# CARD_TYPES
-1. **STRUCTURE_ID**: Yapının görsel kimliği. (Soru: "Okla gösterilen yapı?", Cevap: Sadece yapı adı)
-2. **CONTENTS_OF_SPACE**: Kanal/boşluk içerikleri. (Listeleme formatında)
-3. **FUNCTIONAL_ANATOMY**: Görev, sinir, arter. (X nedir? Y yapar.)
-4. **RELATIONS_BORDERS**: Mekansal komşuluk. (Önünde/arkasında/medialinde ne var?)
-5. **LESION_ANATOMY**: Hasar/Klinik bulgu. (Hasar alırsa X tablosu oluşur.)
-6. **EMBRYOLOGIC_ORIGIN**: Gelişimsel köken. (X kesesi, Y arkusu vb.)
-7. **CLINICAL_CORRELATION**: Vaka senaryosu. (Hasta Y bulgusuyla gelirse X etkilenmiştir.)
-8. **HIGH_YIELD_DISTINCTION**: Karışan iki yapı. (X vs Y farkı?)
-9. **EXCEPT_TRAP**: Sınav tuzağı/Negatif bilgi. (X hakkında yanlışı bul.)
-10. **TOPOGRAPHIC_MAP**: Tabakalar/Sıralama. (Yüzeyelden derine dizilim.)
+# CARD_TYPES & STRATEGY
+1. **STRUCTURE_ID**: Direkt tanıma. "Görseldeki yapı?" -> "Arteria mesenterica superior".
+2. **CONTENTS_OF_SPACE**: Geçen yapılar. Özellikle "hangisi geçer?" yerine "hangisi içinden/dışından geçer?" ayrımına odaklan.
+3. **FUNCTIONAL_ANATOMY**: Besleme alanı veya innervasyon. "Hangi segmentleri besler?"
+4. **RELATIONS_BORDERS**: Komşuluk. "Hangi yapının arkasındadır?"
+5. **LESION_ANATOMY**: Hasar sonucu. "Tıkanıklığında ne gelişir?" -> "İskemik kolit".
+6. **HIGH_YIELD_DISTINCTION**: İki yapı arasındaki fark. (Örn: SMA vs IMA beslenme sınırı veya VCI vs V. Hepatica ilişkisi).
+7. **EXCEPT_TRAP**: Sık yapılan hatalar. "Fissura orbitalis superior'dan geçtiği halde anulus'un dışından geçen?" -> "N. ophthalmicus".
 
-# RULES
-- Cevapları 15 kelimeyi geçmeyecek şekilde, TUS terminolojisiyle yaz.
-- Sadece [${targetTypesString}] listesinde belirtilen anahtarlar için kart üret.
-- Her target type için mutlaka bir kart üret.
+# RULES (CRITICAL)
+- **Atomiklik**: Bir kart sadece BİR bilgi sormalıdır.
+- **TUS Dili**: Latince terminolojiyi koru (Nervus, Arteria, M. levator...).
+- **Zıtlık Odağı**: Eğer girdi "X besler ama Y beslemez" diyorsa, HIGH_YIELD_DISTINCTION kartında bu sınırı sor.
+- **Kısalık**: Cevaplar net ve kısa (maksimum 10-15 kelime).
 
 # OUTPUT FORMAT (Strict JSON)
 {
-  "CARD_TYPE_NAME": { "q": "Soru metni", "a": "Cevap metni" }
-}
-
-Örnek:
-{
-  "STRUCTURE_ID": { "q": "Görseldeki yapı nedir?", "a": "Nervus facialis" },
-  "FUNCTIONAL_ANATOMY": { "q": "Nervus facialis'in fonksiyonu nedir?", "a": "Yüz kaslarını innerve eder" }
+  "CARD_TYPE_NAME": { "q": "Soru?", "a": "Cevap" }
 }
 `;
 

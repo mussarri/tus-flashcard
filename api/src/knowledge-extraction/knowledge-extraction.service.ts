@@ -714,14 +714,13 @@ export class KnowledgeExtractionService {
         },
       });
 
-      const examQuestionKp =
-        await this.prisma.examQuestionKnowledgePoint.create({
-          data: {
-            examQuestionId,
-            knowledgePointId: kp.id,
-            relationshipType: 'MEASURED',
-          },
-        });
+      await this.prisma.examQuestionKnowledgePoint.create({
+        data: {
+          examQuestionId,
+          knowledgePointId: kp.id,
+          relationshipType: 'MEASURED',
+        },
+      });
 
       createdKpIds.push(kp.id);
       clinicalCorrelationCount++;
@@ -763,14 +762,13 @@ export class KnowledgeExtractionService {
         },
       });
 
-      const examQuestionKp =
-        await this.prisma.examQuestionKnowledgePoint.create({
-          data: {
-            examQuestionId,
-            knowledgePointId: kp.id,
-            relationshipType: 'TRAP', // Different relationship type for traps
-          },
-        });
+      await this.prisma.examQuestionKnowledgePoint.create({
+        data: {
+          examQuestionId,
+          knowledgePointId: kp.id,
+          relationshipType: 'TRAP', // Different relationship type for traps
+        },
+      });
 
       createdKpIds.push(kp.id);
       examTrapCount++;
@@ -813,14 +811,14 @@ export class KnowledgeExtractionService {
                 examPattern: payload.patternType || undefined,
               },
             });
-            const examQuestionKp =
-              await this.prisma.examQuestionKnowledgePoint.create({
-                data: {
-                  examQuestionId,
-                  knowledgePointId: kp.id,
-                  relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
-                },
-              });
+
+            await this.prisma.examQuestionKnowledgePoint.create({
+              data: {
+                examQuestionId,
+                knowledgePointId: kp.id,
+                relationshipType: 'CLINICAL_OUTCOME', // Different relationship type for traps
+              },
+            });
           }
 
           // 3. İşlem: WouldBeCorrectIf'ten Spot KP Üret

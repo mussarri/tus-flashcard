@@ -305,35 +305,10 @@ export default function ExamQuestionsView({
 
     try {
       const result = await api.bulkGenerateKnowledgePoints(questionIds);
-
-      // Calculate totals
-      const totalKps = result.results
-        .filter((r: any) => r.success)
-        .reduce((sum: number, r: any) => sum + (r.kpCount || 0), 0);
-
-      const spotRuleTotal = result.results
-        .filter((r: any) => r.success)
-        .reduce((sum: number, r: any) => sum + (r.spotRuleCount || 0), 0);
-
-      const clinicalTotal = result.results
-        .filter((r: any) => r.success)
-        .reduce(
-          (sum: number, r: any) => sum + (r.clinicalCorrelationCount || 0),
-          0,
-        );
-
-      const trapTotal = result.results
-        .filter((r: any) => r.success)
-        .reduce((sum: number, r: any) => sum + (r.examTrapCount || 0), 0);
+      console.log(result);
 
       alert(
-        `Knowledge point generation complete!\n\n` +
-          `✅ Successful: ${result.successful} questions\n` +
-          `❌ Failed: ${result.failed} questions\n\n` +
-          `📚 Total KPs Created: ${totalKps}\n` +
-          `   - SpotRule: ${spotRuleTotal}\n` +
-          `   - Clinical Correlation: ${clinicalTotal}\n` +
-          `   - Exam Trap: ${trapTotal}`,
+        `Knowledge point generation queuded successfully!\nQueued: ${result.queued}\nSkipped: ${result.skipped}\nErrors: `,
       );
 
       // Clear selection and reload
