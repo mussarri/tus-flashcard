@@ -12,7 +12,7 @@ async function bootstrap() {
 
   logger.log('🔧 Worker started and listening for jobs...');
   logger.log(
-    'Worker is ready to process: flashcard-generation, question-generation, knowledge-extraction, exam-question-analysis',
+    'Worker is ready to process: flashcard-generation, question-generation, knowledge-extraction, exam-question-analysis, kp-atomicity',
   );
 
   // Keep the process alive

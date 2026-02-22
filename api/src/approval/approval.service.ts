@@ -420,6 +420,72 @@ export class ApprovalService {
     }
   }
 
+  async getPendingBlocks() {
+    try {
+      this.logger.debug('Getting all pending blocks');
+
+      const blocks = await this.prisma.parsedBlock.findMany({
+        where: {
+          approvalStatus: 'PENDING',
+          deletedAt: null,
+        },
+        include: {
+          page: {
+            select: {
+              id: true,
+              pageNumber: true,
+              originalName: true,
+            },
+          },
+          lesson: { select: { name: true } },
+          topic: { select: { name: true } },
+          subtopic: { select: { name: true } },
+        },
+        orderBy: [{ page: { pageNumber: 'asc' } }, { blockIndex: 'asc' }],
+      });
+
+      this.logger.debug(`Retrieved ${blocks.length} pending blocks`);
+      return blocks;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get pending blocks: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  async saveBlockEdit(blockId: string, editedText: string) {
+    try {
+      this.logger.debug(`Saving edit for block: ${blockId}`);
+
+      const block = await this.prisma.parsedBlock.findUnique({
+        where: { id: blockId },
+      });
+
+      if (!block) {
+        throw new NotFoundException(`Block ${blockId} not found`);
+      }
+
+      const updated = await this.prisma.parsedBlock.update({
+        where: { id: blockId },
+        data: {
+          editedText,
+          isEdited: true,
+        },
+      });
+
+      this.logger.debug(`Block edit saved: ${blockId}`);
+      return updated;
+    } catch (error) {
+      this.logger.error(
+        `Failed to save block edit ${blockId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
   async getApprovedBlocks(batchId: string) {
     try {
       this.logger.debug(`Getting approved blocks for batch: ${batchId}`);

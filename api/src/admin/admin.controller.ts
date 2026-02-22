@@ -60,6 +60,8 @@ import {
   PrerequisiteDetailResponseDto,
 } from './dto/prerequisite-detail.dto';
 import { AITaskType } from '@prisma/client';
+import { ManualBatchService } from '../upload/manual-batch.service';
+import { CreateManualBatchDto } from '../upload/dto/create-manual-batch.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -68,6 +70,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly examIntelligenceService: ExamIntelligenceService,
+    private readonly manualBatchService: ManualBatchService,
   ) {}
 
   @Get('topics')
@@ -377,6 +380,43 @@ export class AdminController {
     }
   }
 
+  @Post('batches/manual')
+  async createManualBatch(@Body() dto: CreateManualBatchDto) {
+    try {
+      this.logger.log(`Creating manual batch: "${dto.title}"`);
+
+      const result = await this.manualBatchService.createManualBatch({
+        title: dto.title,
+        lessonId: dto.lessonId,
+        topicId: dto.topicId,
+        subtopicId: dto.subtopicId,
+        contentTypeHint: dto.contentTypeHint,
+        rawText: dto.rawText,
+        splitStrategy: dto.splitStrategy,
+        dedupPolicy: dto.dedupPolicy,
+        visionProvider: dto.visionProvider,
+        createdBy: 'admin-user-id',
+      });
+
+      this.logger.log(
+        `Manual batch created: batchId=${result.batchId}, blocks=${result.blockCount}`,
+      );
+
+      return { success: true, ...result };
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      this.logger.error(
+        `Failed to create manual batch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        `Failed to create manual batch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500,
+      );
+    }
+  }
+
   @Post('batches/:id/extract-knowledge')
   async extractKnowledgeForBatch(@Param('id') batchId: string) {
     try {
@@ -420,6 +460,8 @@ export class AdminController {
     @Query('filterByApprovalStatus') filterByApprovalStatus?: string,
     @Query('search') searchQuery?: string,
     @Query('hasFlashcard') hasFlashcard?: string,
+    @Query('atomicityStatus') atomicityStatus?: string,
+    @Query('isActive') isActive?: string,
   ) {
     try {
       this.logger.log('Getting all knowledge points');
@@ -434,6 +476,8 @@ export class AdminController {
         filterByApprovalStatus,
         searchQuery,
         hasFlashcard !== undefined ? hasFlashcard === 'true' : undefined,
+        atomicityStatus,
+        isActive !== undefined ? isActive === 'true' : undefined,
       );
 
       return {

@@ -10,18 +10,68 @@ import {
   Param,
   ParseUUIDPipe,
   Logger,
+  ConflictException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
+import { ManualBatchService } from './manual-batch.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
+import { CreateManualBatchDto } from './dto/create-manual-batch.dto';
 import { memoryStorage } from 'multer';
 
 @Controller('api/upload')
 export class UploadController {
   private readonly logger = new Logger(UploadController.name);
 
-  constructor(private readonly uploadService: UploadService) {}
+  constructor(
+    private readonly uploadService: UploadService,
+    private readonly manualBatchService: ManualBatchService,
+  ) {}
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Manual Text Batch
+  // POST /api/upload/manual-batch  (also exposed as admin/batches/manual via proxy)
+  // ────────────────────────────────────────────────────────────────────────
+  @Post('manual-batch')
+  @HttpCode(HttpStatus.CREATED)
+  async createManualBatch(@Body() dto: CreateManualBatchDto) {
+    try {
+      this.logger.log(`Creating manual batch: "${dto.title}"`);
+
+      const result = await this.manualBatchService.createManualBatch({
+        title: dto.title,
+        lessonId: dto.lessonId,
+        topicId: dto.topicId,
+        subtopicId: dto.subtopicId,
+        contentTypeHint: dto.contentTypeHint,
+        rawText: dto.rawText,
+        splitStrategy: dto.splitStrategy,
+        dedupPolicy: dto.dedupPolicy,
+        visionProvider: dto.visionProvider,
+        createdBy: 'admin-user-id',
+      });
+
+      this.logger.log(
+        `Manual batch created: batchId=${result.batchId}, blocks=${result.blockCount}`,
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      // Re-throw ConflictException so NestJS returns 409 with the payload
+      if (error instanceof ConflictException) throw error;
+      this.logger.error(
+        `Failed to create manual batch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
 
   @Post('batch')
   async createBatch(@Body() createBatchDto: CreateBatchDto) {

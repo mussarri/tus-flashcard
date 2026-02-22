@@ -22,7 +22,7 @@ import { ConceptModule } from '../concept/concept.module';
     forwardRef(() => AIModule),
     forwardRef(() => QuestionGenerationModule),
     UnresolvedHintsModule,
-    ConceptModule,
+    forwardRef(() => ConceptModule),
   ],
   providers: [
     ExamQuestionService,

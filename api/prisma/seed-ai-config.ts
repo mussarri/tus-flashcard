@@ -62,6 +62,22 @@ async function seedAIConfig() {
       maxTokens: 4000,
       isActive: true,
     },
+    {
+      taskType: AITaskType.KP_ATOMICITY_VALIDATE,
+      provider: AIProviderType.GEMINI,
+      model: 'gemini-2.5-flash',
+      temperature: 0.1,
+      maxTokens: 1500,
+      isActive: true,
+    },
+    {
+      taskType: AITaskType.KP_ATOMICITY_SPLIT,
+      provider: AIProviderType.GEMINI,
+      model: 'gemini-2.5-flash',
+      temperature: 0.2,
+      maxTokens: 2000,
+      isActive: true,
+    },
   ];
 
   for (const config of defaultConfigs) {

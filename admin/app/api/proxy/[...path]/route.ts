@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 // Get backend API URL from environment or use localhost for development
 const getApiBaseUrl = (): string => {
-  const envUrl = process.env.API_URL;
+  const envUrl = process.env.BACKEND_URL || process.env.API_URL;
 
   if (envUrl && typeof envUrl === "string" && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/$/, "");
@@ -15,8 +15,12 @@ const getApiBaseUrl = (): string => {
     }
   }
   
-  // Default: Docker service name or localhost
-  const defaultUrl = "http://api:5000";
+  // Default: local API in development, Docker service in other environments
+  const defaultUrl =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3000"
+      : "http://api:5000";
+
   if (process.env.NODE_ENV === "development") {
     console.log(`Using default backend URL: ${defaultUrl}`);
   }

@@ -5,4 +5,5 @@ export enum QueueName {
   FLASHCARD_GENERATION = 'flashcard-generation',
   QUESTION_GENERATION = 'question-generation',
   EXAM_QUESTION_ANALYSIS = 'exam-question-analysis',
+  KP_ATOMICITY = 'kp-atomicity',
 }

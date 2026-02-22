@@ -1,13 +1,15 @@
-'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
 
-import { useState, useEffect } from 'react';
-import { api } from '../../lib/api';
-import { CheckCircle, XCircle, Save, AlertTriangle, Eye } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { api } from "../../lib/api";
+import { CheckCircle, XCircle, Save, AlertTriangle, Eye } from "lucide-react";
 
 interface ParsedBlock {
   id: string;
   rawText: string | null;
   editedText: string | null;
+  isEdited?: boolean;
   lesson: string | null;
   topic: string | null;
   subtopic: string | null;
@@ -25,29 +27,52 @@ export default function ContentReviewPage() {
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
+  const [editText, setEditText] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // TODO: Implement API endpoint to fetch blocks awaiting approval
-    // For now, using placeholder
-    setLoading(false);
+    const fetchPendingBlocks = async () => {
+      try {
+        const response = await api.getPendingBlocks();
+        if (response.success) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setBlocks(
+            response.blocks.map((b: any) => ({
+              ...b,
+              lesson: b.lesson?.name ?? b.lesson ?? null,
+              topic: b.topic?.name ?? b.topic ?? null,
+              subtopic: b.subtopic?.name ?? b.subtopic ?? null,
+            })),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch pending blocks:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPendingBlocks();
   }, []);
 
   const handleStartEdit = (block: ParsedBlock) => {
     setEditingBlockId(block.id);
-    setEditText(block.editedText || block.rawText || '');
+    setEditText(block.editedText || block.rawText || "");
   };
 
   const handleSaveEdit = async (blockId: string) => {
     setSaving(true);
     try {
-      // Save edited text (don't approve yet)
-      // TODO: Implement API endpoint for saving edits
+      await api.saveBlockEdit(blockId, editText);
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.id === blockId ? { ...b, editedText: editText, isEdited: true } : b,
+        ),
+      );
       setEditingBlockId(null);
     } catch (error) {
-      console.error('Failed to save edit:', error);
-      alert('Failed to save edit');
+      console.error("Failed to save edit:", error);
+      alert("Failed to save edit");
     } finally {
       setSaving(false);
     }
@@ -55,35 +80,33 @@ export default function ContentReviewPage() {
 
   const handleApprove = async (blockId: string, text: string) => {
     if (!text.trim()) {
-      alert('Cannot approve empty content. Please add text first.');
+      alert("Cannot approve empty content. Please add text first.");
       return;
     }
 
-    if (!confirm('Approve this content for knowledge extraction?')) {
+    if (!confirm("Approve this content for knowledge extraction?")) {
       return;
     }
 
     try {
       await api.approveBlock(blockId, { editedText: text });
-      // Refresh list
-      window.location.reload();
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
     } catch (error) {
-      console.error('Failed to approve block:', error);
-      alert('Failed to approve block');
+      console.error("Failed to approve block:", error);
+      alert("Failed to approve block");
     }
   };
 
   const handleReject = async (blockId: string) => {
-    const reason = prompt('Please provide a reason for rejection:');
+    const reason = prompt("Please provide a reason for rejection:");
     if (!reason) return;
 
     try {
       await api.rejectBlock(blockId);
-      // Refresh list
-      window.location.reload();
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
     } catch (error) {
-      console.error('Failed to reject block:', error);
-      alert('Failed to reject block');
+      console.error("Failed to reject block:", error);
+      alert("Failed to reject block");
     }
   };
 
@@ -91,14 +114,12 @@ export default function ContentReviewPage() {
 
   if (loading) {
     return (
-
       <div className="p-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-gray-200 rounded w-1/4"></div>
           <div className="h-64 bg-gray-200 rounded"></div>
         </div>
       </div>
-
     );
   }
 
@@ -107,7 +128,8 @@ export default function ContentReviewPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Content Review</h1>
         <p className="text-gray-600 mt-2">
-          Review and approve parsed blocks. AI suggestions are shown for reference only.
+          Review and approve parsed blocks. AI suggestions are shown for
+          reference only.
         </p>
       </div>
 
@@ -119,8 +141,12 @@ export default function ContentReviewPage() {
         <div className="space-y-6">
           {blocks.map((block) => {
             const isEditing = editingBlockId === block.id;
-            const displayText = isEditing ? editText : block.editedText || block.rawText || '';
-            const lowConfidence = block.confidence !== null && block.confidence < CONFIDENCE_THRESHOLD;
+            const displayText = isEditing
+              ? editText
+              : block.editedText || block.rawText || "";
+            const lowConfidence =
+              block.confidence !== null &&
+              block.confidence < CONFIDENCE_THRESHOLD;
 
             return (
               <div
@@ -136,10 +162,12 @@ export default function ContentReviewPage() {
                       </h3>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                         <span>
-                          <strong>Lesson:</strong> {block.lesson || 'N/A'} (AI suggestion)
+                          <strong>Lesson:</strong> {block.lesson || "N/A"} (AI
+                          suggestion)
                         </span>
                         <span>
-                          <strong>Topic:</strong> {block.topic || 'N/A'} (AI suggestion)
+                          <strong>Topic:</strong> {block.topic || "N/A"} (AI
+                          suggestion)
                         </span>
                         <span>
                           <strong>Type:</strong> {block.contentType}
@@ -148,11 +176,12 @@ export default function ContentReviewPage() {
                           <span
                             className={
                               lowConfidence
-                                ? 'text-red-600 font-semibold'
-                                : 'text-gray-600'
+                                ? "text-red-600 font-semibold"
+                                : "text-gray-600"
                             }
                           >
-                            <strong>Confidence:</strong> {(block.confidence * 100).toFixed(0)}%
+                            <strong>Confidence:</strong>{" "}
+                            {(block.confidence * 100).toFixed(0)}%
                           </span>
                         )}
                       </div>
@@ -160,7 +189,9 @@ export default function ContentReviewPage() {
                     {lowConfidence && (
                       <div className="flex items-center gap-2 text-yellow-600">
                         <AlertTriangle className="w-5 h-5" />
-                        <span className="text-sm font-medium">Low Confidence</span>
+                        <span className="text-sm font-medium">
+                          Low Confidence
+                        </span>
                       </div>
                     )}
                   </div>
@@ -175,7 +206,7 @@ export default function ContentReviewPage() {
                     </label>
                     <div className="bg-gray-50 border border-gray-200 rounded p-4 h-64 overflow-y-auto">
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {block.rawText || 'No raw text available'}
+                        {block.rawText || "No raw text available"}
                       </p>
                     </div>
                   </div>
@@ -205,7 +236,7 @@ export default function ContentReviewPage() {
                           <button
                             onClick={() => {
                               setEditingBlockId(null);
-                              setEditText('');
+                              setEditText("");
                             }}
                             className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                           >
@@ -217,7 +248,7 @@ export default function ContentReviewPage() {
                       <div className="space-y-2">
                         <div className="bg-white border border-gray-200 rounded p-4 h-64 overflow-y-auto">
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                            {displayText || 'No content'}
+                            {displayText || "No content"}
                           </p>
                         </div>
                         <button
@@ -247,8 +278,8 @@ export default function ContentReviewPage() {
                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
                     title={
                       !displayText.trim()
-                        ? 'Cannot approve empty content. Please add text first.'
-                        : 'Approve this content for knowledge extraction'
+                        ? "Cannot approve empty content. Please add text first."
+                        : "Approve this content for knowledge extraction"
                     }
                   >
                     <CheckCircle className="w-4 h-4" />

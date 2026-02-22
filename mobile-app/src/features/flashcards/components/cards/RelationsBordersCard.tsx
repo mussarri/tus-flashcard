@@ -1,13 +1,14 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import BaseFlashcard from './BaseFlashcard';
-import { Flashcard } from '../../types';
-import { cardStyles } from './CardStyles';
+import React from "react";
+import { View, Text } from "react-native";
+import { Image } from "expo-image";
+import BaseFlashcard from "./BaseFlashcard";
+import { Flashcard } from "../../types";
+import { cardStyles } from "./CardStyles";
 
 interface RelationsBordersCardProps {
-    flashcard: Flashcard;
-    isFlipped: boolean;
-    onFlip: () => void;
+  flashcard: Flashcard;
+  isFlipped: boolean;
+  onFlip: () => void;
 }
 
 /**
@@ -16,59 +17,89 @@ interface RelationsBordersCardProps {
  * Grid layout showing anterior/posterior/medial/lateral/superior/inferior
  */
 export default function RelationsBordersCard({
-    flashcard,
-    isFlipped,
-    onFlip,
+  flashcard,
+  isFlipped,
+  onFlip,
 }: RelationsBordersCardProps) {
-    // Parse spatial relations from answer
-    const parseRelations = (text: string) => {
-        const relations: Record<string, string> = {};
-        const lines = text.split('\n').filter(line => line.trim());
+  const hasImage = !!flashcard.imageAssetId;
+  const imageUrl = hasImage
+    ? process.env.EXPO_PUBLIC_API_URL +
+      `/admin/visual-assets/${flashcard.imageAssetId}`
+    : null;
 
-        lines.forEach(line => {
-            const match = line.match(/(Anterior|Posterior|Medial|Lateral|Superior|Inferior):\s*(.+)/i);
-            if (match) {
-                relations[match[1]] = match[2].trim();
-            }
-        });
+  // Parse spatial relations from answer
+  const parseRelations = (text: string) => {
+    const relations: Record<string, string> = {};
+    const lines = text.split("\n").filter((line) => line.trim());
 
-        return relations;
-    };
+    lines.forEach((line) => {
+      const match = line.match(
+        /(Anterior|Posterior|Medial|Lateral|Superior|Inferior):\s*(.+)/i,
+      );
+      if (match) {
+        relations[match[1]] = match[2].trim();
+      }
+    });
 
-    const frontContent = (
-        <View>
-            <Text style={cardStyles.questionText}>{flashcard.front}</Text>
+    return relations;
+  };
+
+  const frontContent = (
+    <View>
+      {hasImage && (
+        <View style={cardStyles.imageContainer}>
+          <Image
+            source={{ uri: imageUrl! }}
+            style={cardStyles.image}
+            contentFit="contain"
+            transition={200}
+          />
         </View>
-    );
+      )}
+      <Text style={cardStyles.questionText}>{flashcard.front}</Text>
+    </View>
+  );
 
-    const backContent = (
-        <View>
-            {/* Show parsed grid if available */}
-            {Object.keys(parseRelations(flashcard.back)).length > 0 ? (
-                <View style={cardStyles.gridContainer}>
-                    {Object.entries(parseRelations(flashcard.back)).map(([direction, structure]) => (
-                        <View key={direction} style={cardStyles.gridCell}>
-                            <Text style={cardStyles.gridLabel}>{direction}</Text>
-                            <Text style={cardStyles.gridValue}>{structure}</Text>
-                        </View>
-                    ))}
-                </View>
-            ) : (
-                /* Fallback to plain text if parsing fails */
-                <Text style={cardStyles.answerText}>{flashcard.back}</Text>
-            )}
+  const backContent = (
+    <View>
+      {hasImage && (
+        <View style={cardStyles.imageContainer}>
+          <Image
+            source={{ uri: imageUrl! }}
+            style={cardStyles.image}
+            contentFit="contain"
+            transition={200}
+          />
         </View>
-    );
+      )}
+      {/* Show parsed grid if available */}
+      {Object.keys(parseRelations(flashcard.back)).length > 0 ? (
+        <View style={cardStyles.gridContainer}>
+          {Object.entries(parseRelations(flashcard.back)).map(
+            ([direction, structure]) => (
+              <View key={direction} style={cardStyles.gridCell}>
+                <Text style={cardStyles.gridLabel}>{direction}</Text>
+                <Text style={cardStyles.gridValue}>{structure}</Text>
+              </View>
+            ),
+          )}
+        </View>
+      ) : (
+        /* Fallback to plain text if parsing fails */
+        <Text style={cardStyles.answerText}>{flashcard.back}</Text>
+      )}
+    </View>
+  );
 
-    return (
-        <BaseFlashcard
-            front={frontContent}
-            back={backContent}
-            isFlipped={isFlipped}
-            onFlip={onFlip}
-            cardType={flashcard.cardType}
-            difficulty={flashcard.difficulty}
-            knowledgePoint={flashcard.knowledgePoint}
-        />
-    );
+  return (
+    <BaseFlashcard
+      front={frontContent}
+      back={backContent}
+      isFlipped={isFlipped}
+      onFlip={onFlip}
+      cardType={flashcard.cardType}
+      difficulty={flashcard.difficulty}
+      knowledgePoint={flashcard.knowledgePoint}
+    />
+  );
 }

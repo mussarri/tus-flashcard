@@ -11,6 +11,7 @@ interface BatchCardProps {
     topic: string;
     description?: string;
     status: string;
+    sourceType?: string;
     createdAt: string;
     pages?: any[];
   };
@@ -52,17 +53,24 @@ export default function BatchCard({ batch }: BatchCardProps) {
         )}
         <div className="flex items-center justify-between text-sm text-gray-700 font-medium">
           <span>{batch.pages?.length || 0} page(s)</span>
-          <span
-            className={`px-2 py-1 rounded font-semibold ${
-              batch.status === 'COMPLETED'
-                ? 'bg-green-100 text-green-800'
-                : batch.status === 'PROCESSING'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-gray-100 text-gray-800'
-            }`}
-          >
-            {batch.status}
-          </span>
+          <div className="flex items-center gap-2">
+            {batch.sourceType === 'MANUAL_TEXT' && (
+              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                TEXT
+              </span>
+            )}
+            <span
+              className={`px-2 py-1 rounded font-semibold ${
+                batch.status === 'COMPLETED'
+                  ? 'bg-green-100 text-green-800'
+                  : batch.status === 'PROCESSING'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              {batch.status}
+            </span>
+          </div>
         </div>
         <p className="text-xs text-gray-600 font-medium mt-4">
           {new Date(batch.createdAt).toLocaleDateString()}

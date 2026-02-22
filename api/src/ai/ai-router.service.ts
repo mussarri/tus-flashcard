@@ -25,6 +25,8 @@ import { AIProviderType } from '@prisma/client';
 import { PricingService } from './pricing.service';
 import { PrerequisiteLearningService } from '../exam-question/prerequisite-learning.service';
 import { buildFizyolojiExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-fizyoloji.prompt';
+import { buildAtomicityValidationPrompt } from './prompts/atomicity-validation.prompt';
+import { buildAtomicitySplittingPrompt } from './prompts/atomicity-splitting.prompt';
 
 @Injectable()
 export class AIRouterService {
@@ -259,6 +261,39 @@ export class AIRouterService {
             effectiveModel,
           );
           // Embeddings don't return token usage in the same format
+          break;
+        }
+
+        case AITaskType.KP_ATOMICITY_VALIDATE: {
+          const validationResult = await this.runAtomicityValidationTask(
+            provider,
+            taskPayload as {
+              fact: string;
+              category?: string;
+              subcategory?: string;
+            },
+            options,
+            effectiveModel,
+          );
+          result = validationResult.content;
+          usage = validationResult.usage;
+          break;
+        }
+
+        case AITaskType.KP_ATOMICITY_SPLIT: {
+          const splittingResult = await this.runAtomicitySplittingTask(
+            provider,
+            taskPayload as {
+              fact: string;
+              category?: string;
+              subcategory?: string;
+              estimatedFactCount?: number;
+            },
+            options,
+            effectiveModel,
+          );
+          result = splittingResult.content;
+          usage = splittingResult.usage;
           break;
         }
 
@@ -650,5 +685,57 @@ export class AIRouterService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Run atomicity validation task
+   */
+  private async runAtomicityValidationTask(
+    provider: AIProvider,
+    payload: {
+      fact: string;
+      category?: string;
+      subcategory?: string;
+    },
+    options: AIModelOptions,
+    model: string,
+  ): Promise<{ content: string; usage?: TokenUsage }> {
+    const { systemPrompt, userPrompt } =
+      buildAtomicityValidationPrompt(payload);
+
+    const textOptions = {
+      ...options,
+      responseFormat: 'json_object' as const,
+      temperature: 0, // No randomness for atomicity validation
+      maxTokens: options.maxTokens ?? 500,
+    };
+
+    return await provider.runText(systemPrompt, userPrompt, model, textOptions);
+  }
+
+  /**
+   * Run atomicity splitting task
+   */
+  private async runAtomicitySplittingTask(
+    provider: AIProvider,
+    payload: {
+      fact: string;
+      category?: string;
+      subcategory?: string;
+      estimatedFactCount?: number;
+    },
+    options: AIModelOptions,
+    model: string,
+  ): Promise<{ content: string; usage?: TokenUsage }> {
+    const { systemPrompt, userPrompt } = buildAtomicitySplittingPrompt(payload);
+
+    const textOptions = {
+      ...options,
+      responseFormat: 'json_object' as const,
+      temperature: 0, // No randomness for deterministic splitting
+      maxTokens: options.maxTokens ?? 1000,
+    };
+
+    return await provider.runText(systemPrompt, userPrompt, model, textOptions);
   }
 }

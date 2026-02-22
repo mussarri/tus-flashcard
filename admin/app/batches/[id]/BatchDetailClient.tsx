@@ -18,7 +18,15 @@ interface Batch {
   topic: string;
   description?: string;
   status: string;
-  pages: any[];
+  sourceType?: string;
+  pages: Array<{
+    id: string;
+    pageNumber: number;
+    fileType?: string;
+    rawText?: string;
+    textHash?: string;
+    blocks: any[];
+  }>;
 }
 
 interface Tab {
@@ -133,10 +141,15 @@ export default function BatchDetailClient({
         {batch.description && (
           <p className="text-gray-600 mt-2">{batch.description}</p>
         )}
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded">
             {batch.status}
           </span>
+          {batch.sourceType === 'MANUAL_TEXT' && (
+            <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-semibold rounded">
+              MANUAL TEXT
+            </span>
+          )}
         </div>
       </div>
 
@@ -180,7 +193,36 @@ export default function BatchDetailClient({
 
 // Tab Components
 function PagesTab({ batch }: { batch: Batch }) {
-  return <ClassificationView batchId={batch.id} />;
+  const isManualText = (batch as any).sourceType === 'MANUAL_TEXT';
+
+  return (
+    <div>
+      {isManualText && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 shrink-0 mt-0.5">
+            MANUAL TEXT
+          </span>
+          <div>
+            <p className="text-sm font-medium text-green-900">This batch was created from pasted text.</p>
+            <p className="text-sm text-green-700 mt-0.5">
+              No OCR was performed. Blocks were split deterministically and are ready for review.
+            </p>
+            {batch.pages?.[0]?.rawText && (
+              <details className="mt-3">
+                <summary className="text-xs font-medium text-green-800 cursor-pointer hover:underline">
+                  View original pasted text
+                </summary>
+                <pre className="mt-2 text-xs text-green-900 bg-green-100 rounded p-3 whitespace-pre-wrap overflow-x-auto max-h-48 overflow-y-auto">
+                  {batch.pages[0].rawText}
+                </pre>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
+      <ClassificationView batchId={batch.id} />
+    </div>
+  );
 }
 
 function ApprovedContentTab({

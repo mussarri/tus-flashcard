@@ -177,9 +177,7 @@ export class KnowledgeExtractionController {
    * POST /knowledge-extraction/admin/jobs/bulk-status
    */
   @Post('admin/jobs/bulk-status')
-  async getBulkJobStatus(
-    @Body() body: { jobIds: string[] },
-  ): Promise<{
+  async getBulkJobStatus(@Body() body: { jobIds: string[] }): Promise<{
     jobs: Array<{
       jobId: string;
       state: string;

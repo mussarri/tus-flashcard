@@ -142,6 +142,20 @@ export const api = {
     }),
 
   // Approval
+  getPendingBlocks: () =>
+    apiRequest<{ success: boolean; blocks: any[] }>(
+      "api/approval/blocks/pending",
+    ),
+
+  saveBlockEdit: (blockId: string, editedText: string) =>
+    apiRequest<{ success: boolean; block: any }>(
+      `api/approval/block/${blockId}/edit`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ editedText }),
+      },
+    ),
+
   approveBlock: (blockId: string, data?: { editedText?: string }) =>
     apiRequest<{ success: boolean; approvedContent: any }>(
       `api/approval/block/${blockId}/approve`,
@@ -292,6 +306,28 @@ export const api = {
     apiRequest<{ success: boolean; batch: any }>(
       `api/approval/batch/${batchId}/review`,
     ),
+
+  createManualBatch: (data: {
+    title: string;
+    lessonId: string;
+    topicId: string;
+    subtopicId?: string;
+    contentTypeHint?: string;
+    rawText: string;
+    splitStrategy?: "LINES" | "BULLETS" | "PARAGRAPHS" | "AUTO";
+    dedupPolicy?: "REJECT_IF_DUPLICATE" | "ALLOW_DUPLICATE";
+    visionProvider?: string;
+  }) =>
+    apiRequest<{
+      success: boolean;
+      batchId: string;
+      pageId: string;
+      blockCount: number;
+      textHash: string;
+    }>("admin/batches/manual", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   getApprovedBlocks: (batchId: string) =>
     apiRequest<{ success: boolean; approvedBlocks: any[] }>(
@@ -453,6 +489,30 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ knowledgePointIds }),
     }),
+
+  runKnowledgePointAtomicityValidation: (data?: {
+    mode?: "SYNC" | "QUEUE";
+    limit?: number;
+  }) =>
+    apiRequest<{ success: boolean; jobId?: string }>(
+      "admin/knowledge-points/atomicity/validate",
+      {
+        method: "POST",
+        body: JSON.stringify(data || { mode: "QUEUE", limit: 1000 }),
+      },
+    ),
+
+  runKnowledgePointAtomicityAutoSplit: (data?: {
+    mode?: "SYNC" | "QUEUE";
+    limit?: number;
+  }) =>
+    apiRequest<{ success: boolean; jobId?: string }>(
+      "admin/knowledge-points/atomicity/split",
+      {
+        method: "POST",
+        body: JSON.stringify(data || { mode: "QUEUE", limit: 500 }),
+      },
+    ),
 
   // Flashcards
   getFlashcardsForBatch: (batchId: string) =>

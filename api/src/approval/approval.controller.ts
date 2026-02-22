@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Param,
   ParseUUIDPipe,
@@ -95,6 +96,52 @@ export class ApprovalController {
     } catch (error) {
       this.logger.error(
         `Failed to delete block ${blockId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  @Get('blocks/pending')
+  async getPendingBlocks() {
+    try {
+      this.logger.log('Getting all pending blocks');
+      const blocks = await this.approvalService.getPendingBlocks();
+      this.logger.log(`Retrieved ${blocks.length} pending blocks`);
+
+      return {
+        success: true,
+        blocks,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get pending blocks: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  @Patch('block/:blockId/edit')
+  async saveBlockEdit(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: { editedText: string },
+  ) {
+    try {
+      this.logger.log(`Saving edit for block: ${blockId}`);
+      const block = await this.approvalService.saveBlockEdit(
+        blockId,
+        dto.editedText,
+      );
+      this.logger.log(`Block edit saved: ${blockId}`);
+
+      return {
+        success: true,
+        block,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to save block edit ${blockId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw error;

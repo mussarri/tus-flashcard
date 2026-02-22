@@ -25,7 +25,7 @@ export default function StructureIdCard({
   const hasImage = flashcard.imageAssetId;
   const imageUrl =
     process.env.EXPO_PUBLIC_API_URL +
-    `/api/student/flashcards/visual-assets/${flashcard.imageAssetId}`;
+    `/admin/visual-assets/${flashcard.imageAssetId}`;
 
   const frontContent = (
     <View>
@@ -79,7 +79,6 @@ export default function StructureIdCard({
             </Text>
           </View>
         )}
-        <Text style={cardStyles.answerText}>{flashcard.back}</Text>
       </View>
 
       {/* Answer */}

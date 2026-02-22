@@ -18,7 +18,11 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QueueName } from '../queue/queues';
 import { GenerationMode } from './dto/generate-topic.dto';
-import { AIProviderType } from '@prisma/client';
+import {
+  AIProviderType,
+  AtomicityStatus,
+  KnowledgePointApprovalStatus,
+} from '@prisma/client';
 import { AuditLogService } from '../common/services/audit-log.service';
 import { VisualAssetService } from '../common/services/visual-asset.service';
 import { AIRouterService } from '../ai/ai-router.service';
@@ -1723,6 +1727,8 @@ export class AdminService {
     filterByApprovalStatus?: string,
     searchQuery?: string,
     hasFlashcard?: boolean,
+    atomicityStatus?: string,
+    isActive?: boolean,
   ) {
     this.logger.log(
       `Getting all knowledge points - Page: ${page}, Limit: ${limit}`,
@@ -1731,11 +1737,30 @@ export class AdminService {
     const whereClause: any = {};
 
     if (filterByLesson) {
-      whereClause.lesson = { name: filterByLesson };
+      whereClause.lesson = { is: { name: filterByLesson } };
     }
 
     if (filterByApprovalStatus) {
-      whereClause.approvalStatus = filterByApprovalStatus;
+      const validApprovalStatuses = new Set<string>(
+        Object.values(KnowledgePointApprovalStatus),
+      );
+      if (validApprovalStatuses.has(filterByApprovalStatus)) {
+        whereClause.approvalStatus =
+          filterByApprovalStatus as KnowledgePointApprovalStatus;
+      }
+    }
+
+    if (atomicityStatus) {
+      const validAtomicityStatuses = new Set<string>(
+        Object.values(AtomicityStatus),
+      );
+      if (validAtomicityStatuses.has(atomicityStatus)) {
+        whereClause.atomicityStatus = atomicityStatus as AtomicityStatus;
+      }
+    }
+
+    if (isActive !== undefined) {
+      whereClause.isActive = isActive;
     }
 
     if (searchQuery) {
@@ -1793,10 +1818,21 @@ export class AdminService {
 
     // Determine sort field
     const orderByClause: any = {};
-    if (sortBy === 'confidence') {
+    const allowedSortFields = new Set([
+      'createdAt',
+      'updatedAt',
+      'priority',
+      'sourceCount',
+      'atomicityScore',
+      'classificationConfidence',
+      'confidence',
+    ]);
+    const safeSortBy = allowedSortFields.has(sortBy) ? sortBy : 'createdAt';
+
+    if (safeSortBy === 'confidence') {
       orderByClause.classificationConfidence = sortOrder;
     } else {
-      orderByClause[sortBy] = sortOrder;
+      orderByClause[safeSortBy] = sortOrder;
     }
 
     const knowledgePoints = await this.prisma.knowledgePoint.findMany({

@@ -12,6 +12,7 @@ import { CardType } from '@prisma/client';
 import { FlashcardTypeValidator } from '../common/validators/flashcard-type.validator';
 import { AIRouterService } from '../ai/ai-router.service';
 import * as crypto from 'crypto';
+import { AtomicityStatus } from '@prisma/client';
 export interface GeneratedFlashcard {
   cardType: // CORE CARDS (Tier 1)
     | 'STRUCTURE_ID'
@@ -75,6 +76,19 @@ export class FlashcardGenerationService {
       if (!knowledgePoint) {
         throw new NotFoundException(
           `KnowledgePoint ${knowledgePointId} not found`,
+        );
+      }
+
+      // ATOMICITY GUARD: Only allow flashcard generation for atomic, active KPs
+      if (knowledgePoint.atomicityStatus !== AtomicityStatus.ATOMIC) {
+        throw new BadRequestException(
+          `Cannot generate flashcards for non-atomic KP (status: ${knowledgePoint.atomicityStatus}). Only ATOMIC KPs can be used for flashcard generation. Please run atomicity validation and splitting first.`,
+        );
+      }
+
+      if (!knowledgePoint.isActive) {
+        throw new BadRequestException(
+          `Cannot generate flashcards for inactive KP. This KP has been replaced by split children. Please generate flashcards for the child KPs instead.`,
         );
       }
 

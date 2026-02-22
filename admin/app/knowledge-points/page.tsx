@@ -26,6 +26,9 @@ interface KnowledgePoint {
   rejectionReason: string | null;
   classificationConfidence: number | null;
   sourceCount: number;
+  atomicityStatus?: string;
+  atomicityScore?: number;
+  isActive?: boolean;
   createdAt: string;
   lesson: {
     id: string;
@@ -58,6 +61,8 @@ export default function KnowledgePointsPage() {
   const [filterLesson, setFilterLesson] = useState("");
   const [filterApprovalStatus, setFilterApprovalStatus] = useState("");
   const [filterHasFlashcard, setFilterHasFlashcard] = useState<string>("");
+  const [filterAtomicityStatus, setFilterAtomicityStatus] = useState<string>("");
+  const [filterIsActive, setFilterIsActive] = useState<string>("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -65,6 +70,8 @@ export default function KnowledgePointsPage() {
   const [selectedKPs, setSelectedKPs] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRunningAtomicity, setIsRunningAtomicity] = useState(false);
+  const [isRunningAutoSplit, setIsRunningAutoSplit] = useState(false);
 
   // Available lessons (we'll populate this from the data)
   const [lessons, setLessons] = useState<string[]>([]);
@@ -85,17 +92,15 @@ export default function KnowledgePointsPage() {
         params.append("filterByApprovalStatus", filterApprovalStatus);
       if (filterHasFlashcard !== "")
         params.append("hasFlashcard", filterHasFlashcard);
+      if (filterAtomicityStatus)
+        params.append("atomicityStatus", filterAtomicityStatus);
+      if (filterIsActive !== "")
+        params.append("isActive", filterIsActive);
 
       const queryString = params.toString();
-      console.log(queryString);
 
       const response = await api.getKnowledgePoints(queryString);
-      console.log(response);
-      
-      const resTopics = await api.getTopics();
-      if (resTopics && resTopics.lessons) {
-        setLessons(resTopics.lessons.map((l: any) => l.name));
-      }
+
       if (response && response.success) {
         setKnowledgePoints(response.data || []);
         setPagination(
@@ -107,6 +112,15 @@ export default function KnowledgePointsPage() {
           },
         );
       }
+
+      try {
+        const resTopics = await api.getTopics();
+        if (resTopics && resTopics.lessons) {
+          setLessons(resTopics.lessons.map((l: any) => l.name));
+        }
+      } catch (topicsError) {
+        console.error("Failed to fetch topics:", topicsError);
+      }
     } catch (error) {
       console.error("Failed to fetch knowledge points:", error);
     } finally {
@@ -116,7 +130,6 @@ export default function KnowledgePointsPage() {
 
   useEffect(() => {
     fetchKnowledgePoints();
-    console.log("fetch");
   }, [
     page,
     limit,
@@ -125,6 +138,8 @@ export default function KnowledgePointsPage() {
     filterLesson,
     filterApprovalStatus,
     filterHasFlashcard,
+    filterAtomicityStatus,
+    filterIsActive,
   ]);
 
   const handleSearch = () => {
@@ -220,6 +235,68 @@ export default function KnowledgePointsPage() {
     }
   };
 
+  const handleRunAtomicityCheck = async () => {
+    if (
+      !confirm(
+        "This will validate all UNCHECKED knowledge points for atomicity. This may take a while. Queue job in background?",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsRunningAtomicity(true);
+      const response = await api.runKnowledgePointAtomicityValidation({
+        mode: "QUEUE",
+        limit: 1000,
+      });
+
+      if (response.success) {
+        alert(
+          `Atomicity validation job queued (Job ID: ${response.jobId})`,
+        );
+      } else {
+        alert("Failed to queue atomicity validation job");
+      }
+    } catch (error) {
+      console.error("Failed to run atomicity check:", error);
+      alert("Failed to run atomicity check. Check console for details.");
+    } finally {
+      setIsRunningAtomicity(false);
+    }
+  };
+
+  const handleAutoSplitNonAtomic = async () => {
+    if (
+      !confirm(
+        "This will split all NON_ATOMIC knowledge points into atomic ones. This may take a while. Queue job in background?",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsRunningAutoSplit(true);
+      const response = await api.runKnowledgePointAtomicityAutoSplit({
+        mode: "QUEUE",
+        limit: 500,
+      });
+
+      if (response.success) {
+        alert(
+          `Auto-split job queued (Job ID: ${response.jobId})`,
+        );
+      } else {
+        alert("Failed to queue auto-split job");
+      }
+    } catch (error) {
+      console.error("Failed to run auto-split:", error);
+      alert("Failed to run auto-split. Check console for details.");
+    } finally {
+      setIsRunningAutoSplit(false);
+    }
+  };
+
   const getApprovalStatusBadge = (status: string) => {
     const config: Record<
       string,
@@ -264,6 +341,32 @@ export default function KnowledgePointsPage() {
     );
   };
 
+  const getAtomicityBadge = (status?: string, score?: number) => {
+    if (!status) return null;
+
+    const config: Record<
+      string,
+      { emoji: string; color: string; label: string }
+    > = {
+      UNCHECKED: { emoji: "🔍", color: "bg-gray-100 text-gray-800", label: "Unchecked" },
+      ATOMIC: { emoji: "✅", color: "bg-green-100 text-green-800", label: "Atomic" },
+      NON_ATOMIC: { emoji: "⚠️", color: "bg-yellow-100 text-yellow-800", label: "Non-atomic" },
+      FAILED: { emoji: "❌", color: "bg-red-100 text-red-800", label: "Failed" },
+    };
+
+    const c = config[status] || {
+      emoji: "❓",
+      color: "bg-gray-100 text-gray-800",
+      label: status,
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${c.color}`}>
+        {c.emoji} {c.label} {score !== undefined && `(${(score * 100).toFixed(0)}%)`}
+      </span>
+    );
+  };
+
   if (loading && knowledgePoints.length === 0) {
     return (
       <div className="p-8">
@@ -295,7 +398,7 @@ export default function KnowledgePointsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -363,6 +466,46 @@ export default function KnowledgePointsPage() {
             </select>
           </div>
 
+          {/* Atomicity Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Atomicity
+            </label>
+            <select
+              value={filterAtomicityStatus}
+              onChange={(e) => {
+                setFilterAtomicityStatus(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Atomicity</option>
+              <option value="UNCHECKED">Unchecked</option>
+              <option value="ATOMIC">Atomic</option>
+              <option value="NON_ATOMIC">Non-atomic</option>
+              <option value="FAILED">Failed</option>
+            </select>
+          </div>
+
+          {/* Active Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Active
+            </label>
+            <select
+              value={filterIsActive}
+              onChange={(e) => {
+                setFilterIsActive(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+
           {/* Has Flashcard Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -383,25 +526,45 @@ export default function KnowledgePointsPage() {
           </div>
         </div>
 
-        {/* Sort Options */}
-        <div className="flex items-center gap-4 mt-4">
-          <label className="text-sm font-medium text-gray-700">Sort by:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="createdAt">Created Date</option>
-            <option value="priority">Priority</option>
-            <option value="confidence">Confidence</option>
-            <option value="sourceCount">Source Count</option>
-          </select>
-          <button
-            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            className="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-          >
-            {sortOrder === "asc" ? "↑ Ascending" : "↓ Descending"}
-          </button>
+        {/* Atomicity Actions */}
+        <div className="space-y-4 mt-6 pt-6 border-t border-gray-200">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg font-semibold text-gray-900">Atomicity Tools</span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleRunAtomicityCheck}
+              disabled={isRunningAtomicity}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+            >
+              {isRunningAtomicity ? (
+                <>
+                  <span className="animate-spin">⚡</span>
+                  Running...
+                </>
+              ) : (
+                <>
+                  🔍 Run Atomicity Check
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleAutoSplitNonAtomic}
+              disabled={isRunningAutoSplit}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+            >
+              {isRunningAutoSplit ? (
+                <>
+                  <span className="animate-spin">⚡</span>
+                  Running...
+                </>
+              ) : (
+                <>
+                  ✨ Auto-Split NON_ATOMIC
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -533,6 +696,12 @@ export default function KnowledgePointsPage() {
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-medium">
                         📚 {kp.lesson.name}
                       </span>
+                      {kp.atomicityStatus && getAtomicityBadge(kp.atomicityStatus, kp.atomicityScore)}
+                      {!kp.isActive && (
+                        <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded font-medium">
+                          🔒 Inactive
+                        </span>
+                      )}
                       {kp.topic && (
                         <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded font-medium">
                           📑 {kp.topic.name}

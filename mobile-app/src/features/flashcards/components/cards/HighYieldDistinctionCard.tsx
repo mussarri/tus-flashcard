@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { Image } from 'expo-image';
 import BaseFlashcard from './BaseFlashcard';
 import { Flashcard } from '../../types';
 import { cardStyles } from './CardStyles';
@@ -26,9 +27,24 @@ export default function HighYieldDistinctionCard({
         return sections.map(section => section.trim()).filter(s => s.length > 0);
     };
 
+    const hasImage = !!flashcard.imageAssetId;
+    const imageUrl = hasImage
+        ? process.env.EXPO_PUBLIC_API_URL + `/admin/visual-assets/${flashcard.imageAssetId}`
+        : null;
+
     const frontContent = (
         <View>
             <Text style={cardStyles.questionText}>{flashcard.front}</Text>
+            {hasImage && (
+                <View style={cardStyles.imageContainer}>
+                    <Image
+                        source={{ uri: imageUrl! }}
+                        style={cardStyles.image}
+                        contentFit="contain"
+                        transition={200}
+                    />
+                </View>
+            )}
         </View>
     );
 
@@ -39,6 +55,16 @@ export default function HighYieldDistinctionCard({
                     <Text style={cardStyles.comparisonText}>{section}</Text>
                 </View>
             ))}
+            {hasImage && (
+                <View style={cardStyles.imageContainer}>
+                    <Image
+                        source={{ uri: imageUrl! }}
+                        style={cardStyles.image}
+                        contentFit="contain"
+                        transition={200}
+                    />
+                </View>
+            )}
         </View>
     );
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { Image } from "expo-image";
 import BaseFlashcard from "./BaseFlashcard";
 import { Flashcard } from "../../types";
 import { cardStyles } from "./CardStyles";
@@ -19,8 +20,24 @@ export default function ClinicalCorrelationCard({
   isFlipped,
   onFlip,
 }: ClinicalCorrelationCardProps) {
+  const hasImage = !!flashcard.imageAssetId;
+  const imageUrl = hasImage
+    ? process.env.EXPO_PUBLIC_API_URL +
+      `/admin/visual-assets/${flashcard.imageAssetId}`
+    : null;
+
   const frontContent = (
     <View>
+      {hasImage && (
+        <View style={cardStyles.imageContainer}>
+          <Image
+            source={{ uri: imageUrl! }}
+            style={cardStyles.image}
+            contentFit="contain"
+            transition={200}
+          />
+        </View>
+      )}
       <Text style={[cardStyles.questionText, { fontSize: 18 }]}>
         {flashcard.front}
       </Text>
@@ -29,6 +46,16 @@ export default function ClinicalCorrelationCard({
 
   const backContent = (
     <View>
+      {hasImage && (
+        <View style={cardStyles.imageContainer}>
+          <Image
+            source={{ uri: imageUrl! }}
+            style={cardStyles.image}
+            contentFit="contain"
+            transition={200}
+          />
+        </View>
+      )}
       <Text style={cardStyles.answerText}>{flashcard.back}</Text>
     </View>
   );

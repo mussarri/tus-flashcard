@@ -22,6 +22,11 @@ model UploadBatch {
   contentTypeHint ContentType? // Admin-selected content type (used for all pages in batch)
   visionProvider  AIProviderType? // Admin-selected AI provider for vision processing
   status          BatchStatus     @default(PENDING)
+  sourceType      BatchSourceType @default(FILE_UPLOAD) // Source of content
+  // Batch-level ontology hints (used for manual text batches)
+  lessonId        String? // Hint for lesson assignment
+  topicId         String? // Hint for topic assignment
+  subtopicId      String? // Hint for subtopic assignment
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   createdBy       String // Admin user ID
@@ -31,6 +36,7 @@ model UploadBatch {
 
   @@index([status])
   @@index([createdAt])
+  @@index([sourceType])
 }
 
 enum BatchStatus {
@@ -51,8 +57,12 @@ model UploadPage {
 
   pageNumber   Int // Order within batch
   fileType     FileType
-  filePath     String // Path to stored file (image or PDF)
+  filePath     String? // Path to stored file (image or PDF); null for TEXT pages
   originalName String // Original filename
+
+  // TEXT page fields
+  rawText  String? // Full pasted text (TEXT pages only)
+  textHash String? // sha256 of normalized rawText for deduplication
 
   // OCR processing status
   ocrStatus OCRStatus @default(PENDING)
@@ -71,11 +81,18 @@ model UploadPage {
   @@index([batchId])
   @@index([ocrStatus])
   @@index([pageNumber])
+  @@index([textHash])
 }
 
 enum FileType {
   IMAGE // JPG, PNG, etc.
   PDF
+  TEXT // Manually pasted text
+}
+
+enum BatchSourceType {
+  FILE_UPLOAD // Traditional file upload
+  MANUAL_TEXT // Admin-pasted raw text
 }
 
 enum OCRStatus {
@@ -115,6 +132,8 @@ model ParsedBlock {
   // Legacy fields (for backward compatibility)
   blockType  BlockType?
   blockIndex Int? // Order within page
+
+  @@index([pageId, blockIndex])
 
   // OCR output
   rawText    String? // Full text content
@@ -232,10 +251,31 @@ enum KnowledgePointSource {
   ADMIN
 }
 
+enum AtomicityStatus {
+  UNCHECKED
+  ATOMIC
+  NON_ATOMIC
+  FAILED
+}
+
 model KnowledgePoint {
   id String @id @default(uuid())
 
   source KnowledgePointSource
+
+  // ✅ atomicity
+  atomicityStatus AtomicityStatus @default(UNCHECKED)
+  atomicityScore  Float? // 0-1
+  atomicityReason String?
+
+  // Atomicity split traceability
+  splitFromId String? // If this KP was created by splitting, reference to parent
+  splitFrom   KnowledgePoint? @relation("SplitChildren", fields: [splitFromId], references: [id], onDelete: SetNull)
+  splitChildren KnowledgePoint[] @relation("SplitChildren")
+  
+  splitGroupId String? // UUID to group all children from same split
+  replacedAt   DateTime? // When this KP was replaced by split children
+  isActive     Boolean @default(true) // Soft delete: if false, this KP is replaced/inactive
 
   // Source traceability (content ingestion pipeline)
   approvedContentId String?
@@ -283,6 +323,10 @@ model KnowledgePoint {
   @@index([createdFromExamQuestionId])
   @@index([normalizedKey])
   @@index([priority])
+  @@index([atomicityStatus])
+  @@index([isActive])
+  @@index([splitFromId])
+  @@index([splitGroupId])
 }
 
 // ============================================
@@ -792,6 +836,8 @@ enum AITaskType {
   QUESTION_GENERATION
   EMBEDDING
   EXAM_QUESTION_ANALYSIS
+  KP_ATOMICITY_VALIDATE
+  KP_ATOMICITY_SPLIT
 }
 
 enum AIProviderType {
