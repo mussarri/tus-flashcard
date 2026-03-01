@@ -178,7 +178,6 @@ export class FlashcardGenerationService {
 
           // Map card type and determine visual requirements
           const visualRequired = this.isVisualRequired(cardType as CardType);
-          console.log(visualRequired);
 
           flashcards.push({
             cardType: cardType as any,
