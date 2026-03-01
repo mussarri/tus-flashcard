@@ -17,6 +17,12 @@ import { QueueName } from '../queue/queues';
 import { AIRouterService } from '../ai/ai-router.service';
 import { AITaskType } from '../ai/types';
 import * as crypto from 'crypto';
+import { KnowledgePointGeneratorService } from './knowledge-point-generator.service';
+import { KnowledgePointRepository } from './knowledge-point.repository';
+import { buildNormalizedKey } from './knowledge-point-normalizer.util';
+import { GeneratedKnowledgePointCandidate } from './knowledge-point.types';
+import { RelationshipType } from '.prisma/client/wasm';
+import { ExtractionMode } from './dto/knowledge-extraction.dto';
 
 export interface ExtractedKnowledgePoint {
   normalizedKey: string;
@@ -41,6 +47,14 @@ export interface KnowledgeExtractionResponse {
   }>;
 }
 
+export interface SingleCallKnowledgePointItem {
+  fact: string;
+  priority?: number; // 0-5
+  examRelevance?: number; // 0-1
+  relationshipType?: RelationshipType;
+  derivedFrom?: { field?: string; note?: string };
+}
+
 @Injectable()
 export class KnowledgeExtractionService {
   private readonly logger = new Logger(KnowledgeExtractionService.name);
@@ -48,6 +62,8 @@ export class KnowledgeExtractionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiRouter: AIRouterService,
+    private readonly generatorService: KnowledgePointGeneratorService,
+    private readonly knowledgePointRepository: KnowledgePointRepository,
     @InjectQueue(QueueName.KNOWLEDGE_EXTRACTION)
     private readonly knowledgeExtractionQueue: Queue,
     @InjectQueue(QueueName.FLASHCARD_GENERATION)
@@ -56,6 +72,480 @@ export class KnowledgeExtractionService {
     private readonly questionGenerationQueue: Queue,
   ) {
     this.logger.log('Knowledge extraction service initialized with AI Router');
+  }
+
+  async queueSingleExtraction(
+    approvedContentId: string,
+    mode: ExtractionMode,
+  ): Promise<{ jobId?: string }> {
+    const approvedContent = await this.prisma.approvedContent.findUnique({
+      where: { id: approvedContentId },
+      select: { id: true, extractionStatus: true },
+    });
+
+    if (!approvedContent) {
+      throw new NotFoundException(
+        `ApprovedContent ${approvedContentId} not found`,
+      );
+    }
+
+    if (approvedContent.extractionStatus !== 'PROCESSING') {
+      await this.prisma.approvedContent.update({
+        where: { id: approvedContentId },
+        data: { extractionStatus: 'QUEUED' },
+      });
+    }
+
+    const job = await this.knowledgeExtractionQueue.add(
+      `approved-content:${approvedContentId}`,
+      {
+        approvedContentId,
+        mode,
+      },
+    );
+
+    return { jobId: job.id?.toString() };
+  }
+
+  async queueBatchExtraction(
+    batchId: string,
+    mode: ExtractionMode,
+  ): Promise<{ queuedCount: number }> {
+    const approvedContents = await this.prisma.approvedContent.findMany({
+      where: {
+        batchId,
+        extractionStatus: {
+          not: 'PROCESSING',
+        },
+      },
+      select: { id: true },
+    });
+
+    let queuedCount = 0;
+
+    for (const item of approvedContents) {
+      await this.prisma.approvedContent.update({
+        where: { id: item.id },
+        data: { extractionStatus: 'QUEUED' },
+      });
+
+      await this.knowledgeExtractionQueue.add(`approved-content:${item.id}`, {
+        approvedContentId: item.id,
+        mode,
+      });
+      queuedCount += 1;
+    }
+
+    return { queuedCount };
+  }
+
+  async getBatchExtractionStatus(batchId: string): Promise<{
+    counts: {
+      NOT_STARTED: number;
+      QUEUED: number;
+      PROCESSING: number;
+      COMPLETED: number;
+      FAILED: number;
+    };
+    items: Array<{
+      approvedContentId: string;
+      extractionStatus: string;
+      lastError?: string;
+      kpCount?: number;
+    }>;
+  }> {
+    const approvedContents = await this.prisma.approvedContent.findMany({
+      where: { batchId },
+      select: { id: true, extractionStatus: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const counts = {
+      NOT_STARTED: 0,
+      QUEUED: 0,
+      PROCESSING: 0,
+      COMPLETED: 0,
+      FAILED: 0,
+    };
+
+    for (const item of approvedContents) {
+      if (item.extractionStatus === 'VERIFIED') {
+        counts.COMPLETED += 1;
+      } else if (item.extractionStatus in counts) {
+        counts[item.extractionStatus as keyof typeof counts] += 1;
+      }
+    }
+
+    const kpCounts = await this.prisma.knowledgePoint.groupBy({
+      by: ['approvedContentId'],
+      where: {
+        approvedContentId: { in: approvedContents.map((x) => x.id) },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const kpCountMap = new Map<string, number>();
+    for (const item of kpCounts) {
+      if (item.approvedContentId) {
+        kpCountMap.set(item.approvedContentId, item._count._all);
+      }
+    }
+
+    const jobs = await this.knowledgeExtractionQueue.getJobs(
+      ['failed', 'completed', 'active', 'waiting', 'delayed'],
+      0,
+      1000,
+      false,
+    );
+
+    const lastErrorMap = new Map<string, string>();
+    for (const job of jobs) {
+      const approvedContentId = (job.data as { approvedContentId?: string })
+        ?.approvedContentId;
+      if (!approvedContentId) continue;
+      if (job.finishedOn && job.failedReason) {
+        if (!lastErrorMap.has(approvedContentId)) {
+          lastErrorMap.set(approvedContentId, job.failedReason);
+        }
+      }
+    }
+
+    return {
+      counts,
+      items: approvedContents.map((item) => ({
+        approvedContentId: item.id,
+        extractionStatus:
+          item.extractionStatus === 'VERIFIED'
+            ? 'COMPLETED'
+            : item.extractionStatus,
+        lastError: lastErrorMap.get(item.id),
+        kpCount: kpCountMap.get(item.id) ?? 0,
+      })),
+    };
+  }
+
+  async getBatchExtractionLogs(
+    batchId: string,
+    limit = 50,
+  ): Promise<
+    Array<{
+      jobId: string;
+      approvedContentId?: string;
+      mode?: ExtractionMode;
+      state: string;
+      lastError?: string;
+      processedOn?: number;
+      finishedOn?: number;
+    }>
+  > {
+    const approvedContentIds = await this.prisma.approvedContent.findMany({
+      where: { batchId },
+      select: { id: true },
+    });
+    const idSet = new Set(approvedContentIds.map((x) => x.id));
+
+    const jobs = await this.knowledgeExtractionQueue.getJobs(
+      ['failed', 'completed', 'active', 'waiting', 'delayed'],
+      0,
+      Math.max(limit * 4, 200),
+      true,
+    );
+
+    const filtered = jobs
+      .filter((job) => {
+        const approvedContentId = (job.data as { approvedContentId?: string })
+          ?.approvedContentId;
+        return Boolean(approvedContentId && idSet.has(approvedContentId));
+      })
+      .slice(0, limit);
+
+    return Promise.all(
+      filtered.map(async (job) => ({
+        jobId: job.id?.toString() || 'unknown',
+        approvedContentId: (job.data as { approvedContentId?: string })
+          ?.approvedContentId,
+        mode: (job.data as { mode?: ExtractionMode }).mode,
+        state: (await job.getState()) || 'unknown',
+        lastError: job.failedReason || undefined,
+        processedOn: job.processedOn || undefined,
+        finishedOn: job.finishedOn || undefined,
+      })),
+    );
+  }
+
+  async upsertKnowledgePointsFromExamQuestionSingleCall(params: {
+    examQuestionId: string;
+    knowledgePoints: SingleCallKnowledgePointItem[];
+    examPattern?: string | null;
+  }): Promise<{ createdKpIds: string[]; upsertedKpIds: string[] }> {
+    const { examQuestionId, knowledgePoints, examPattern } = params;
+
+    const examQuestion = await this.prisma.examQuestion.findUnique({
+      where: { id: examQuestionId },
+      include: { lesson: true },
+    });
+
+    if (!examQuestion) throw new BadRequestException('ExamQuestion not found');
+    if (examQuestion.analysisStatus !== 'ANALYZED')
+      throw new BadRequestException(
+        'ExamQuestion analysisStatus must be ANALYZED',
+      );
+
+    if (!Array.isArray(knowledgePoints) || knowledgePoints.length === 0) {
+      return { createdKpIds: [], upsertedKpIds: [] };
+    }
+
+    const createdKpIds: string[] = [];
+    const upsertedKpIds: string[] = [];
+
+    for (const kp of knowledgePoints) {
+      const fact = (kp.fact ?? '').trim();
+      if (!fact) continue;
+
+      const normalizedKey = this.generateNormalizedKey(fact); // ↓ mevcut fonksiyonun varsa onu çağır
+
+      const priority = typeof kp.priority === 'number' ? kp.priority : 0;
+      const examRelevance =
+        typeof kp.examRelevance === 'number' ? kp.examRelevance : 0.5;
+      const relationshipType: RelationshipType =
+        kp.relationshipType ?? 'MEASURED';
+
+      const existing = await this.prisma.knowledgePoint.findUnique({
+        where: { normalizedKey },
+        select: { id: true },
+      });
+
+      let knowledgePointId: string;
+
+      if (existing) {
+        const updated = await this.prisma.knowledgePoint.update({
+          where: { normalizedKey },
+          data: {
+            fact,
+            sourceCount: { increment: 1 },
+            priority: Math.max(priority, 0),
+            examRelevance: Math.max(Math.min(examRelevance, 1), 0),
+            examPattern: examPattern ?? undefined,
+            // createdFromExamQuestionId: DO NOT overwrite on update (important)
+            lessonId: examQuestion.lessonId,
+            topicId: examQuestion.topicId,
+            subtopicId: examQuestion.subtopicId,
+          },
+          select: { id: true },
+        });
+        knowledgePointId = updated.id;
+        upsertedKpIds.push(knowledgePointId);
+      } else {
+        const created = await this.prisma.knowledgePoint.create({
+          data: {
+            normalizedKey,
+            fact,
+            source: 'EXAM_ANALYSIS', // enum sende farklıysa düzelt
+            priority,
+            examRelevance,
+            examPattern: examPattern ?? undefined,
+            sourceCount: 1,
+            createdFromExamQuestionId: examQuestionId,
+            lessonId: examQuestion.lessonId,
+            topicId: examQuestion.topicId,
+            subtopicId: examQuestion.subtopicId,
+          },
+          select: { id: true },
+        });
+        knowledgePointId = created.id;
+        createdKpIds.push(knowledgePointId);
+      }
+
+      // ✅ ensure join row exists (idempotent)
+      // Eğer join table'da unique (examQuestionId, knowledgePointId) varsa upsert kullan.
+      // Yoksa findFirst + create fallback.
+      try {
+        await this.prisma.examQuestionKnowledgePoint.upsert({
+          where: {
+            examQuestionId_knowledgePointId_relationshipType: {
+              examQuestionId,
+              knowledgePointId,
+              relationshipType,
+            },
+          },
+          create: {
+            examQuestionId,
+            knowledgePointId,
+            relationshipType,
+          },
+          update: {
+            relationshipType, // aynıysa no-op
+          },
+        });
+      } catch (e) {
+        // Eğer composite unique yoksa:
+        const existsJoin =
+          await this.prisma.examQuestionKnowledgePoint.findFirst({
+            where: { examQuestionId, knowledgePointId },
+            select: { examQuestionId: true },
+          });
+        if (!existsJoin) {
+          await this.prisma.examQuestionKnowledgePoint.create({
+            data: { examQuestionId, knowledgePointId, relationshipType },
+          });
+        }
+      }
+    }
+
+    return { createdKpIds, upsertedKpIds };
+  }
+
+  async processApprovedContentExtraction(
+    approvedContentId: string,
+    mode: ExtractionMode = ExtractionMode.APPEND,
+  ): Promise<{
+    approvedContentId: string;
+    extracted: number;
+    created: number;
+    updated: number;
+    sourceCountIncremented: number;
+  }> {
+    const approvedContent = await this.prisma.approvedContent.findUnique({
+      where: { id: approvedContentId },
+      include: {
+        block: {
+          include: {
+            lesson: true,
+            topic: true,
+            subtopic: true,
+          },
+        },
+      },
+    });
+
+    if (!approvedContent) {
+      throw new NotFoundException(
+        `ApprovedContent ${approvedContentId} not found`,
+      );
+    }
+
+    if (approvedContent.extractionStatus === 'PROCESSING') {
+      throw new BadRequestException(
+        `ApprovedContent ${approvedContentId} is already PROCESSING`,
+      );
+    }
+
+    await this.prisma.approvedContent.update({
+      where: { id: approvedContentId },
+      data: {
+        extractionStatus: 'PROCESSING',
+      },
+    });
+
+    try {
+      if (mode === ExtractionMode.REPLACE) {
+        await this.prisma.knowledgePoint.deleteMany({
+          where: { approvedContentId: approvedContent.id },
+        });
+      }
+
+      const generatedCandidates =
+        await this.generatorService.generateFromApprovedContent({
+          approvedContentId: approvedContent.id,
+          content: approvedContent.content,
+          blockType: approvedContent.blockType,
+          lessonName: approvedContent.block.lesson?.name,
+          topicName: approvedContent.block.topic?.name,
+          subtopicName: approvedContent.block.subtopic?.name,
+          tableData: approvedContent.block.tableData,
+          algorithmData: approvedContent.block.algorithmData,
+          maxKnowledgePoints: 50,
+        });
+
+      const cappedCandidates = [...generatedCandidates]
+        .sort((a, b) => {
+          if (b.priority !== a.priority) {
+            return b.priority - a.priority;
+          }
+          return b.examRelevance - a.examRelevance;
+        })
+        .slice(0, 50);
+
+      const dedupedByNormalizedKey = new Map<
+        string,
+        GeneratedKnowledgePointCandidate & { normalizedKey: string }
+      >();
+
+      for (const candidate of cappedCandidates) {
+        if (!candidate.fact || candidate.fact.trim().length === 0) continue;
+
+        const normalizedKey = buildNormalizedKey(
+          approvedContent.block.lesson?.name,
+          approvedContent.block.topic?.name,
+          candidate.fact,
+        );
+
+        const existing = dedupedByNormalizedKey.get(normalizedKey);
+        if (!existing) {
+          dedupedByNormalizedKey.set(normalizedKey, {
+            ...candidate,
+            normalizedKey,
+          });
+          continue;
+        }
+
+        existing.priority = Math.max(existing.priority, candidate.priority);
+        existing.examRelevance = Math.max(
+          existing.examRelevance,
+          candidate.examRelevance,
+        );
+        existing.classificationConfidence = Math.max(
+          existing.classificationConfidence,
+          candidate.classificationConfidence,
+        );
+      }
+
+      const dedupedCandidates = Array.from(dedupedByNormalizedKey.values());
+
+      const persistResult =
+        await this.knowledgePointRepository.persistForApprovedContent({
+          approvedContentId: approvedContent.id,
+          blockId: approvedContent.blockId,
+          lessonId: approvedContent.block.lessonId,
+          topicId: approvedContent.block.topicId,
+          subtopicId: approvedContent.block.subtopicId,
+          candidates: dedupedCandidates,
+          chunkSize: 50,
+        });
+
+      await this.prisma.approvedContent.update({
+        where: { id: approvedContentId },
+        data: {
+          extractionStatus: 'COMPLETED',
+          extractedAt: new Date(),
+        },
+      });
+
+      return {
+        approvedContentId,
+        extracted: cappedCandidates.length,
+        created: persistResult.created,
+        updated: persistResult.updated,
+        sourceCountIncremented: persistResult.sourceCountIncremented,
+      };
+    } catch (error) {
+      await this.prisma.approvedContent.update({
+        where: { id: approvedContentId },
+        data: { extractionStatus: 'FAILED' },
+      });
+
+      this.logger.error(
+        `Approved content extraction failed for ${approvedContentId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+
+      throw error;
+    } finally {
+      this.logger.debug(
+        `Approved content extraction finalized for ${approvedContentId} (mode=${mode})`,
+      );
+    }
   }
 
   /**

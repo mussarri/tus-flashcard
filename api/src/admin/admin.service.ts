@@ -1469,7 +1469,7 @@ export class AdminService {
             type: 'exponential',
             delay: 2000,
           },
-          jobId: `extract-${approvedContent.id}`,
+          jobId: `extract-ac-${approvedContent.id}`,
         },
       );
 
@@ -1565,49 +1565,43 @@ export class AdminService {
       return { queued: 0, skipped: allApprovedContents.length };
     }
 
-    let queued = 0;
-    let skipped = 0;
+    // Set eligible items to QUEUED first; worker performs per-item locking.
+    const updated = await this.prisma.approvedContent.updateMany({
+      where: {
+        id: { in: approvedContents.map((ac) => ac.id) },
+      },
+      data: { extractionStatus: 'QUEUED' },
+    });
 
-    for (const approvedContent of approvedContents) {
-      try {
-        // Update status to QUEUED
-        await this.prisma.approvedContent.update({
-          where: { id: approvedContent.id },
-          data: { extractionStatus: 'QUEUED' },
-        });
+    const skipped = allApprovedContents.length - updated.count;
+    let queued = updated.count;
 
-        // Enqueue knowledge extraction job
-        await this.knowledgeExtractionQueue.add(
-          'extract-knowledge',
-          {
-            approvedContentId: approvedContent.id,
+    try {
+      await this.knowledgeExtractionQueue.add(
+        'extract-knowledge-batch',
+        { batchId },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
           },
-          {
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 2000,
-            },
-            jobId: `extract-${approvedContent.id}`,
-          },
-        );
-
-        queued++;
-        this.logger.debug(
-          `Queued knowledge extraction for approvedContent: ${approvedContent.id}`,
-        );
-      } catch (error) {
-        // Revert status on error
+          jobId: `extract-batch-${batchId}`,
+        },
+      );
+    } catch (error) {
+      // If batch enqueue fails, roll back statuses.
+      for (const approvedContent of approvedContents) {
         await this.prisma.approvedContent.update({
           where: { id: approvedContent.id },
           data: { extractionStatus: approvedContent.extractionStatus },
         });
-
-        skipped++;
-        this.logger.error(
-          `Failed to queue knowledge extraction for approvedContent ${approvedContent.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
       }
+      queued = 0;
+      this.logger.error(
+        `Failed to queue batch knowledge extraction for batch ${batchId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
     }
 
     this.logger.log(
@@ -3667,7 +3661,7 @@ export class AdminService {
 
         // Queue for analysis
         const job = await this.examQuestionAnalysisQueue.add(
-          'analyze-exam-question',
+          'analyze-single-call',
           {
             examQuestionId: question.id,
           },

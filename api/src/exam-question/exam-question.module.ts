@@ -12,6 +12,7 @@ import { AIModule } from '../ai/ai.module';
 import { QuestionGenerationModule } from '../question-generation/question-generation.module';
 import { UnresolvedHintsModule } from '../admin/unresolved-hints/unresolved-hints.module';
 import { ConceptModule } from '../concept/concept.module';
+import { KnowledgeExtractionModule } from '../knowledge-extraction/knowledge-extraction.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ConceptModule } from '../concept/concept.module';
     forwardRef(() => QuestionGenerationModule),
     UnresolvedHintsModule,
     forwardRef(() => ConceptModule),
+    forwardRef(() => KnowledgeExtractionModule),
   ],
   providers: [
     ExamQuestionService,

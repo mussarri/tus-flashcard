@@ -29,12 +29,15 @@ import {
   AnalysisStatus,
   ConceptStatus,
   ConceptType,
+  KnowledgePoint,
+  RelationshipType,
 } from '@prisma/client';
 import { BulkParserService, ParsedQuestion } from './bulk-parser.service';
 import { buildQuestionCardPrompt } from '../ai/prompts/question-card.prompt';
 import { normalizeConceptKey } from '../common/normalize/normalize-concept-key';
 import { PrerequisiteLearningService } from './prerequisite-learning.service';
 import { UnresolvedHintsService } from '../admin/unresolved-hints/unresolved-hints.service';
+import { KnowledgeExtractionService } from '../knowledge-extraction/knowledge-extraction.service';
 export interface TrapAnalysis {
   option: string;
   reason: string;
@@ -91,7 +94,9 @@ export class ExamQuestionService {
     private readonly aiRouter: AIRouterService,
     private readonly bulkParser: BulkParserService,
     private readonly prerequisiteLearningService: PrerequisiteLearningService,
-    private readonly unresolvedHintsService: UnresolvedHintsService, // Assume this service exists
+    private readonly unresolvedHintsService: UnresolvedHintsService,
+    @Inject(forwardRef(() => KnowledgeExtractionService))
+    private readonly knowledgeExtractionService: KnowledgeExtractionService,
   ) {}
 
   /**
@@ -387,9 +392,16 @@ export class ExamQuestionService {
   /**
    * Trigger AI analysis for an exam question
    */
-  async triggerAnalysis(examQuestionId: string, lessonId: string) {
+  async triggerAnalysis(
+    examQuestionId: string,
+    lessonId: string,
+    mode?: 'LEGACY' | 'SINGLE_CALL',
+  ) {
     const examQuestion = await this.prisma.examQuestion.findUnique({
       where: { id: examQuestionId },
+      include: {
+        lesson: true,
+      },
     });
 
     if (!examQuestion) {
@@ -418,11 +430,26 @@ export class ExamQuestionService {
       );
     }
 
+    // Determine effective mode
+    const envFlag = process.env.QUESTION_SINGLE_CALL_MODE === 'true';
+    const effectiveMode = mode ?? (envFlag ? 'SINGLE_CALL' : 'LEGACY');
+
+    // Determine if single-call is applicable
+    const useSingleCall =
+      effectiveMode === 'SINGLE_CALL' &&
+      (examQuestion.lesson?.name === 'Fizyoloji' ||
+        lessonId === examQuestion.lesson?.id);
+
+    const jobName = useSingleCall
+      ? 'analyze-single-call'
+      : 'analyze-exam-question';
+
     // Add job to queue
     await this.examQuestionAnalysisQueue.add(
-      'analyze-exam-question',
+      jobName,
       { examQuestionId },
       {
+        jobId: useSingleCall ? `q-single-${examQuestionId}` : undefined,
         attempts: 3,
         backoff: {
           type: 'exponential',
@@ -432,12 +459,13 @@ export class ExamQuestionService {
     );
 
     this.logger.log(
-      `Queued analysis for exam question: ${examQuestionId}${lessonId ? ` with lesson: ${lessonId}` : ''}`,
+      `Queued ${jobName} for exam question: ${examQuestionId}${lessonId ? ` with lesson: ${lessonId}` : ''}`,
     );
 
     return {
       success: true,
       examQuestionId,
+      mode: useSingleCall ? 'SINGLE_CALL' : 'LEGACY',
       message: 'Analysis queued',
     };
   }
@@ -758,6 +786,185 @@ export class ExamQuestionService {
       await this.prisma.examQuestion.update({
         where: { id: examQuestionId },
         data: { analysisStatus: AnalysisStatus.FAILED },
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze exam question AND extract knowledge points in a single AI call
+   * Currently supports: Fizyoloji
+   * Feature flag: QUESTION_SINGLE_CALL_MODE=true
+   */
+  async analyzeQuestionSingleCall(examQuestionId: string): Promise<{
+    analysisResult: any;
+    knowledgePointsCreated: number;
+  }> {
+    this.logger.log(
+      `[Single-Call] Analyzing + extracting KPs for question: ${examQuestionId}`,
+    );
+
+    // 1) Load exam question with relations
+    const examQuestion = await this.prisma.examQuestion.findUnique({
+      where: { id: examQuestionId },
+      include: {
+        lesson: true,
+        topic: true,
+        subtopic: true,
+      },
+    });
+
+    if (!examQuestion) {
+      throw new NotFoundException(`Exam question not found: ${examQuestionId}`);
+    }
+
+    const lessonName = examQuestion.lesson?.name;
+    if (!lessonName) {
+      throw new BadRequestException(
+        'Lesson is required for single-call analysis',
+      );
+    }
+
+    // 2) Guard: Only Fizyoloji for now
+    if (lessonName !== 'Fizyoloji') {
+      this.logger.warn(
+        `Single-call mode not supported for ${lessonName}, falling back to legacy analysis`,
+      );
+      await this.analyzeExamQuestion(examQuestionId);
+      return {
+        analysisResult: null,
+        knowledgePointsCreated: 0,
+      };
+    }
+
+    // 3) Mark as PROCESSING
+    await this.prisma.examQuestion.update({
+      where: { id: examQuestionId },
+      data: { analysisStatus: AnalysisStatus.PROCESSING },
+    });
+
+    try {
+      // 4) Call AI Router with new task type
+      const rawAIResponse = await this.aiRouter.runTask(
+        AITaskType.QUESTION_ANALYZE_AND_KP,
+        {
+          question: examQuestion.question,
+          options: examQuestion.options as Record<string, string>,
+          correctAnswer: examQuestion.correctAnswer,
+          explanation: examQuestion.explanation || undefined,
+          year: examQuestion.year,
+          lesson: lessonName,
+          topic: examQuestion.topic?.name,
+          subtopic: examQuestion.subtopic?.name,
+        },
+      );
+
+      // 5) Parse strict JSON
+      let parsedResponse: any;
+      try {
+        let jsonString = rawAIResponse.trim();
+
+        // Strip markdown fences if present
+        if (jsonString.startsWith('```')) {
+          jsonString = jsonString
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/\s*```$/, '');
+        }
+
+        // Extract JSON object
+        const firstBrace = jsonString.indexOf('{');
+        const lastBrace = jsonString.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace >= 0) {
+          jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+        }
+
+        parsedResponse = JSON.parse(jsonString);
+      } catch (parseError) {
+        this.logger.error(
+          `[Single-Call] JSON parse failed for question ${examQuestionId}`,
+        );
+        this.logger.error(rawAIResponse.substring(0, 500));
+
+        await this.prisma.examQuestion.update({
+          where: { id: examQuestionId },
+          data: {
+            analysisStatus: AnalysisStatus.FAILED,
+          },
+        });
+
+        throw new BadRequestException(
+          'AI returned invalid JSON in single-call mode',
+        );
+      }
+
+      // 6) Validate response structure
+      if (
+        !parsedResponse.knowledgePoints ||
+        !Array.isArray(parsedResponse.knowledgePoints)
+      ) {
+        throw new BadRequestException(
+          'Single-call response missing knowledgePoints array',
+        );
+      }
+
+      // 7) Prepare analysis payload (WITHOUT knowledgePoints array to avoid duplication)
+      const { knowledgePoints, meta, ...analysisFields } = parsedResponse;
+      const analysisPayload = {
+        ...analysisFields,
+        _meta: meta || { promptVersion: 'fizyoloji-v1' },
+      };
+
+      // 8) Persist analysis to ExamQuestion
+      await this.prisma.examQuestion.update({
+        where: { id: examQuestionId },
+        data: {
+          analysisPayload,
+          analysisStatus: AnalysisStatus.ANALYZED,
+          analyzedAt: new Date(),
+          patternType: analysisFields.patternType || null,
+          patternConfidence: analysisFields.patternConfidence || null,
+          topicId: null, // Will be resolved separately if needed
+          subtopicId: null,
+        },
+      });
+
+      this.logger.log(
+        `[Single-Call] Analysis persisted for question: ${examQuestionId}`,
+      );
+
+      // 9) Immediately upsert knowledge points
+      const kpResult =
+        await this.knowledgeExtractionService.upsertKnowledgePointsFromExamQuestionSingleCall(
+          {
+            examQuestionId,
+            knowledgePoints,
+            examPattern: analysisFields.patternType,
+          },
+        );
+
+      this.logger.log(
+        `[Single-Call] Complete: ${kpResult.createdKpIds.length} KPs created, ${kpResult.upsertedKpIds.length} updated for question ${examQuestionId}`,
+      );
+
+      return {
+        analysisResult: analysisPayload,
+        knowledgePointsCreated:
+          kpResult.createdKpIds.length + kpResult.upsertedKpIds.length,
+      };
+    } catch (error) {
+      this.logger.error(
+        `[Single-Call] Failed for question ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      // Mark as FAILED
+      await this.prisma.examQuestion.update({
+        where: { id: examQuestionId },
+        data: {
+          analysisStatus: AnalysisStatus.FAILED,
+        },
       });
 
       throw error;

@@ -14,11 +14,9 @@ import { OpenAIProvider } from './providers/openai.provider';
 import { GeminiProvider } from './providers/gemini.provider';
 import { buildVisionPrompt } from './prompts/vision.prompt';
 import { buildKnowledgeExtractionPrompt } from './prompts/knowledge.prompt';
-import { buildFizyolojiKnowledgeExtractionPrompt } from './prompts/fizyoloji-knowledge-extraction.prompt';
 import { buildFlashcardPrompt } from './prompts/flashcard-prompt-builder';
 import { buildQuestionPrompt } from './prompts/question.prompt';
 import { buildAnatomyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-anatomy.prompt';
-import { buildPharmacologyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-pharmacology.prompt';
 import { buildInternalMedicineExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-internal-medicine.prompt';
 import { buildPathologyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-pathology.prompt';
 import { AIProviderType } from '@prisma/client';
@@ -178,6 +176,11 @@ export class AIRouterService {
               content?: string;
               contentType?: string;
               blockType?: string;
+              maxKnowledgePoints?: number;
+              strategyHint?: string;
+              tableData?: unknown;
+              algorithmData?: unknown;
+              repairRawOutput?: string;
               // Exam question-based extraction
               question?: string;
               options?: Record<string, string>;
@@ -421,6 +424,11 @@ export class AIRouterService {
       content?: string;
       contentType?: string;
       blockType?: string;
+      maxKnowledgePoints?: number;
+      strategyHint?: string;
+      tableData?: unknown;
+      algorithmData?: unknown;
+      repairRawOutput?: string;
       // Exam question-based extraction (for analyzed exam questions)
       question?: string;
       options?: Record<string, string>;
@@ -435,46 +443,26 @@ export class AIRouterService {
     options: AIModelOptions,
     model: string,
   ): Promise<{ content: string; usage?: TokenUsage }> {
-    let systemPrompt: string;
-    let userPrompt: string;
-
-    // Lesson-based routing for exam question extraction
-    const lessonLower = payload.lesson?.toLowerCase().trim();
-
-    if (
-      lessonLower === 'fizyoloji' &&
-      payload.question &&
-      payload.analysisPayload
-    ) {
-      // Use Fizyoloji-specific prompt with exam question analysis
-      const result = buildFizyolojiKnowledgeExtractionPrompt({
-        question: payload.question,
-        options: payload.options || {},
-        correctAnswer: payload.correctAnswer || '',
-        explanation: payload.explanation,
-        analysisPayload: payload.analysisPayload,
-        lesson: payload.lesson,
-        topic: payload.topic,
-        subtopic: payload.subtopic,
-      });
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else {
-      // Use generic content-based prompt
-      const result = buildKnowledgeExtractionPrompt({
-        content: payload.content || '',
-        contentType: payload.contentType,
-        blockType: payload.blockType,
-        lesson: payload.lesson,
-        topic: payload.topic,
-        subtopic: payload.subtopic,
-      });
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    }
+    // Use generic content-based prompt
+    const result = buildKnowledgeExtractionPrompt({
+      content: payload.content || '',
+      contentType: payload.contentType,
+      blockType: payload.blockType,
+      lesson: payload.lesson,
+      topic: payload.topic,
+      subtopic: payload.subtopic,
+      maxKnowledgePoints: payload.maxKnowledgePoints,
+      strategyHint: payload.strategyHint,
+      tableData: payload.tableData,
+      algorithmData: payload.algorithmData,
+      repairRawOutput: payload.repairRawOutput,
+    });
+    const systemPrompt = result.systemPrompt;
+    const userPrompt = result.userPrompt;
 
     const textOptions = {
       ...options,
+      temperature: Math.min(options.temperature ?? 0.2, 0.3),
       responseFormat: 'json_object' as const,
     };
 
@@ -627,10 +615,6 @@ export class AIRouterService {
         ...payload,
         prerequisiteContext,
       });
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else if (lessonLower === 'farmakoloji') {
-      const result = buildPharmacologyExamQuestionAnalysisPrompt(payload);
       systemPrompt = result.systemPrompt;
       userPrompt = result.userPrompt;
     } else if (lessonLower === 'fizyoloji') {

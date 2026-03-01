@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
@@ -27,8 +28,88 @@ export class ExamQuestionProcessor extends WorkerHost {
       `------------------------------------------------------------------`,
     );
     this.logger.log(
-      `Processing exam question analysis job for: ${examQuestionId}`,
+      `Processing exam question job [${job.name}] for: ${examQuestionId}`,
     );
+
+    try {
+      // Route based on job name
+      if (job.name === 'analyze-single-call') {
+        return await this.processSingleCallJob(examQuestionId);
+      } else {
+        return await this.processLegacyAnalysisJob(examQuestionId);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Exam question job [${job.name}] failed for ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Process single-call job: unified analysis + KP generation
+   */
+  private async processSingleCallJob(examQuestionId: string) {
+    this.logger.log(
+      `[Single-Call] Processing unified analysis + KP for: ${examQuestionId}`,
+    );
+
+    const result =
+      await this.examQuestionService.analyzeQuestionSingleCall(examQuestionId);
+
+    this.logger.log(
+      `[Single-Call] Completed for ${examQuestionId}: ${result.knowledgePointsCreated} KPs created`,
+    );
+
+    // Register lesson, topic, subtopic in registry
+    try {
+      await this.registryService.registerAnalysisResults(
+        result.analysisResult.lesson,
+        result.analysisResult.topic,
+        result.analysisResult.subtopic,
+        examQuestionId,
+      );
+      this.logger.log(
+        `Registry updated for question ${examQuestionId}: ${result.analysisResult.lesson} > ${result.analysisResult.topic}`,
+      );
+    } catch (registryError) {
+      this.logger.error(
+        `Failed to update registry for question ${examQuestionId}: ${registryError instanceof Error ? registryError.message : 'Unknown error'}`,
+      );
+    }
+
+    // Update prerequisite graph
+    try {
+      await this.prerequisiteLearningService.processAnalyzedQuestion(
+        examQuestionId,
+      );
+      this.logger.log(
+        `Prerequisite graph updated for question ${examQuestionId}`,
+      );
+    } catch (prereqError) {
+      this.logger.error(
+        `Failed to update prerequisite graph for question ${examQuestionId}: ${prereqError instanceof Error ? prereqError.message : 'Unknown error'}`,
+      );
+    }
+
+    this.logger.log(
+      `------------------------------------------------------------------`,
+    );
+
+    return {
+      success: true,
+      examQuestionId,
+      mode: 'SINGLE_CALL',
+      result,
+    };
+  }
+
+  /**
+   * Process legacy analysis job: analysis only (KP extraction queued separately)
+   */
+  private async processLegacyAnalysisJob(examQuestionId: string) {
+    this.logger.log(`[Legacy] Processing analysis for: ${examQuestionId}`);
 
     try {
       const result =
@@ -37,8 +118,6 @@ export class ExamQuestionProcessor extends WorkerHost {
       this.logger.log(
         `Exam question analysis completed for ${examQuestionId}: lesson=${result.lesson}, topic=${result.topic}`,
       );
-
-      console.log(result);
 
       // Register lesson, topic, subtopic in registry
       try {
@@ -81,6 +160,7 @@ export class ExamQuestionProcessor extends WorkerHost {
       return {
         success: true,
         examQuestionId,
+        mode: 'LEGACY',
         result,
       };
     } catch (error) {

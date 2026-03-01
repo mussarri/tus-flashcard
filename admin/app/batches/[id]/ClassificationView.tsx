@@ -1,7 +1,8 @@
-'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
 
-import { useState, useEffect } from 'react';
-import { api } from '../../../lib/api';
+import { useState, useEffect } from "react";
+import { api } from "../../../lib/api";
 import {
   Brain,
   FileText,
@@ -10,7 +11,7 @@ import {
   BookOpen,
   Tag,
   TrendingUp,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface ParsedBlock {
   id: string;
@@ -34,7 +35,9 @@ interface ClassificationViewProps {
   batchId: string;
 }
 
-export default function ClassificationView({ batchId }: ClassificationViewProps) {
+export default function ClassificationView({
+  batchId,
+}: ClassificationViewProps) {
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
         }
         setLoading(false);
       } catch (error) {
-        console.error('Failed to fetch blocks:', error);
+        console.error("Failed to fetch blocks:", error);
         setLoading(false);
       }
     };
@@ -71,15 +74,33 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
 
   const getContentTypeBadge = (type: string) => {
     const config: Record<string, { color: string; label: string }> = {
-      TOPIC_EXPLANATION: { color: 'bg-blue-100 text-blue-800', label: 'Topic Explanation' },
-      SPOT_FACT: { color: 'bg-green-100 text-green-800', label: 'Spot Fact' },
-      QUESTION_ONLY: { color: 'bg-purple-100 text-purple-800', label: 'Question Only' },
-      QUESTION_WITH_ANSWER: { color: 'bg-indigo-100 text-indigo-800', label: 'Question + Answer' },
-      EXPLANATION_ONLY: { color: 'bg-yellow-100 text-yellow-800', label: 'Explanation Only' },
-      MIXED_CONTENT: { color: 'bg-gray-100 text-gray-800', label: 'Mixed Content' },
+      TOPIC_EXPLANATION: {
+        color: "bg-blue-100 text-blue-800",
+        label: "Topic Explanation",
+      },
+      SPOT_FACT: { color: "bg-green-100 text-green-800", label: "Spot Fact" },
+      QUESTION_ONLY: {
+        color: "bg-purple-100 text-purple-800",
+        label: "Question Only",
+      },
+      QUESTION_WITH_ANSWER: {
+        color: "bg-indigo-100 text-indigo-800",
+        label: "Question + Answer",
+      },
+      EXPLANATION_ONLY: {
+        color: "bg-yellow-100 text-yellow-800",
+        label: "Explanation Only",
+      },
+      MIXED_CONTENT: {
+        color: "bg-gray-100 text-gray-800",
+        label: "Mixed Content",
+      },
     };
 
-    const c = config[type] || { color: 'bg-gray-100 text-gray-800', label: type };
+    const c = config[type] || {
+      color: "bg-gray-100 text-gray-800",
+      label: type,
+    };
     return (
       <span className={`px-2 py-1 text-xs font-semibold rounded ${c.color}`}>
         {c.label}
@@ -91,9 +112,9 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
     if (confidence === null) return null;
 
     const percentage = Math.round(confidence * 100);
-    let color = 'bg-green-100 text-green-800';
-    if (percentage < 50) color = 'bg-red-100 text-red-800';
-    else if (percentage < 70) color = 'bg-yellow-100 text-yellow-800';
+    let color = "bg-green-100 text-green-800";
+    if (percentage < 50) color = "bg-red-100 text-red-800";
+    else if (percentage < 70) color = "bg-yellow-100 text-yellow-800";
 
     return (
       <div className="flex items-center gap-2">
@@ -127,8 +148,9 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
                 AI Classification (Read-Only)
               </p>
               <p className="text-sm text-blue-700">
-                These classifications are AI suggestions. The final decision happens during
-                knowledge extraction. You cannot edit these values here.
+                These classifications are AI suggestions. The final decision
+                happens during knowledge extraction. You cannot edit these
+                values here.
               </p>
             </div>
           </div>
@@ -156,23 +178,28 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
                 {/* Header */}
                 <div
                   className="bg-gray-50 px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+                  onClick={() =>
+                    setExpandedBlockId(isExpanded ? null : block.id)
+                  }
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <FileText className="w-5 h-5 text-gray-400" />
                       <div>
                         <h3 className="font-semibold text-gray-900">
-                          Page {block.page.pageNumber}: {block.page.originalName}
+                          Page {block.page.pageNumber}:{" "}
+                          {block.page.originalName}
                         </h3>
-                        <p className="text-sm text-gray-500">Block ID: {block.id.substring(0, 8)}</p>
+                        <p className="text-sm text-gray-500">
+                          Block ID: {block.id.substring(0, 8)}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       {getContentTypeBadge(block.contentType)}
                       {getConfidenceBadge(block.confidence)}
                       <span className="text-gray-400">
-                        {isExpanded ? '▼' : '▶'}
+                        {isExpanded ? "▼" : "▶"}
                       </span>
                     </div>
                   </div>
@@ -191,33 +218,45 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
                         <div className="bg-gray-50 border border-gray-200 rounded p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <BookOpen className="w-4 h-4 text-gray-400" />
-                            <span className="text-xs font-medium text-gray-500">Lesson</span>
+                            <span className="text-xs font-medium text-gray-500">
+                              Lesson
+                            </span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
                             {block.lesson || (
-                              <span className="text-gray-400 italic">Not classified</span>
+                              <span className="text-gray-400 italic">
+                                Not classified
+                              </span>
                             )}
                           </p>
                         </div>
                         <div className="bg-gray-50 border border-gray-200 rounded p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Tag className="w-4 h-4 text-gray-400" />
-                            <span className="text-xs font-medium text-gray-500">Topic</span>
+                            <span className="text-xs font-medium text-gray-500">
+                              Topic
+                            </span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
                             {block.topic || (
-                              <span className="text-gray-400 italic">Not classified</span>
+                              <span className="text-gray-400 italic">
+                                Not classified
+                              </span>
                             )}
                           </p>
                         </div>
                         <div className="bg-gray-50 border border-gray-200 rounded p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Tag className="w-4 h-4 text-gray-400" />
-                            <span className="text-xs font-medium text-gray-500">Subtopic</span>
+                            <span className="text-xs font-medium text-gray-500">
+                              Subtopic
+                            </span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
                             {block.subtopic || (
-                              <span className="text-gray-400 italic">Not classified</span>
+                              <span className="text-gray-400 italic">
+                                Not classified
+                              </span>
                             )}
                           </p>
                         </div>
@@ -226,10 +265,12 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
 
                     {/* Raw Text */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Raw Text (OCR Output)</h4>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        Raw Text (OCR Output)
+                      </h4>
                       <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-64 overflow-y-auto">
                         <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {block.rawText || 'No raw text available'}
+                          {block.rawText || "No raw text available"}
                         </p>
                       </div>
                     </div>
@@ -237,16 +278,26 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
                     {/* Metadata */}
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="font-medium text-gray-700">Block Type:</span>{' '}
-                        <span className="text-gray-900">{block.blockType || 'N/A'}</span>
+                        <span className="font-medium text-gray-700">
+                          Block Type:
+                        </span>{" "}
+                        <span className="text-gray-900">
+                          {block.blockType || "N/A"}
+                        </span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Classification Status:</span>{' '}
-                        <span className="text-gray-900">{block.classificationStatus}</span>
+                        <span className="font-medium text-gray-700">
+                          Classification Status:
+                        </span>{" "}
+                        <span className="text-gray-900">
+                          {block.classificationStatus}
+                        </span>
                       </div>
                       {block.classifiedAt && (
                         <div>
-                          <span className="font-medium text-gray-700">Classified At:</span>{' '}
+                          <span className="font-medium text-gray-700">
+                            Classified At:
+                          </span>{" "}
                           <span className="text-gray-900">
                             {new Date(block.classifiedAt).toLocaleString()}
                           </span>
@@ -263,8 +314,9 @@ export default function ClassificationView({ batchId }: ClassificationViewProps)
                             This is an AI suggestion
                           </p>
                           <p className="text-sm text-yellow-700">
-                            The final classification decision will be made during the knowledge
-                            extraction step. You cannot edit these values here.
+                            The final classification decision will be made
+                            during the knowledge extraction step. You cannot
+                            edit these values here.
                           </p>
                         </div>
                       </div>

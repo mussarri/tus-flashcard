@@ -1374,7 +1374,9 @@ export class AdminController {
   @Post('exam-questions/bulk/analyze')
   async bulkAnalyze(@Body() body: BulkAnalyzeDto) {
     try {
-      this.logger.log(`Bulk analyzing ${body.questionIds.length} questions`);
+      this.logger.log(
+        `Bulk analyzing ${body.questionIds.length} questions with mode: ${body.mode || 'AUTO'}`,
+      );
       const result = await this.adminService.bulkAnalyze(body.questionIds);
       return result;
     } catch (error) {
@@ -1432,7 +1434,7 @@ export class AdminController {
   @Post('exam-questions/:id/analyze')
   async triggerAnalysis(
     @Param('id') id: string,
-    @Body() body: { lessonId: string },
+    @Body() body: { lessonId: string; mode?: 'LEGACY' | 'SINGLE_CALL' },
   ) {
     try {
       const result = await this.adminService.triggerAnalysis(id, body.lessonId);

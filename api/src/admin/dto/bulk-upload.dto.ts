@@ -30,6 +30,7 @@ export class BulkUploadSaveDto {
 
 export class BulkAnalyzeDto {
   @IsString({ each: true })
+  mode: string;
   @IsNotEmpty()
   questionIds: string[];
 }

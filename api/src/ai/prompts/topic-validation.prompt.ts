@@ -10,8 +10,13 @@ export function buildTopicValidationPrompt(params: {
   existingTopics?: string[];
   existingSubtopics?: string[];
 }): string {
-  const { lesson, proposedName, parentTopic, existingTopics, existingSubtopics } =
-    params;
+  const {
+    lesson,
+    proposedName,
+    parentTopic,
+    existingTopics,
+    existingSubtopics,
+  } = params;
 
   return `You are an ontology assistant for TUS (Turkish Medical Specialty Exam).
 
