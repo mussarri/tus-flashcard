@@ -79,6 +79,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      QUESTION_SINGLE_CALL_MODE: ${QUESTION_SINGLE_CALL_MODE:-true}
     ports:
       - "5000:5000"
     volumes:
