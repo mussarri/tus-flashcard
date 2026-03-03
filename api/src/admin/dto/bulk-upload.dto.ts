@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  IsArray,
+} from 'class-validator';
 
 export class BulkUploadPreviewDto {
   @IsString()
@@ -29,8 +35,12 @@ export class BulkUploadSaveDto {
 }
 
 export class BulkAnalyzeDto {
+  @IsOptional()
+  @IsString()
+  mode?: string;
+
+  @IsArray()
   @IsString({ each: true })
-  mode: string;
   @IsNotEmpty()
   questionIds: string[];
 }
