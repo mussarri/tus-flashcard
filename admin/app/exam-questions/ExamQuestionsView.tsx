@@ -7,7 +7,6 @@ import {
   FileQuestion,
   Plus,
   Search,
-  Filter,
   RefreshCw,
   Upload,
   CheckSquare,
@@ -62,6 +61,19 @@ interface ExamQuestionsViewProps {
   };
 }
 
+interface LessonOption {
+  id: string;
+  name: string;
+  displayName: string;
+}
+
+interface TopicOption {
+  id: string;
+  name: string;
+  displayName: string;
+  lessonId: string;
+}
+
 export default function ExamQuestionsView({
   initialData,
 }: ExamQuestionsViewProps) {
@@ -73,7 +85,6 @@ export default function ExamQuestionsView({
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     year: "",
-    examType: "",
     lesson: "",
     topic: "",
     analysisStatus: "",
@@ -87,6 +98,26 @@ export default function ExamQuestionsView({
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [lessons, setLessons] = useState<LessonOption[]>([]);
+  const [topics, setTopics] = useState<TopicOption[]>([]);
+
+  const availableTopics = filters.lesson
+    ? topics.filter((topic) => topic.lessonId === filters.lesson)
+    : topics;
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const response = await api.getTopics();
+        setLessons(response.lessons || []);
+        setTopics(response.topics || []);
+      } catch (error) {
+        console.error("Failed to load lesson/topic filters:", error);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
 
   // Bulk selection state
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(
@@ -111,7 +142,6 @@ export default function ExamQuestionsView({
     try {
       const query: any = { page, limit };
       if (filters.year) query.year = parseInt(filters.year);
-      if (filters.examType) query.examType = filters.examType;
       if (filters.lesson) query.lesson = filters.lesson;
       if (filters.topic) query.topic = filters.topic;
       if (filters.analysisStatus) query.analysisStatus = filters.analysisStatus;
@@ -360,7 +390,7 @@ export default function ExamQuestionsView({
   const analyzableQuestions = examQuestions;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Exam Questions</h1>
@@ -529,7 +559,7 @@ export default function ExamQuestionsView({
 
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Year
@@ -549,45 +579,48 @@ export default function ExamQuestionsView({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Exam Type
-            </label>
-            <input
-              type="text"
-              value={filters.examType}
-              onChange={(e) =>
-                setFilters({ ...filters, examType: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="TUS-1, TUS-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
               Lesson
             </label>
-            <input
-              type="text"
+            <select
               value={filters.lesson}
               onChange={(e) =>
-                setFilters({ ...filters, lesson: e.target.value })
+                setFilters({
+                  ...filters,
+                  lesson: e.target.value,
+                  topic: "",
+                })
               }
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="Dahiliye, Pediatri..."
-            />
+            >
+              <option value="">All Lessons</option>
+              {lessons.map((lesson) => (
+                <option key={lesson.id} value={lesson.id}>
+                  {lesson.displayName || lesson.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Topic
             </label>
-            <input
-              type="text"
+            <select
               value={filters.topic}
               onChange={(e) =>
                 setFilters({ ...filters, topic: e.target.value })
               }
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="Diyabet, Epilepsi..."
-            />
+              disabled={!filters.lesson}
+            >
+              <option value="">
+                {filters.lesson ? "All Topics" : "Select lesson first"}
+              </option>
+              {availableTopics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.displayName || topic.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -631,7 +664,7 @@ export default function ExamQuestionsView({
         </div>
 
         {/* Sorting and Date Filters */}
-        <div className="grid grid-cols-6 gap-4 pt-4 border-t">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 pt-4 border-t">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Sort By
@@ -718,10 +751,10 @@ export default function ExamQuestionsView({
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => loadExamQuestions(1)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
           >
             <Search className="w-4 h-4" />
             Apply Filters
@@ -730,7 +763,6 @@ export default function ExamQuestionsView({
             onClick={() => {
               setFilters({
                 year: "",
-                examType: "",
                 lesson: "",
                 topic: "",
                 analysisStatus: "",

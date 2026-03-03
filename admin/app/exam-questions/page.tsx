@@ -9,8 +9,6 @@ async function getExamQuestions(searchParams: {
 
   if ((await searchParams).year)
     params.append("year", (await searchParams).year as string);
-  if ((await searchParams).examType)
-    params.append("examType", (await searchParams).examType as string);
   if ((await searchParams).lesson)
     params.append("lesson", (await searchParams).lesson as string);
   if ((await searchParams).topic)
