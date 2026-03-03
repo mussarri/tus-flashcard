@@ -270,6 +270,7 @@ export class AIRouterService {
               lesson: string;
               topic?: string;
               subtopic?: string;
+              repairRawOutput?: string;
             },
             options,
             effectiveModel,
@@ -598,6 +599,7 @@ export class AIRouterService {
       lesson: string;
       topic?: string;
       subtopic?: string;
+      repairRawOutput?: string;
     },
     options: AIModelOptions,
     model: string,

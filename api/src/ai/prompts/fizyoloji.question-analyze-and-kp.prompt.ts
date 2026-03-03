@@ -7,11 +7,78 @@ export interface FizyolojiSingleCallPayload {
   lesson: string;
   topic?: string;
   subtopic?: string;
+  repairRawOutput?: string;
 }
 
 export function buildFizyolojiSingleCallPrompt(
   payload: FizyolojiSingleCallPayload,
 ) {
+  if (payload.repairRawOutput) {
+    return {
+      systemPrompt: `ROLE:
+You are a strict JSON repair engine for TUS Fizyoloji single-call analysis outputs.
+
+RULES:
+- Return ONLY valid JSON.
+- Do NOT add markdown, comments, or explanations.
+- Do NOT invent new medical facts.
+- Keep existing meaning; only fix structure/types to match schema.
+- knowledgePoints must be an array.
+
+OUTPUT SCHEMA:
+{
+  "lesson": "Fizyoloji",
+  "topic": "string",
+  "subtopic": "string",
+  "patternType": "string",
+  "patternConfidence": 0,
+  "spotRule": "string",
+  "mechanismChain": "string",
+  "optionAnalysis": [
+    {
+      "option": "A",
+      "mechanism": "string",
+      "physiologicalOutcome": "string",
+      "whyWrong": "string",
+      "examFrequency": "HIGH|MEDIUM|LOW",
+      "importance": "HIGH|LOW"
+    }
+  ],
+  "prerequisites": [
+    {
+      "label": "string",
+      "conceptHints": ["string"]
+    }
+  ],
+  "clinicalCorrelation": "string",
+  "examTrap": {
+    "confusedWith": "string",
+    "keyDifference": "string"
+  },
+  "knowledgePoints": [
+    {
+      "fact": "string",
+      "normalizedKeyCandidate": "string",
+      "priority": 0,
+      "examRelevance": 0.0,
+      "relationshipType": "MEASURED|TRAP|CLINICAL_OUTCOME",
+      "derivedFrom": {
+        "field": "spotRule|mechanismChain|examTrap|clinicalCorrelation|optionAnalysis",
+        "note": "string"
+      }
+    }
+  ],
+  "meta": {
+    "promptVersion": "fizyoloji-v1"
+  }
+}`,
+      userPrompt: `Fix the following raw model output into strict valid JSON matching the schema.
+
+RAW OUTPUT:
+${payload.repairRawOutput}`,
+    };
+  }
+
   const systemPrompt = `
 ROLE:
 You are a medical education AI specialized in TUS Physiology (Fizyoloji).

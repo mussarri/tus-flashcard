@@ -850,43 +850,59 @@ export class ExamQuestionService {
         },
       );
 
-      // 5) Parse strict JSON
+      // 5) Parse strict JSON (with one repair retry)
       let parsedResponse: any;
       try {
-        let jsonString = rawAIResponse.trim();
-
-        // Strip markdown fences if present
-        if (jsonString.startsWith('```')) {
-          jsonString = jsonString
-            .replace(/^```json\s*/i, '')
-            .replace(/^```\s*/i, '')
-            .replace(/\s*```$/, '');
-        }
-
-        // Extract JSON object
-        const firstBrace = jsonString.indexOf('{');
-        const lastBrace = jsonString.lastIndexOf('}');
-        if (firstBrace >= 0 && lastBrace >= 0) {
-          jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-        }
-
-        parsedResponse = JSON.parse(jsonString);
+        parsedResponse = this.parseSingleCallJsonResponse(rawAIResponse);
       } catch (parseError) {
-        this.logger.error(
-          `[Single-Call] JSON parse failed for question ${examQuestionId}`,
+        const parseErrorMessage =
+          parseError instanceof Error ? parseError.message : 'Unknown error';
+        this.logger.warn(
+          `[Single-Call] Initial JSON parse failed for question ${examQuestionId}: ${parseErrorMessage}`,
         );
-        this.logger.error(rawAIResponse.substring(0, 500));
+        this.logger.warn(this.previewRawResponse(rawAIResponse));
 
-        await this.prisma.examQuestion.update({
-          where: { id: examQuestionId },
-          data: {
-            analysisStatus: AnalysisStatus.FAILED,
+        const repairedRawResponse = await this.aiRouter.runTask(
+          AITaskType.QUESTION_ANALYZE_AND_KP,
+          {
+            question: examQuestion.question,
+            options: examQuestion.options as Record<string, string>,
+            correctAnswer: examQuestion.correctAnswer,
+            explanation: examQuestion.explanation || undefined,
+            year: examQuestion.year,
+            lesson: lessonName,
+            topic: examQuestion.topic?.name,
+            subtopic: examQuestion.subtopic?.name,
+            repairRawOutput:
+              typeof rawAIResponse === 'string'
+                ? rawAIResponse
+                : JSON.stringify(rawAIResponse),
           },
-        });
-
-        throw new BadRequestException(
-          'AI returned invalid JSON in single-call mode',
         );
+
+        try {
+          parsedResponse = this.parseSingleCallJsonResponse(repairedRawResponse);
+        } catch (repairParseError) {
+          const repairErrorMessage =
+            repairParseError instanceof Error
+              ? repairParseError.message
+              : 'Unknown error';
+          this.logger.error(
+            `[Single-Call] JSON repair parse failed for question ${examQuestionId}: ${repairErrorMessage}`,
+          );
+          this.logger.error(this.previewRawResponse(repairedRawResponse));
+
+          await this.prisma.examQuestion.update({
+            where: { id: examQuestionId },
+            data: {
+              analysisStatus: AnalysisStatus.FAILED,
+            },
+          });
+
+          throw new BadRequestException(
+            'AI returned invalid JSON in single-call mode',
+          );
+        }
       }
 
       // 6) Validate response structure
@@ -959,6 +975,95 @@ export class ExamQuestionService {
 
       throw error;
     }
+  }
+
+  private parseSingleCallJsonResponse(raw: unknown): Record<string, any> {
+    if (typeof raw === 'object' && raw !== null) {
+      return raw as Record<string, any>;
+    }
+
+    if (typeof raw !== 'string') {
+      throw new Error('Model response is not JSON-compatible');
+    }
+
+    const cleaned = raw
+      .replace(/^\uFEFF/, '')
+      .replace(/```json/gi, '```')
+      .replace(/```/g, '')
+      .trim();
+
+    // 1) Direct parse first
+    try {
+      return JSON.parse(cleaned) as Record<string, any>;
+    } catch {
+      // continue with extraction/normalization attempts
+    }
+
+    // 2) Extract first balanced JSON object and parse
+    const extracted = this.extractFirstBalancedJsonObject(cleaned);
+    if (extracted) {
+      try {
+        return JSON.parse(extracted) as Record<string, any>;
+      } catch {
+        // continue with normalization
+      }
+
+      // 3) Relaxed parse: remove trailing commas
+      const withoutTrailingCommas = extracted.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(withoutTrailingCommas) as Record<string, any>;
+    }
+
+    throw new Error('No valid JSON object found in model output');
+  }
+
+  private extractFirstBalancedJsonObject(text: string): string | null {
+    const start = text.indexOf('{');
+    if (start === -1) return null;
+
+    let depth = 0;
+    let inString = false;
+    let isEscaped = false;
+
+    for (let i = start; i < text.length; i++) {
+      const char = text[i];
+
+      if (inString) {
+        if (isEscaped) {
+          isEscaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          isEscaped = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+
+      if (char === '{') depth++;
+      if (char === '}') depth--;
+
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+
+    return null;
+  }
+
+  private previewRawResponse(raw: unknown): string {
+    const text =
+      typeof raw === 'string'
+        ? raw
+        : JSON.stringify(raw ?? 'null');
+    return text.substring(0, 700);
   }
 
   /**
