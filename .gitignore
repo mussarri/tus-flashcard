@@ -12,7 +12,7 @@ nginx/ssl/*.pem
 nginx/ssl/*.key
 
 # Uploads
-
+.agent/skills
 
 # Node modules
 node_modules/
