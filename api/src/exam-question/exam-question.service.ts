@@ -166,24 +166,42 @@ export class ExamQuestionService {
       where.examType = query.examType;
     }
 
-    // Support name-based search for lesson (case-insensitive partial match)
+    // Support both lesson ID (exact) and lesson name (case-insensitive partial)
     if (query.lessonId) {
-      where.lesson = {
-        name: {
-          contains: query.lessonId,
-          mode: 'insensitive',
-        },
-      };
+      const looksLikeUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          query.lessonId,
+        );
+
+      if (looksLikeUuid) {
+        where.lessonId = query.lessonId;
+      } else {
+        where.lesson = {
+          name: {
+            contains: query.lessonId,
+            mode: 'insensitive',
+          },
+        };
+      }
     }
 
-    // Support name-based search for topic (case-insensitive partial match)
+    // Support both topic ID (exact) and topic name (case-insensitive partial)
     if (query.topicId) {
-      where.topic = {
-        name: {
-          contains: query.topicId,
-          mode: 'insensitive',
-        },
-      };
+      const looksLikeUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          query.topicId,
+        );
+
+      if (looksLikeUuid) {
+        where.topicId = query.topicId;
+      } else {
+        where.topic = {
+          name: {
+            contains: query.topicId,
+            mode: 'insensitive',
+          },
+        };
+      }
     }
 
     if (query.analysisStatus) {
