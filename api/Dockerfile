@@ -67,7 +67,7 @@ RUN npx prisma generate
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-
+ 
 # Create uploads directory with proper permissions
 RUN mkdir -p /app/uploads && \
     chown -R nestjs:nodejs /app

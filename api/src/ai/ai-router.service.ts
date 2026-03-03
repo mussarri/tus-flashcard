@@ -25,6 +25,7 @@ import { PrerequisiteLearningService } from '../exam-question/prerequisite-learn
 import { buildFizyolojiExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-fizyoloji.prompt';
 import { buildAtomicityValidationPrompt } from './prompts/atomicity-validation.prompt';
 import { buildAtomicitySplittingPrompt } from './prompts/atomicity-splitting.prompt';
+import { buildFizyolojiSingleCallPrompt } from './prompts/fizyoloji.question-analyze-and-kp.prompt';
 
 @Injectable()
 export class AIRouterService {
@@ -254,6 +255,27 @@ export class AIRouterService {
           );
           result = examAnalysisResult.content;
           usage = examAnalysisResult.usage;
+          break;
+        }
+
+        case AITaskType.QUESTION_ANALYZE_AND_KP: {
+          const singleCallResult = await this.runQuestionAnalyzeAndKPTask(
+            provider,
+            taskPayload as {
+              question: string;
+              options: Record<string, string>;
+              correctAnswer: string;
+              explanation?: string;
+              year?: number;
+              lesson: string;
+              topic?: string;
+              subtopic?: string;
+            },
+            options,
+            effectiveModel,
+          );
+          result = singleCallResult.content;
+          usage = singleCallResult.usage;
           break;
         }
 
@@ -557,6 +579,48 @@ export class AIRouterService {
       ...options,
       responseFormat: 'json_object' as const,
       temperature: options.temperature ?? 0.7, // Higher temperature for variety
+    };
+
+    return await provider.runText(systemPrompt, userPrompt, model, textOptions);
+  }
+
+  /**
+   * Run single-call exam question analysis + knowledge-point extraction task
+   */
+  private async runQuestionAnalyzeAndKPTask(
+    provider: AIProvider,
+    payload: {
+      question: string;
+      options: Record<string, string>;
+      correctAnswer: string;
+      explanation?: string;
+      year?: number;
+      lesson: string;
+      topic?: string;
+      subtopic?: string;
+    },
+    options: AIModelOptions,
+    model: string,
+  ): Promise<{ content: string; usage?: TokenUsage }> {
+    if (!payload.lesson) {
+      throw new NotFoundException(
+        'Lesson is required for single-call question analysis.',
+      );
+    }
+
+    const lessonLower = payload.lesson.toLowerCase();
+    if (lessonLower !== 'fizyoloji') {
+      throw new NotFoundException(
+        `No single-call analysis prompt found for lesson: ${payload.lesson}. Supported lessons: Fizyoloji.`,
+      );
+    }
+
+    const { systemPrompt, userPrompt } =
+      buildFizyolojiSingleCallPrompt(payload);
+
+    const textOptions = {
+      ...options,
+      responseFormat: 'json_object' as const,
     };
 
     return await provider.runText(systemPrompt, userPrompt, model, textOptions);

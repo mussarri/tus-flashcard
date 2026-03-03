@@ -63,6 +63,14 @@ async function seedAIConfig() {
       isActive: true,
     },
     {
+      taskType: AITaskType.QUESTION_ANALYZE_AND_KP,
+      provider: AIProviderType.GEMINI,
+      model: 'gemini-2.5-flash',
+      temperature: 0.1,
+      maxTokens: 4000,
+      isActive: true,
+    },
+    {
       taskType: AITaskType.KP_ATOMICITY_VALIDATE,
       provider: AIProviderType.GEMINI,
       model: 'gemini-2.5-flash',

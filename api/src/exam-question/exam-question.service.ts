@@ -827,16 +827,6 @@ export class ExamQuestionService {
     }
 
     // 2) Guard: Only Fizyoloji for now
-    if (lessonName !== 'Fizyoloji') {
-      this.logger.warn(
-        `Single-call mode not supported for ${lessonName}, falling back to legacy analysis`,
-      );
-      await this.analyzeExamQuestion(examQuestionId);
-      return {
-        analysisResult: null,
-        knowledgePointsCreated: 0,
-      };
-    }
 
     // 3) Mark as PROCESSING
     await this.prisma.examQuestion.update({
