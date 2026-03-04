@@ -815,22 +815,18 @@ export class ExamQuestionService {
    * Currently supports: Fizyoloji
    * Feature flag: QUESTION_SINGLE_CALL_MODE=true
    */
-  async analyzeQuestionSingleCall(examQuestionId: string): Promise<{
-    analysisResult: any;
-    knowledgePointsCreated: number;
-  }> {
+  async analyzeQuestionSingleCall(
+    examQuestionId: string,
+  ): Promise<{ analysisResult: any; knowledgePointsCreated: number }> {
+    const MIN_KP = 6;
+
     this.logger.log(
       `[Single-Call] Analyzing + extracting KPs for question: ${examQuestionId}`,
     );
 
-    // 1) Load exam question with relations
     const examQuestion = await this.prisma.examQuestion.findUnique({
       where: { id: examQuestionId },
-      include: {
-        lesson: true,
-        topic: true,
-        subtopic: true,
-      },
+      include: { lesson: true, topic: true, subtopic: true },
     });
 
     if (!examQuestion) {
@@ -844,103 +840,138 @@ export class ExamQuestionService {
       );
     }
 
-    // 2) Guard: Only Fizyoloji for now
-
-    // 3) Mark as PROCESSING
     await this.prisma.examQuestion.update({
       where: { id: examQuestionId },
       data: { analysisStatus: AnalysisStatus.PROCESSING },
     });
 
+    // helper: build AI payload once
+    const buildAiPayload = (extra?: Partial<any>) => ({
+      question: examQuestion.question,
+      options: examQuestion.options as Record<string, string>,
+      correctAnswer: examQuestion.correctAnswer,
+      explanation: examQuestion.explanation || undefined,
+      year: examQuestion.year,
+      lesson: lessonName,
+      topic: examQuestion.topic?.name,
+      subtopic: examQuestion.subtopic?.name,
+      ...extra,
+    });
+
+    // helper: try parse
+    const tryParse = (raw: any) => this.parseSingleCallJsonResponse(raw);
+
+    // helper: decide if need repair even if parse ok
+    const needsRepair = (parsed: any) => {
+      if (!parsed || typeof parsed !== 'object') return true;
+      if (!Array.isArray(parsed.knowledgePoints)) return true;
+      if (parsed.knowledgePoints.length < MIN_KP) return true;
+      return false;
+    };
+
     try {
-      // 4) Call AI Router with new task type
       const rawAIResponse = await this.aiRouter.runTask(
         AITaskType.QUESTION_ANALYZE_AND_KP,
-        {
-          question: examQuestion.question,
-          options: examQuestion.options as Record<string, string>,
-          correctAnswer: examQuestion.correctAnswer,
-          explanation: examQuestion.explanation || undefined,
-          year: examQuestion.year,
-          lesson: lessonName,
-          topic: examQuestion.topic?.name,
-          subtopic: examQuestion.subtopic?.name,
-        },
+        buildAiPayload(),
       );
 
-      // 5) Parse strict JSON (with one repair retry)
       let parsedResponse: any;
+
+      // 1) First parse attempt
       try {
-        parsedResponse = this.parseSingleCallJsonResponse(rawAIResponse);
+        parsedResponse = tryParse(rawAIResponse);
       } catch (parseError) {
-        const parseErrorMessage =
+        const msg =
           parseError instanceof Error ? parseError.message : 'Unknown error';
         this.logger.warn(
-          `[Single-Call] Initial JSON parse failed for question ${examQuestionId}: ${parseErrorMessage}`,
+          `[Single-Call] Initial JSON parse failed for question ${examQuestionId}: ${msg}`,
         );
         this.logger.warn(this.previewRawResponse(rawAIResponse));
+        parsedResponse = null;
+      }
+
+      // 2) If parse failed OR KP array missing/too small => repair retry
+      if (!parsedResponse || needsRepair(parsedResponse)) {
+        const repairReason = !parsedResponse
+          ? 'parse_failed'
+          : `kp_too_small_${parsedResponse.knowledgePoints?.length ?? 'NA'}`;
+
+        this.logger.warn(
+          `[Single-Call] Triggering repair for question ${examQuestionId} (reason=${repairReason})`,
+        );
 
         const repairedRawResponse = await this.aiRouter.runTask(
           AITaskType.QUESTION_ANALYZE_AND_KP,
-          {
-            question: examQuestion.question,
-            options: examQuestion.options as Record<string, string>,
-            correctAnswer: examQuestion.correctAnswer,
-            explanation: examQuestion.explanation || undefined,
-            year: examQuestion.year,
-            lesson: lessonName,
-            topic: examQuestion.topic?.name,
-            subtopic: examQuestion.subtopic?.name,
+          buildAiPayload({
             repairRawOutput:
               typeof rawAIResponse === 'string'
                 ? rawAIResponse
                 : JSON.stringify(rawAIResponse),
-          },
+            // Optional: you can also pass a hint if your prompt supports it
+            // minKnowledgePoints: MIN_KP,
+          }),
         );
 
         try {
-          parsedResponse = this.parseSingleCallJsonResponse(repairedRawResponse);
+          parsedResponse = tryParse(repairedRawResponse);
         } catch (repairParseError) {
-          const repairErrorMessage =
+          const repairMsg =
             repairParseError instanceof Error
               ? repairParseError.message
               : 'Unknown error';
           this.logger.error(
-            `[Single-Call] JSON repair parse failed for question ${examQuestionId}: ${repairErrorMessage}`,
+            `[Single-Call] JSON repair parse failed for question ${examQuestionId}: ${repairMsg}`,
           );
           this.logger.error(this.previewRawResponse(repairedRawResponse));
 
           await this.prisma.examQuestion.update({
             where: { id: examQuestionId },
-            data: {
-              analysisStatus: AnalysisStatus.FAILED,
-            },
+            data: { analysisStatus: AnalysisStatus.FAILED },
           });
 
           throw new BadRequestException(
             'AI returned invalid JSON in single-call mode',
           );
         }
+
+        // If still broken after repair, fail fast
+        if (needsRepair(parsedResponse)) {
+          this.logger.error(
+            `[Single-Call] Repair succeeded but KP count still invalid for question ${examQuestionId}: ` +
+              `kpCount=${Array.isArray(parsedResponse?.knowledgePoints) ? parsedResponse.knowledgePoints.length : 'NA'}`,
+          );
+
+          await this.prisma.examQuestion.update({
+            where: { id: examQuestionId },
+            data: { analysisStatus: AnalysisStatus.FAILED },
+          });
+
+          throw new BadRequestException(
+            `Single-call response has insufficient knowledgePoints (min=${MIN_KP})`,
+          );
+        }
       }
 
-      // 6) Validate response structure
-      if (
-        !parsedResponse.knowledgePoints ||
-        !Array.isArray(parsedResponse.knowledgePoints)
-      ) {
+      // 3) Final structure validation (strict)
+      if (!Array.isArray(parsedResponse.knowledgePoints)) {
         throw new BadRequestException(
           'Single-call response missing knowledgePoints array',
         );
       }
+      if (parsedResponse.knowledgePoints.length < MIN_KP) {
+        throw new BadRequestException(
+          `Single-call response has insufficient knowledgePoints (min=${MIN_KP})`,
+        );
+      }
 
-      // 7) Prepare analysis payload (WITHOUT knowledgePoints array to avoid duplication)
+      // 4) Persist analysis WITHOUT knowledgePoints to avoid duplication
       const { knowledgePoints, meta, ...analysisFields } = parsedResponse;
+
       const analysisPayload = {
         ...analysisFields,
-        _meta: meta || { promptVersion: 'fizyoloji-v1' },
+        _meta: meta || { promptVersion: 'fizyoloji-v2' },
       };
 
-      // 8) Persist analysis to ExamQuestion
       await this.prisma.examQuestion.update({
         where: { id: examQuestionId },
         data: {
@@ -948,9 +979,12 @@ export class ExamQuestionService {
           analysisStatus: AnalysisStatus.ANALYZED,
           analyzedAt: new Date(),
           patternType: analysisFields.patternType || null,
-          patternConfidence: analysisFields.patternConfidence || null,
-          topicId: null, // Will be resolved separately if needed
-          subtopicId: null,
+          // IMPORTANT: preserve 0
+          patternConfidence: analysisFields.patternConfidence ?? null,
+
+          // If you truly want to resolve separately, at least don't destroy existing:
+          topicId: examQuestion.topicId ?? null,
+          subtopicId: examQuestion.subtopicId ?? null,
         },
       });
 
@@ -958,7 +992,7 @@ export class ExamQuestionService {
         `[Single-Call] Analysis persisted for question: ${examQuestionId}`,
       );
 
-      // 9) Immediately upsert knowledge points
+      // 5) Upsert KPs
       const kpResult =
         await this.knowledgeExtractionService.upsertKnowledgePointsFromExamQuestionSingleCall(
           {
@@ -979,16 +1013,15 @@ export class ExamQuestionService {
       };
     } catch (error) {
       this.logger.error(
-        `[Single-Call] Failed for question ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `[Single-Call] Failed for question ${examQuestionId}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
         error instanceof Error ? error.stack : undefined,
       );
 
-      // Mark as FAILED
       await this.prisma.examQuestion.update({
         where: { id: examQuestionId },
-        data: {
-          analysisStatus: AnalysisStatus.FAILED,
-        },
+        data: { analysisStatus: AnalysisStatus.FAILED },
       });
 
       throw error;
@@ -1077,10 +1110,7 @@ export class ExamQuestionService {
   }
 
   private previewRawResponse(raw: unknown): string {
-    const text =
-      typeof raw === 'string'
-        ? raw
-        : JSON.stringify(raw ?? 'null');
+    const text = typeof raw === 'string' ? raw : JSON.stringify(raw ?? 'null');
     return text.substring(0, 700);
   }
 
