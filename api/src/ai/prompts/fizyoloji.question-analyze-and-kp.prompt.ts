@@ -174,7 +174,7 @@ OUTPUT FORMAT (STRICT JSON)
   "topic": "string",
   "subtopic": "string",
   "patternType": "string",
-  "patternConfidence": number,
+  "patternConfidence": 0.0,
   "spotRule": "string",
   "mechanismChain": "string",
   "optionAnalysis": [

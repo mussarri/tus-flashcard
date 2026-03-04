@@ -36,7 +36,7 @@ export const MODE_CONFIG: Record<SessionMode, {
     },
     SRS: {
         emoji: '🟡',
-        label: 'Akıllı Tekrar',
+        label: 'Orta Seviye',
         description: 'Aralıklı tekrar algoritması',
         color: FLASHCARD_COLORS.SRS,
     },
