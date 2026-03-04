@@ -43,13 +43,14 @@ export default function FlashcardStartScreen() {
   // Calculate total stats for overview
   const totalStats = useMemo(() => {
     if (!dashboardData?.overview) {
-      return { review: 0, learning: 0, new: 0 };
+      return { review: 0, learning: 0, new: 0, easy: 0 };
     }
     const stats = Object.values(dashboardData.overview);
     return {
       review: stats.reduce((sum, s) => sum + s.due, 0),
       learning: stats.reduce((sum, s) => sum + s.learning, 0),
       new: stats.reduce((sum, s) => sum + s.new, 0),
+      easy: stats.reduce((sum, s) => sum + (s.easy || 0), 0),
     };
   }, [dashboardData]);
 
@@ -99,12 +100,13 @@ export default function FlashcardStartScreen() {
         due: selectedLessonStats.due,
         learning: selectedLessonStats.learning,
         hard: selectedLessonStats.hard || 0,
+        easy: selectedLessonStats.easy || 0,
       }
-    : { new: 0, due: 0, learning: 0, hard: 0 };
+    : { new: 0, due: 0, learning: 0, hard: 0, easy: 0 };
 
   const availableCards =
     studyMode === "SRS"
-      ? availableCounts.due + availableCounts.learning
+      ? availableCounts.due + availableCounts.learning + availableCounts.easy
       : studyMode === "LEARN"
         ? availableCounts.new
         : availableCounts.due;
@@ -155,6 +157,7 @@ export default function FlashcardStartScreen() {
           reviewCount={totalStats.review}
           learningCount={totalStats.learning}
           newCount={totalStats.new}
+          easyCount={totalStats.easy}
         />
 
         {/* Lesson Selection */}

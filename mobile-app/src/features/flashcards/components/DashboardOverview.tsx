@@ -6,6 +6,7 @@ interface DashboardOverviewProps {
     reviewCount: number;   // due cards
     learningCount: number; // learning cards
     newCount: number;      // new cards
+    easyCount: number;     // mastered cards
 }
 
 /**
@@ -16,6 +17,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     reviewCount,
     learningCount,
     newCount,
+    easyCount,
 }) => {
     return (
         <View style={styles.container}>
@@ -41,6 +43,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <Text style={styles.emoji}>🟢</Text>
                     <Text style={styles.statLabel}>Yeni</Text>
                     <Text style={styles.statCount}>{newCount}</Text>
+                </View>
+
+                {/* Easy Cards */}
+                <View style={styles.statRow}>
+                    <Text style={styles.emoji}>✅</Text>
+                    <Text style={styles.statLabel}>Kolay</Text>
+                    <Text style={styles.statCount}>{easyCount}</Text>
                 </View>
             </View>
         </View>

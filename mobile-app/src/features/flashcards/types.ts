@@ -247,6 +247,7 @@ export interface LessonStats {
   learning: number;
   new: number;
   hard: number; // Cards marked as HARD (needs urgent review)
+  easy: number; // Cards marked as EASY (mastered)
 }
 
 export interface DashboardData {
@@ -351,4 +352,3 @@ export interface HeatmapData {
   currentStreak: number;
   longestStreak: number;
 }
-

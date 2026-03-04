@@ -12,6 +12,7 @@ interface ModeSelectorProps {
         due: number;
         learning: number;
         hard: number;
+        easy: number;
     };
 }
 
@@ -35,7 +36,7 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({
             case 'WEAKNESS':
                 return availableCounts.hard; // Only HARD cards
             case 'SRS':
-                return availableCounts.due + availableCounts.learning;
+                return availableCounts.due + availableCounts.learning + availableCounts.easy;
             default:
                 return 0;
         }

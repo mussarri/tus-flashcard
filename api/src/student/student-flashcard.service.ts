@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
@@ -72,7 +73,13 @@ export class StudentFlashcardService {
 
       const overview: Record<
         string,
-        { due: number; learning: number; new: number; hard: number }
+        {
+          due: number;
+          learning: number;
+          new: number;
+          hard: number;
+          easy: number;
+        }
       > = {};
 
       for (const lesson of lessons) {
@@ -85,6 +92,18 @@ export class StudentFlashcardService {
               approvalStatus: 'APPROVED',
             },
             status: 'HARD',
+          },
+        });
+
+        // EASY cards (mastered)
+        const easyCount = await this.prisma.userFlashcardProgress.count({
+          where: {
+            userId,
+            flashcard: {
+              lessonId: lesson.id,
+              approvalStatus: 'APPROVED',
+            },
+            status: 'EASY',
           },
         });
 
@@ -139,6 +158,7 @@ export class StudentFlashcardService {
           learning: learningCount,
           new: Math.max(0, newCount),
           hard: hardCount, // Add explicit HARD count
+          easy: easyCount, // Add explicit EASY count
         };
       }
 
@@ -522,7 +542,7 @@ export class StudentFlashcardService {
   ) {
     // Map SRS responses to status (for status-based system)
     let status: 'EASY' | 'MEDIUM' | 'HARD';
-    
+
     switch (response) {
       case 'AGAIN':
         status = 'HARD'; // Need to review again - mark as HARD
