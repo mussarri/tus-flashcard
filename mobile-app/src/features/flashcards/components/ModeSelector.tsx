@@ -25,7 +25,7 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({
     onSelectMode,
     availableCounts,
 }) => {
-    const modes: SessionMode[] = ['LEARN', 'WEAKNESS', 'SRS'];
+    const modes: SessionMode[] = ['LEARN', 'WEAKNESS', 'SRS', 'EASY'];
 
     const getAvailableCount = (mode: SessionMode): number => {
         if (!availableCounts) return 0;
@@ -37,6 +37,8 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({
                 return availableCounts.hard; // Only HARD cards
             case 'SRS':
                 return availableCounts.due + availableCounts.learning + availableCounts.easy;
+            case 'EASY':
+                return availableCounts.easy;
             default:
                 return 0;
         }

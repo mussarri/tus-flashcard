@@ -134,7 +134,12 @@ export class StudentFlashcardController {
       );
     }
 
-    return this.flashcardService.reviewCard(body.userId, cardId, body.response, body.sessionId);
+    return this.flashcardService.reviewCard(
+      body.userId,
+      cardId,
+      body.response,
+      body.sessionId,
+    );
   }
 
   /**

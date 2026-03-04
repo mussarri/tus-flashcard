@@ -26,6 +26,8 @@ export default function FlashcardStartScreen() {
   const { data: dashboardData, isLoading, error, refetch } = useDashboard();
   const startSessionMutation = useStartSession();
 
+  console.log(dashboardData);
+  
   // State    const [refreshing, setRefreshing] = useState(false);    const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
   const [studyMode, setStudyMode] = useState<SessionMode>("SRS");
   const [cardCount, setCardCount] = useState<number>(20);
@@ -109,7 +111,9 @@ export default function FlashcardStartScreen() {
       ? availableCounts.due + availableCounts.learning + availableCounts.easy
       : studyMode === "LEARN"
         ? availableCounts.new
-        : availableCounts.due;
+        : studyMode === "EASY"
+          ? availableCounts.easy
+          : availableCounts.due;
 
   // Loading state
   if (isLoading) {

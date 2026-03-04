@@ -258,7 +258,7 @@ export interface DashboardData {
 }
 
 // Session Management Types
-export type SessionMode = 'SRS' | 'LEARN' | 'WEAKNESS';
+export type SessionMode = 'SRS' | 'LEARN' | 'WEAKNESS' | 'EASY';
 
 export interface SessionStartRequest {
   lessonId?: string;

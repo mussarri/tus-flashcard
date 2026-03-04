@@ -9,6 +9,7 @@ export const FLASHCARD_COLORS = {
     REVIEW: '#F44336',   // Red - Review/Hard cards (WEAKNESS mode)
     SRS: '#4CAF50',      // Green - SRS mode
     LEARNING: '#FFC107', // Yellow - Learning cards
+    EASY: '#2E7D32',     // Dark green - Easy/mastered cards
 } as const;
 
 /**
@@ -38,6 +39,12 @@ export const MODE_CONFIG: Record<SessionMode, {
         label: 'Akıllı Tekrar',
         description: 'Aralıklı tekrar algoritması',
         color: FLASHCARD_COLORS.SRS,
+    },
+    EASY: {
+        emoji: '✅',
+        label: 'Kolay Kartlar',
+        description: 'Öğrendiğin kartları hızlı tekrar et',
+        color: FLASHCARD_COLORS.EASY,
     },
 };
 
