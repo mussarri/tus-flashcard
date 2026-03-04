@@ -13,25 +13,30 @@ export interface FizyolojiSingleCallPayload {
 export function buildFizyolojiSingleCallPrompt(
   payload: FizyolojiSingleCallPayload,
 ) {
+  // -----------------------------
+  // JSON REPAIR MODE (STRICT)
+  // -----------------------------
   if (payload.repairRawOutput) {
     return {
       systemPrompt: `ROLE:
-You are a strict JSON repair engine for TUS Fizyoloji single-call analysis outputs.
+Sen TUS Fizyoloji single-call analiz çıktıları için katı bir JSON onarım motorusun.
 
-RULES:
-- Return ONLY valid JSON.
-- Do NOT add markdown, comments, or explanations.
-- Do NOT invent new medical facts.
-- Keep existing meaning; only fix structure/types to match schema.
-- knowledgePoints must be an array.
+RULES (HARD):
+- SADECE geçerli JSON döndür (başka hiçbir metin yok).
+- Markdown, açıklama, yorum, ön/son ek metin YOK.
+- Çıktı "{" ile başlamalı ve "}" ile bitmeli; başka karakter olmamalı.
+- Yeni tıbbi bilgi UYDURMA.
+- Mevcut anlamı KORU; sadece şema/alan tipi/dizi yapısını düzelt.
+- knowledgePoints bir array olmalı; BOŞ OLMAMALI.
+- Eğer knowledgePoints boşsa: RAW OUTPUT içindeki mevcut bilgilerden (spotRule/mechanismChain/examTrap/clinicalCorrelation/optionAnalysis) çıkarılabilen atomik maddelerle DOLDUR ve toplamı en az 6 yapmaya çalış.
 
-OUTPUT SCHEMA:
+OUTPUT SCHEMA (example values required):
 {
   "lesson": "Fizyoloji",
   "topic": "string",
   "subtopic": "string",
   "patternType": "string",
-  "patternConfidence": 0,
+  "patternConfidence": 0.0,
   "spotRule": "string",
   "mechanismChain": "string",
   "optionAnalysis": [
@@ -69,104 +74,134 @@ OUTPUT SCHEMA:
     }
   ],
   "meta": {
-    "promptVersion": "fizyoloji-v1"
+    "promptVersion": "fizyoloji-v2"
   }
 }`,
-      userPrompt: `Fix the following raw model output into strict valid JSON matching the schema.
+      userPrompt: `Aşağıdaki RAW OUTPUT'u, yukarıdaki şemaya uyan STRICT VALID JSON'a dönüştür.
+
+HARD:
+- Sadece JSON döndür.
+- knowledgePoints array olmalı ve mümkünse en az 6 madde içermeli.
+- Yeni tıbbi bilgi uydurma; yalnızca mevcut metinden türet.
 
 RAW OUTPUT:
 ${payload.repairRawOutput}`,
     };
   }
 
+  // -----------------------------
+  // MAIN SINGLE-CALL MODE
+  // -----------------------------
   const systemPrompt = `
 ROLE:
-You are a medical education AI specialized in TUS Physiology (Fizyoloji).
+Sen TUS Fizyoloji (Fizyoloji) alanında uzman bir tıp eğitimi yapay zekâsısın.
 
-IMPORTANT:
-The lesson has ALREADY BEEN SELECTED by an editor.
-The lesson is FINAL and MUST NOT be changed.
+IMPORTANT (HARD):
+- lesson editör tarafından seçildi ve KESİNLEŞTİ.
+- lesson alanı HER ZAMAN "Fizyoloji" olmalı.
+- lesson'ı değiştirmek, başka derse taşımak YASAK.
 
-Selected lesson: FİZYOLOJİ
+LANGUAGE (HARD):
+- TÜM çıktı TÜRKÇE olmalı.
+- Latince/fizyolojik terminoloji kullanılabilir.
+- İngilizce cümle kurma.
 
-You are NOT allowed to:
-- Change lesson
-- Reclassify to another lesson
-- Invent new physiological facts not inferable from the question
-- Add mechanisms beyond question scope
-
-LANGUAGE RULE:
-- ALL output MUST be in TURKISH.
-- Latin physiological terminology is allowed.
+OUTPUT (HARD):
+- SADECE STRICT JSON döndür.
+- Çıktı "{" ile başlamalı ve "}" ile bitmeli; başka hiçbir karakter olmamalı.
+- Markdown / açıklama / yorum / ekstra metin YOK.
 
 GOAL (SINGLE CALL):
-1) Perform full TUS-style physiology analysis.
-2) Generate atomic KnowledgePoint candidates derived from this question.
+1) Soruyu TUS tarzında analiz et.
+2) Atomik KnowledgePoint (KP) adayları üret.
 
-CRITICAL RULES:
-- Analyze ALL 5 options (A–E).
-- At most 2 options may have importance = HIGH.
-- physiologicalOutcome is mandatory for every option.
-- spotRule must directly explain why the correct answer is correct.
-- mechanismChain must use arrows (->) and max 6 steps.
-- If no strong clinical correlation exists, write:
+OPTION ANALYSIS (HARD):
+- A–E tüm seçenekleri analiz et.
+- physiologicalOutcome her seçenek için ZORUNLU.
+- importance="HIGH" en fazla 2 seçenek olabilir.
+
+spotRule & mechanismChain (HARD):
+- spotRule: doğru seçeneğin neden doğru olduğunu TEK NET KURAL şeklinde söyle.
+- mechanismChain: "->" ile yaz, maksimum 6 adım.
+
+clinicalCorrelation:
+- Güçlü klinik korelasyon yoksa TAM OLARAK şu cümleyi yaz:
   "Bu soru temel fizyolojik mekanizmaya dayalıdır."
 
-KNOWLEDGEPOINT RULES:
-- Generate 6–12 KnowledgePoints.
-- Each KP must be ATOMIC (exactly ONE testable fact).
-- Max 180 characters per KP.
-- No compound multi-claim sentences.
-- Must include normalizedKeyCandidate:
-    - lowercase
-    - Turkish chars normalized (ı->i, ş->s, ğ->g, ü->u, ö->o, ç->c)
-    - punctuation removed
-    - single spaces only
-- Do NOT hash (backend will hash).
+KNOWLEDGEPOINTS (HARD):
+- knowledgePoints 6–12 arası OLMAK ZORUNDA.
+- BOŞ ARRAY YASAK.
+- Her KP atomik: TEK test edilebilir hüküm.
+- Max 180 karakter.
+- Uydurma yok: sadece soru + seçenekler + senin spotRule / mechanismChain / examTrap / optionAnalysis yorumlarından türet.
 
-KP SOURCES:
-- At least 1 from spotRule
-- At least 1 from mechanismChain
-- At least 1 from examTrap.keyDifference
-- At least 1 from clinicalCorrelation (if meaningful)
-- Max 3 from optionAnalysis
+KP SOURCES (HARD MINIMA):
+- En az 2 KP: spotRule'dan.
+- En az 2 KP: mechanismChain'den.
+- examTrap.keyDifference anlamlıysa en az 1 KP buradan; değilse spotRule'dan telafi et.
+- clinicalCorrelation anlamlıysa en az 1 KP; değilse spotRule'dan telafi et.
+- optionAnalysis'dan en fazla 3 KP.
 
-OUTPUT MUST BE STRICT JSON ONLY.
-No markdown.
-No explanations.
-No extra text.
+normalizedKeyCandidate (HARD):
+- lowercase
+- Türkçe karakter normalize: ı->i, ş->s, ğ->g, ü->u, ö->o, ç->c
+- noktalama kaldır
+- çoklu boşluk tek boşluk
+ÖRNEK:
+"Renin-Angiotensin Sistemi ↑ aldosteron" -> "renin angiotensin sistemi aldosteron"
+- Hash YOK (backend hashleyecek).
+
+NUMERIC FIELDS (HARD):
+- patternConfidence 0..1 float
+- examRelevance 0..1 float
+- priority 0..10 integer
 `;
 
-  let userPrompt = `Analyze the following TUS FİZYOLOJİ exam question and generate BOTH full analysis and atomic KnowledgePoints.\n\n`;
+  let userPrompt = `Aşağıdaki TUS FİZYOLOJİ sorusunu analiz et ve hem tam analiz hem de atomik KnowledgePoint üret.
 
-  userPrompt += `Question:\n${payload.question}\n\n`;
+Question:
+${payload.question}
 
-  userPrompt += `Options:\n`;
+Options:
+`;
+
   Object.entries(payload.options).forEach(([key, value]) => {
     userPrompt += `${key}) ${value}\n`;
   });
 
-  userPrompt += `\nCorrect Answer: ${payload.correctAnswer}\n`;
+  userPrompt += `
+
+Correct Answer: ${payload.correctAnswer}
+`;
 
   if (payload.explanation) {
-    userPrompt += `\nExisting Explanation:\n${payload.explanation}\n`;
+    userPrompt += `
+Existing Explanation:
+${payload.explanation}
+`;
   }
 
   if (payload.year) {
-    userPrompt += `\nYear: ${payload.year}\n`;
+    userPrompt += `
+Year: ${payload.year}
+`;
   }
 
   if (payload.topic) {
-    userPrompt += `\nPreselected Topic: ${payload.topic}\n`;
+    userPrompt += `
+Preselected Topic: ${payload.topic}
+`;
   }
 
   if (payload.subtopic) {
-    userPrompt += `Preselected Subtopic: ${payload.subtopic}\n`;
+    userPrompt += `Preselected Subtopic: ${payload.subtopic}
+`;
   }
 
+  // IMPORTANT: avoid "number" literal in schema
   userPrompt += `
 ====================================================
-OUTPUT FORMAT (STRICT JSON)
+OUTPUT FORMAT (STRICT JSON) — MUST MATCH EXACTLY
 ====================================================
 
 {
@@ -212,15 +247,15 @@ OUTPUT FORMAT (STRICT JSON)
     }
   ],
   "meta": {
-    "promptVersion": "fizyoloji-v1"
+    "promptVersion": "fizyoloji-v2"
   }
 }
 
-Return ONLY valid JSON.
+HARD REMINDERS:
+- SADECE JSON döndür.
+- Çıktı "{" ile başlamalı ve "}" ile bitmeli; ekstra karakter yok.
+- knowledgePoints 6–12 arası, BOŞ OLAMAZ.
 `;
 
-  return {
-    systemPrompt,
-    userPrompt,
-  };
+  return { systemPrompt, userPrompt };
 }

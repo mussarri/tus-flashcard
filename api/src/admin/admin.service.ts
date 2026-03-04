@@ -5313,4 +5313,77 @@ export class AdminService {
 
     return results;
   }
+
+  async getUserFlashcardsWithDifficulty(userId: string, limit = 100) {
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 100;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User not found: ${userId}`);
+    }
+
+    const progressRows = await this.prisma.userFlashcardProgress.findMany({
+      where: {
+        userId,
+        status: {
+          in: ['EASY', 'MEDIUM', 'HARD'],
+        },
+      },
+      include: {
+        flashcard: {
+          select: {
+            id: true,
+            front: true,
+            cardType: true,
+            lesson: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+              },
+            },
+            topic: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+              },
+            },
+            subtopic: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ updatedAt: 'desc' }],
+      take: safeLimit,
+    });
+
+    return {
+      user,
+      flashcards: progressRows.map((row) => ({
+        progressId: row.id,
+        flashcardId: row.flashcardId,
+        front: row.flashcard.front,
+        cardType: row.flashcard.cardType,
+        difficulty: row.status.toLowerCase(),
+        totalReviews: row.totalReviews,
+        correctCount: row.correctCount,
+        incorrectCount: row.incorrectCount,
+        lastReview: row.lastReview,
+        lesson: row.flashcard.lesson,
+        topic: row.flashcard.topic,
+        subtopic: row.flashcard.subtopic,
+      })),
+    };
+  }
 }

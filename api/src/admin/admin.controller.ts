@@ -2998,4 +2998,32 @@ export class AdminController {
       );
     }
   }
+
+  @Get('analytics/user-flashcards/:userId')
+  async getUserFlashcardsWithDifficulty(
+    @Param('userId') userId: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const result = await this.adminService.getUserFlashcardsWithDifficulty(
+        userId,
+        limit ? parseInt(limit, 10) : undefined,
+      );
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(
+        `Failed to get user flashcards for ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new HttpException(
+        `Failed to get user flashcards: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500,
+      );
+    }
+  }
 }

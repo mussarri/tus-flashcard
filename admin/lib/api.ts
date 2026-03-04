@@ -1423,4 +1423,40 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  getUserFlashcardsWithDifficulty: (userId: string, limit = 100) =>
+    apiRequest<{
+      success: boolean;
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+      };
+      flashcards: Array<{
+        progressId: string;
+        flashcardId: string;
+        front: string;
+        cardType: string;
+        difficulty: "easy" | "medium" | "hard";
+        totalReviews: number;
+        correctCount: number;
+        incorrectCount: number;
+        lastReview: string | null;
+        lesson: {
+          id: string;
+          name: string;
+          displayName: string;
+        } | null;
+        topic: {
+          id: string;
+          name: string;
+          displayName: string;
+        } | null;
+        subtopic: {
+          id: string;
+          name: string;
+          displayName: string;
+        } | null;
+      }>;
+    }>(`admin/analytics/user-flashcards/${userId}?limit=${limit}`),
 };

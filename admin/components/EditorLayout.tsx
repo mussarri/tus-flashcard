@@ -113,6 +113,11 @@ export default function EditorLayout({
     },
     { label: "Flashcards", href: "/flashcards", icon: CreditCard },
     { label: "Flashcards Review", href: "/flashcards/review", icon: CreditCard },
+    {
+      label: "User Flashcard Zorluk",
+      href: "/flashcards/user-progress",
+      icon: CreditCard,
+    },
     { label: "Exam Questions", href: "/exam-questions", icon: HelpCircle },
     {
       label: "Generated Questions",
