@@ -22,6 +22,7 @@ export function buildFlashcardPrompt(
   payload: FlashcardPromptPayload,
 ): FlashcardPromptResult {
   const lessonName = payload.lesson?.toLowerCase().trim();
+  console.log(lessonName);
 
   // Route to lesson-specific prompt builders
   switch (lessonName) {

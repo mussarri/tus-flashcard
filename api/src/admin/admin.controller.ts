@@ -465,7 +465,6 @@ export class AdminController {
   ) {
     try {
       this.logger.log('Getting all knowledge points');
-      console.log('kp');
 
       const result = await this.adminService.getAllKnowledgePoints(
         page ? parseInt(page, 10) : 1,
@@ -691,7 +690,6 @@ export class AdminController {
       this.logger.log(
         `Getting knowledge points for review${batchId ? ` (batch: ${batchId})` : ''}`,
       );
-      console.log(hasFlashcard);
 
       const result = await this.adminService.getKnowledgePointsForReview(
         batchId,
