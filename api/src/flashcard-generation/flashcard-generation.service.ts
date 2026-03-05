@@ -43,6 +43,24 @@ export interface GeneratedFlashcard {
   visualRequired?: boolean;
 }
 
+// AI output cardType -> DB enum
+const PHYSIO_AI_TO_DB_CARDTYPE: Record<string, CardType> = {
+  DIRECT: 'SPOT',
+  FUNCTIONAL: 'SPOT',
+  STRUCTURE_CONTENT: 'SPOT',
+  RELATION_BORDER: 'SPOT',
+
+  DISTINCTION: 'COMPARISON',
+
+  EXCEPT_TRAP: 'TRAP',
+
+  LESION_CLINICAL: 'CLINICAL_TIP',
+
+  // Eğer DB’de CLOZE diye bir CardType yoksa bunu da SPOT’a maple
+  // ya da DB enumuna CLOZE ekle.
+  CLOZE: 'SPOT',
+};
+
 type AiFlashcard = {
   cardType: string;
   question: string;
@@ -349,10 +367,26 @@ export class FlashcardGenerationService {
           //   card.cardType,
           // );
 
+          function normalizeAiCardType(raw: string): string {
+            return raw
+              .trim()
+              .toUpperCase()
+              .replace(/\s+/g, '_')
+              .replace(/-+/g, '_');
+          }
+
+          const aiType = normalizeAiCardType(card.cardType);
+          const dbType = PHYSIO_AI_TO_DB_CARDTYPE[aiType];
+
+          if (!dbType) {
+            this.logger.warn(`Skipping unknown AI cardType: ${aiType}`);
+            continue;
+          }
+
           await this.prisma.flashcard.create({
             data: {
               knowledgePointId,
-              cardType: card.cardType,
+              cardType: dbType,
               front: card.front,
               back: card.back,
               lessonId: knowledgePoint.topic?.lesson?.id || undefined, // Store lesson for traceability
