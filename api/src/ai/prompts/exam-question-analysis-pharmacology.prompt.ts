@@ -224,15 +224,15 @@ Doğru: B
     userPrompt += `${key}) ${value}\n`;
   });
   userPrompt += `\nDoğru Cevap: ${payload.correctAnswer}\n`;
-  
+
   if (payload.explanation) {
     userPrompt += `\nMevcut Açıklama: ${payload.explanation}\n`;
   }
-  
+
   if (payload.year) {
     userPrompt += `\nYıl: ${payload.year}`;
   }
-  
+
   if (payload.examType) {
     userPrompt += `\nSınav Tipi: ${payload.examType}`;
   }

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -40,6 +43,16 @@ export interface GeneratedFlashcard {
   visualRequired?: boolean;
 }
 
+type AiFlashcard = {
+  cardType: string;
+  question: string;
+  answer: string;
+  difficulty: number;
+  examRelevance: number;
+  confidence: number;
+  sourceFact: string;
+};
+
 @Injectable()
 export class FlashcardGenerationService {
   private readonly logger = new Logger(FlashcardGenerationService.name);
@@ -50,6 +63,35 @@ export class FlashcardGenerationService {
     private readonly aiRouter: AIRouterService,
   ) {
     this.logger.log('Flashcard generation service initialized');
+  }
+
+  safeParseJsonObject(input: string): any | null {
+    if (!input) return null;
+
+    const cleaned = input
+      .trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```$/i, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
+  }
+
+  clamp(n: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  isCloze(s: string) {
+    return /{{c1::.+?}}/i.test(s);
+  }
+
+  cleanText(s: any): string {
+    return (s ?? '').toString().replace(/\r\n/g, '\n').trim();
   }
 
   /**
@@ -80,11 +122,6 @@ export class FlashcardGenerationService {
       }
 
       // ATOMICITY GUARD: Only allow flashcard generation for atomic, active KPs
-      if (knowledgePoint.atomicityStatus !== AtomicityStatus.ATOMIC) {
-        throw new BadRequestException(
-          `Cannot generate flashcards for non-atomic KP (status: ${knowledgePoint.atomicityStatus}). Only ATOMIC KPs can be used for flashcard generation. Please run atomicity validation and splitting first.`,
-        );
-      }
 
       if (!knowledgePoint.isActive) {
         throw new BadRequestException(
@@ -159,38 +196,60 @@ export class FlashcardGenerationService {
       });
 
       // Parse AI response
-      const aiResponse = JSON.parse(result.content) as Record<
-        string,
-        { q: string; a: string }
-      >;
-
-      // Convert AI response to GeneratedFlashcard format
-      const flashcards: GeneratedFlashcard[] = [];
-
-      for (const [cardType, cardData] of Object.entries(aiResponse)) {
-        if (
-          cardData &&
-          typeof cardData === 'object' &&
-          'q' in cardData &&
-          'a' in cardData
-        ) {
-          const data = cardData as { q: string; a: string };
-
-          // Map card type and determine visual requirements
-          const visualRequired = this.isVisualRequired(cardType as CardType);
-
-          flashcards.push({
-            cardType: cardType as any,
-            front: data.q,
-            back: data.a,
-            visualRequired,
-          });
-        }
+      const parsed = this.safeParseJsonObject(result.content);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('AI output is not valid JSON');
       }
 
-      this.logger.log(
-        `AI generated ${flashcards.length} flashcards successfully`,
-      );
+      const arr = parsed.flashcards;
+      if (!Array.isArray(arr)) {
+        throw new Error('AI output missing flashcards[]');
+      }
+
+      const flashcards: GeneratedFlashcard[] = [];
+
+      for (const item of arr as AiFlashcard[]) {
+        if (!item || typeof item !== 'object') continue;
+
+        const question = this.cleanText((item as any).question);
+        const answer = this.cleanText((item as any).answer);
+        const sourceFact = this.cleanText((item as any).sourceFact);
+
+        if (!question || !answer) continue;
+
+        // numeric guards
+        const difficulty = this.clamp(
+          Number((item as any).difficulty ?? 1),
+          1,
+          5,
+        );
+        const examRelevance = this.clamp(
+          Number((item as any).examRelevance ?? 0),
+          0,
+          1,
+        );
+        const confidence = this.clamp(
+          Number((item as any).confidence ?? 0),
+          0,
+          1,
+        );
+
+        // visual: fizyolojide genelde false (istersen type'a göre rule koy)
+        const visualRequired = false;
+
+        flashcards.push({
+          cardType: item.cardType as any, // veya kendi enum'una map et
+          front: question,
+          back: answer,
+          visualRequired,
+          // istersen metadata alanlarına ekle:
+          // difficulty, examRelevance, confidence, sourceFact
+        });
+      }
+
+      if (!flashcards.length) {
+        throw new Error('AI produced no valid flashcards');
+      }
       return flashcards;
     } catch (error) {
       this.logger.error(

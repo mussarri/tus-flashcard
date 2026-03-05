@@ -49,8 +49,6 @@ export class FlashcardGenerationProcessor extends WorkerHost {
           knowledgePointId,
         );
 
-      console.log(flashcards);
-
       if (flashcards.length === 0) {
         this.logger.warn(
           `No flashcards generated for knowledgePoint: ${knowledgePointId}`,

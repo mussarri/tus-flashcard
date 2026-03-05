@@ -101,7 +101,8 @@ JSON FORMAT:
     if (payload.topic) userPrompt += `- Alt Kategori: ${payload.topic}\n`;
   }
 
-  userPrompt += '\n\nÖNEMLİ: SADECE yukarıdaki bilgi noktasını kullan. Dışarıdan bilgi ekleme.';
+  userPrompt +=
+    '\n\nÖNEMLİ: SADECE yukarıdaki bilgi noktasını kullan. Dışarıdan bilgi ekleme.';
 
   return { systemPrompt, userPrompt };
 }
