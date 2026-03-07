@@ -49,7 +49,7 @@ export default function FlashcardStartScreen() {
     }
     const stats = Object.values(dashboardData.overview);
     return {
-      review: stats.reduce((sum, s) => sum + s.due, 0),
+      review: stats.reduce((sum, s) => sum + s.hard, 0),
       learning: stats.reduce((sum, s) => sum + s.learning, 0),
       new: stats.reduce((sum, s) => sum + s.new, 0),
       easy: stats.reduce((sum, s) => sum + (s.easy || 0), 0),

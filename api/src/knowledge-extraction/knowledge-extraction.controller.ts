@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Logger,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { KnowledgeExtractionService } from './knowledge-extraction.service';
 import {
   ExtractionMode,
@@ -85,7 +78,9 @@ export class KnowledgeExtractionController {
       kpCount?: number;
     }>;
   }> {
-    return this.knowledgeExtractionService.getBatchExtractionStatus(query.batchId);
+    return this.knowledgeExtractionService.getBatchExtractionStatus(
+      query.batchId,
+    );
   }
 
   @Get('logs')

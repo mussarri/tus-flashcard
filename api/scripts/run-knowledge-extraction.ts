@@ -6,7 +6,9 @@ async function main() {
   const approvedContentId = process.argv[2];
 
   if (!approvedContentId) {
-    console.error('Usage: ts-node scripts/run-knowledge-extraction.ts <approvedContentId>');
+    console.error(
+      'Usage: ts-node scripts/run-knowledge-extraction.ts <approvedContentId>',
+    );
     process.exit(1);
   }
 
@@ -16,9 +18,10 @@ async function main() {
 
   try {
     const extractionService = app.get(KnowledgeExtractionService);
-    const result = await extractionService.processApprovedContentExtraction(
-      approvedContentId,
-    );
+    const result =
+      await extractionService.processApprovedContentExtraction(
+        approvedContentId,
+      );
 
     console.log('Knowledge extraction completed:', result);
   } catch (error) {
