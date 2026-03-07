@@ -187,11 +187,8 @@ export class AIRouterService {
               options?: Record<string, string>;
               correctAnswer?: string;
               explanation?: string;
-              analysisPayload?: any;
               // Common fields
-              lesson?: string;
-              topic?: string;
-              subtopic?: string;
+              lesson: string;
             },
             options,
             effectiveModel,
@@ -459,7 +456,7 @@ export class AIRouterService {
       explanation?: string;
       analysisPayload?: any;
       // Common fields
-      lesson?: string;
+      lesson: string;
       topic?: string;
       subtopic?: string;
     },
@@ -469,16 +466,8 @@ export class AIRouterService {
     // Use generic content-based prompt
     const result = buildKnowledgeExtractionPrompt({
       content: payload.content || '',
-      contentType: payload.contentType,
-      blockType: payload.blockType,
+
       lesson: payload.lesson,
-      topic: payload.topic,
-      subtopic: payload.subtopic,
-      maxKnowledgePoints: payload.maxKnowledgePoints,
-      strategyHint: payload.strategyHint,
-      tableData: payload.tableData,
-      algorithmData: payload.algorithmData,
-      repairRawOutput: payload.repairRawOutput,
     });
     const systemPrompt = result.systemPrompt;
     const userPrompt = result.userPrompt;
