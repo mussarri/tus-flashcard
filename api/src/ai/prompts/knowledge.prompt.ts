@@ -11,12 +11,29 @@ export function buildKnowledgeExtractionPrompt(payload: {
   algorithmData?: unknown;
   repairRawOutput?: string;
 }): { systemPrompt: string; userPrompt: string } {
+  const maxKnowledgePoints = Math.max(
+    1,
+    Math.min(payload.maxKnowledgePoints ?? 40, 80),
+  );
+
+  // --- JSON repair mode ---
   if (payload.repairRawOutput) {
     return {
       systemPrompt: `Sen katı bir JSON onarım motorusun.
-Sadece geçerli JSON döndür. Yorum, açıklama, markdown ekleme.
-Yeni tıbbi bilgi ekleme, çıkarım yapma, birleştirme yapma.
-Dil zorunluluğu: knowledgePoints[].fact Türkçe cümle olmalı.
+
+Görevin:
+Bozuk veya şemaya uymayan model çıktısını, aşağıdaki şemaya uyan GEÇERLİ JSON haline getirmektir.
+
+Kurallar:
+- Sadece geçerli JSON döndür.
+- Markdown, açıklama, yorum, ek metin yazma.
+- Yeni tıbbi bilgi ekleme.
+- Şemaya uymayan alanları kaldır.
+- Eksik zorunlu alanları yalnızca yapısal olarak tamamla.
+- knowledgePoints[].fact alanı Türkçe cümle olmalı.
+- fact alanını tıbben genişletme, yorumlama, birleştirme yapma.
+- priority integer olmalı ve 0-10 arasında kalmalı.
+- examRelevance ve classificationConfidence 0-1 arasında number olmalı.
 
 Çıktı şeması:
 {
@@ -29,14 +46,14 @@ Dil zorunluluğu: knowledgePoints[].fact Türkçe cümle olmalı.
     }
   ]
 }`,
-      userPrompt: `Aşağıdaki bozuk model çıktısını şemaya uyan geçerli JSON haline getir.
+      userPrompt: `Aşağıdaki ham model çıktısını, verilen şemaya uyan KATI GEÇERLİ JSON haline getir.
 
 Kurallar:
 - Sadece JSON döndür.
-- Markdown kullanma.
+- Markdown code fence kullanma.
+- Yeni tıbbi bilgi ekleme.
+- Eksik alan varsa yapısal olarak tamamla.
 - Şemaya uymayan alanları sil.
-- Eksik zorunlu alanları TAMAMLA ama yeni tıbbi bilgi UYDURMA.
-- fact alanını yeniden tıbbi olarak genişletme.
 - knowledgePoints[].fact Türkçe olmalı.
 - priority integer ve 0-10 arasında olmalı.
 - examRelevance ve classificationConfidence 0-1 arasında olmalı.
@@ -46,89 +63,92 @@ ${payload.repairRawOutput}`,
     };
   }
 
-  const systemPrompt = `Sen TUS odaklı bir Knowledge Point çıkarım motorusun.
+  const systemPrompt = `Sen TUS odaklı bir tıbbi içerik ayrıştırma ve atomik Knowledge Point çıkarım motorusun.
 
 Görevin:
-Verilen onaylı tıbbi içerikten sınavda ölçülebilir, atomik, bağımsız KnowledgePoint'ler çıkarmaktır.
+Verilen onaylı tıbbi içerikten sınavda ölçülebilir, atomik, bağımsız KnowledgePoint'ler üretmek.
 
-Temel kurallar:
+Temel ilkeler:
 - Sadece verilen içerikten üret.
-- Harici tıbbi bilgi ekleme.
-- Yorum yapma.
+- Harici bilgi ekleme.
+- Açıklama yapma.
+- Yorum ekleme.
 - Özet yazma.
 - Başlık yazma.
 - Sadece strict JSON döndür.
 
-DİL:
+DİL ZORUNLULUĞU:
 - Çıktı dili Türkçe olmalı.
 - knowledgePoints[].fact mutlaka Türkçe cümle olmalı.
-- Latin / İngilizce tıbbi terimler korunabilir.
+- Latin veya İngilizce tıbbi terimler aynen korunabilir.
 
-ATOMİKLİK KURALLARI (ÇOK SERT UYGULA):
-- Her fact tek bir hüküm içermeli.
-- Her fact mümkünse tek yüklemli olmalı.
+ATOMİKLİK KURALLARI (ÇOK SIKI):
+- Her Knowledge Point tek bir ölçülebilir bilgi içermeli.
+- Her fact mümkünse tek cümle ve tek hüküm içermeli.
 - Bir fact içinde iki ayrı bilgi birleştirme.
-- "ve", "ile", "ayrıca", "buna ek olarak", "sonuç olarak" ile bağlanan çoklu bilgi üretme.
-- Anatomi + klinik sonuç aynı fact içinde birleşmesin.
-- Tanım + istisna aynı fact içinde birleşmesin.
+- "ve", "ile", "ayrıca", "buna ek olarak", "sonuç olarak", "nedeniyle" ile bağlanan çoklu bilgi üretme.
+- Anatomi bilgi + klinik sonuç aynı fact içinde birleşmesin.
+- Tanım + özellik aynı fact içinde birleşmesin.
+- Yapı + komşuluk + fonksiyon aynı fact içinde birleşmesin.
+- Neden-sonuç zincirlerini ayrı fact'lere böl.
 - Bir fact başka bir fact'e bağımlı olmadan anlaşılabilmeli.
 
 YASAK ÇIKTILAR:
-- Genel giriş cümlesi
-- Başlık cümlesi
-- “X konusu önemlidir” gibi meta cümleler
-- “Orbita dört duvardan oluşur” gibi düşük verimli üst düzey özetler
-- Listeleri tek cümlede toplamak
+- Giriş cümlesi
+- Meta cümle
+- Başlık benzeri cümle
+- Çok genel düşük verimli cümleler
 - Aynı bilginin yakın tekrarları
+- Listeyi tek cümlede toplama
 
 TEKRAR AZALTMA:
-- Aynı bilgi farklı sözdizimiyle tekrar edilmemeli.
-- Anlamca eşdeğer fact'lerden yalnızca en kısa ve en net olanı tutulmalı.
+- Aynı anlamı taşıyan tekrar fact üretme.
+- Anlamca eşdeğer iki fact varsa en kısa ve en net olanı seç.
 
 BLOCK TİPİNE GÖRE DAVRANIŞ:
 - TEXT:
   Cümleleri atomik sınav bilgilerine böl.
 - SPOT:
-  Sadece high-yield bilgileri çıkar.
+  Yalnızca high-yield, kısa, direkt sorulabilir bilgileri çıkar.
 - ALGORITHM:
-  Karar kuralı, eşik, sıra, neden-sonuç geçişlerini atomize et.
+  Karar kuralı, eşik, sıra, geçiş, if-then mantığı içeren bilgileri atomize et.
 - TABLE:
-  Hücre patlaması yapma. Tablo tipine göre kontrollü çıkarım yap.
+  Hücre-hücre patlama yapma. Kontrollü çıkarım yap.
 
-TABLE KURALLARI:
+TABLE ANTI-EXPLOSION KURALLARI:
 - rowCount > 20 veya colCount > 4 ise PATTERN_ONLY modu uygula.
 - PATTERN_ONLY modunda:
-  - 1-6 ana desen çıkar
-  - gerekiyorsa seçilmiş high-yield satırları ekle
-  - toplam çıktı 16’yı geçmesin
+  - 1 ila 6 ana desen çıkar
+  - gerekirse seçilmiş high-yield satır bilgileri ekle
+  - tablo kaynaklı toplam çıktı 16'yı geçmesin
 - Küçük tabloda:
   - COMPARISON: her fark ayrı KP
   - ENUMERATION: her satır ayrı KP
-  - DIAGNOSTIC_CRITERIA: her kriter/eşik ayrı KP
+  - DIAGNOSTIC_CRITERIA: her kriter veya eşik ayrı KP
   - MECHANISM_FLOW: her geçiş ayrı KP
 
-DERSE GÖRE ÖNCELİKLENDİRME:
+DERS ÖNCELİKLENDİRME:
 - ANATOMY:
-  duvar-içerik, yapı-komşuluk, kas-başlangıç, kas-innervasyon, foramen-içerik, damar-drenaj, en/tek/ilk tipindeki bilgiler önceliklidir
+  duvar-içerik, yapı-komşuluk, kas-başlangıç, kas-tutunma, kas-innervasyon, foramen-içerik, damar-drenaj, "en/tek/ilk" bilgileri önceliklidir
 - PHYSIOLOGY:
-  artar/azalır, uyarır/baskılar, hormon-etki, geri bildirim, taşıma mekanizması bilgileri önceliklidir
+  artar/azalır, uyarır/baskılar, hormon-etki, taşıma mekanizması, geri bildirim bilgileri önceliklidir
 - PATHOLOGY / CLINICAL:
-  tanı kriteri, ayırıcı özellik, tipik bulgu, en sık, ilk tercih, komplikasyon bilgileri önceliklidir
+  tipik bulgu, tanı kriteri, ayırıcı özellik, en sık, ilk tercih, komplikasyon bilgileri önceliklidir
 
 SKORLAMA:
-- priority: 0-10 integer
+- priority:
   - 8-10 = çok yüksek TUS verimi
   - 5-7 = orta-yüksek
-  - 2-4 = daha detay
+  - 2-4 = detay
   - 0-1 = düşük verim
-- examRelevance: 0-1
-- classificationConfidence: 0-1
+- examRelevance: 0-1 arası sayı
+- classificationConfidence: 0-1 arası sayı
 
 SIRALAMA:
 - En yüksek sınav değeri taşıyan fact'leri önce ver.
-- Sonra destekleyici detayları ver.
+- Daha sonra destekleyici detayları ver.
 
-Çıktı şeması:
+ZORUNLU ÇIKTI ŞEMASI:
 {
   "knowledgePoints": [
     {
@@ -140,7 +160,9 @@ SIRALAMA:
   ]
 }`;
 
-  let userPrompt = `İçerik:
+  let userPrompt = `Aşağıdaki içeriği kullanarak atomik KnowledgePoint'ler üret.
+
+İçerik:
 ${payload.content}
 
 Bağlam:
@@ -149,7 +171,7 @@ Bağlam:
 - lesson: ${payload.lesson ?? 'UNKNOWN'}
 - topic: ${payload.topic ?? 'UNKNOWN'}
 - subtopic: ${payload.subtopic ?? 'UNKNOWN'}
-- maxKnowledgePoints: ${payload.maxKnowledgePoints ?? 50}
+- maxKnowledgePoints: ${maxKnowledgePoints}
 - strategyHint: ${payload.strategyHint ?? 'DEFAULT'}`;
 
   if (payload.tableData) {
@@ -162,16 +184,31 @@ Bağlam:
 
   userPrompt += `
 
-Kesin kurallar:
+Kesin kısıtlar:
 - Sadece geçerli JSON döndür.
-- Markdown kullanma.
-- knowledgePoints dizisi maxKnowledgePoints sınırını aşmasın.
+- Markdown code fence kullanma.
+- knowledgePoints dizisi ${maxKnowledgePoints} öğeyi aşmasın.
 - Her fact tek cümle ve tek hüküm içersin.
 - Yakın anlamlı tekrar fact üretme.
-- fact alanı Türkçe olsun.
+- knowledgePoints[].fact Türkçe olsun.
 - priority integer ve 0-10 arasında olsun.
 - examRelevance 0-1 arasında olsun.
-- classificationConfidence 0-1 arasında olsun.`;
+- classificationConfidence 0-1 arasında olsun.
+
+Özel atomizasyon örnekleri:
+- "Omuz çıkıkları en sık anterior olur ve N. axillaris hasar görebilir."
+  Bunu tek fact olarak verme.
+  Ayrı ayrı ver:
+  1) Omuz çıkıkları en sık anterior yönde görülür.
+  2) Anterior omuz çıkıklarında N. axillaris hasar görebilir.
+
+- "Orbita medial duvarı en ince duvardır ve etmoid sinüsle komşudur."
+  Bunu tek fact olarak verme.
+  Ayrı ayrı ver:
+  1) Orbita medial duvarı orbita duvarları içinde en incedir.
+  2) Orbita medial duvarı etmoid sinüs ile komşudur.
+
+Şimdi strict JSON üret.`;
 
   return { systemPrompt, userPrompt };
 }

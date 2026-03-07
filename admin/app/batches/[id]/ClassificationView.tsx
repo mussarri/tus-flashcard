@@ -276,7 +276,9 @@ export default function ClassificationView({
                     {/* Raw Text */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                        {isManualTextBatch ? "Raw Text (Pasted Input)" : "Raw Text (OCR Output)"}
+                        {isManualTextBatch
+                          ? "Raw Text (Pasted Input)"
+                          : "Raw Text (OCR Output)"}
                       </h4>
                       <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-64 overflow-y-auto">
                         <p className="text-sm text-gray-700 whitespace-pre-wrap">
