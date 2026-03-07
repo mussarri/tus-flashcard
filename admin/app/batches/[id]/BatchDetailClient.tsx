@@ -411,8 +411,8 @@ function PagesTab({ batch }: { batch: Batch }) {
               This batch was created from pasted text.
             </p>
             <p className="text-sm text-green-700 mt-0.5">
-              No OCR was performed. Blocks were split deterministically and are
-              ready for review.
+              No OCR was performed. The pasted text was stored as a single raw
+              block and is ready for review.
             </p>
             {batch.pages?.[0]?.rawText && (
               <details className="mt-3">

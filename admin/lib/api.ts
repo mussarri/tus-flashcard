@@ -313,7 +313,6 @@ export const api = {
     subtopicId?: string;
     contentTypeHint?: string;
     rawText: string;
-    splitStrategy?: "LINES" | "BULLETS" | "PARAGRAPHS" | "AUTO";
     dedupPolicy?: "REJECT_IF_DUPLICATE" | "ALLOW_DUPLICATE";
     visionProvider?: string;
   }) =>

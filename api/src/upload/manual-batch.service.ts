@@ -7,7 +7,7 @@ import {
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/services/audit-log.service';
-import { normalizeText, splitText, SplitStrategy } from './text-split.util';
+import { normalizeText, SplitStrategy } from './text-split.util';
 import { DedupPolicy } from './dto/create-manual-batch.dto';
 import { AIProviderType, ContentType } from '@prisma/client';
 
@@ -98,17 +98,11 @@ export class ManualBatchService {
       }
     }
 
-    // 3. Split text into chunks
-    const chunks = splitText(normalizedText, splitStrategy);
-
-    if (chunks.length === 0) {
-      throw new BadRequestException(
-        'No content blocks could be extracted from the provided text.',
-      );
-    }
+    // 3. Keep uploaded text as-is in a single block for direct AI extraction.
+    const chunks = [normalizedText];
 
     this.logger.log(
-      `Split produced ${chunks.length} blocks using strategy=${splitStrategy}`,
+      `Created 1 block (raw content preserved, strategy=${splitStrategy})`,
     );
 
     // 4. Transactional create: batch + page + blocks

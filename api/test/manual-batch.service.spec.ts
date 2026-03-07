@@ -76,7 +76,7 @@ describe('ManualBatchService', () => {
       fileType: 'TEXT',
       ocrStatus: 'COMPLETED',
     });
-    prisma._tx.parsedBlock.createMany.mockResolvedValue({ count: 3 });
+    prisma._tx.parsedBlock.createMany.mockResolvedValue({ count: 1 });
     prisma._tx.uploadBatch.update.mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
@@ -99,7 +99,7 @@ describe('ManualBatchService', () => {
 
       expect(result.batchId).toBe('batch-123');
       expect(result.pageId).toBe('page-456');
-      expect(result.blockCount).toBe(3); // 3 bullet items
+      expect(result.blockCount).toBe(1);
       expect(typeof result.textHash).toBe('string');
       expect(result.textHash).toHaveLength(64); // sha256 hex
     });
@@ -112,7 +112,7 @@ describe('ManualBatchService', () => {
       const callArgs = prisma._tx.parsedBlock.createMany.mock.calls[0][0];
       const blockData = callArgs.data as any[];
 
-      expect(blockData.length).toBe(3);
+      expect(blockData.length).toBe(1);
       blockData.forEach((block: any, i: number) => {
         expect(block.approvalStatus).toBe('PENDING');
         expect(block.blockIndex).toBe(i);
@@ -172,7 +172,7 @@ describe('ManualBatchService', () => {
       const logCall = auditLog.logAction.mock.calls[0][0];
       expect(logCall.actionType).toBe('MANUAL_BATCH_CREATE');
       expect(logCall.batchId).toBe(result.batchId);
-      expect(logCall.metadata.blockCount).toBe(3);
+      expect(logCall.metadata.blockCount).toBe(1);
       expect(logCall.metadata.splitStrategy).toBe('BULLETS');
       expect(logCall.metadata.dedupPolicy).toBe(
         DedupPolicy.REJECT_IF_DUPLICATE,
@@ -239,9 +239,8 @@ describe('ManualBatchService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('throws BadRequestException when split produces 0 chunks', async () => {
+    it('throws BadRequestException for empty rawText after normalization', async () => {
       prisma.uploadPage.findFirst.mockResolvedValue(null);
-      // All whitespace lines → splitByLines returns []
       await expect(
         service.createManualBatch({ ...defaultInput, rawText: '\n\n\n' }),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -252,12 +251,12 @@ describe('ManualBatchService', () => {
   describe('Block indices', () => {
     it('assigns sequential blockIndex starting from 0', async () => {
       prisma.uploadPage.findFirst.mockResolvedValue(null);
-      prisma._tx.parsedBlock.createMany.mockResolvedValue({ count: 3 });
+      prisma._tx.parsedBlock.createMany.mockResolvedValue({ count: 1 });
 
       await service.createManualBatch(defaultInput);
 
       const { data } = prisma._tx.parsedBlock.createMany.mock.calls[0][0];
-      expect(data.map((b: any) => b.blockIndex)).toEqual([0, 1, 2]);
+      expect(data.map((b: any) => b.blockIndex)).toEqual([0]);
     });
   });
 });

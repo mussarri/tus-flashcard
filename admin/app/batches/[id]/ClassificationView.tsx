@@ -39,6 +39,7 @@ export default function ClassificationView({
   batchId,
 }: ClassificationViewProps) {
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
+  const [batchSourceType, setBatchSourceType] = useState<string>("FILE_UPLOAD");
   const [loading, setLoading] = useState(true);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 
@@ -47,6 +48,7 @@ export default function ClassificationView({
       try {
         const response = await api.getBatchForReview(batchId);
         if (response.success && response.batch) {
+          setBatchSourceType(response.batch.sourceType || "FILE_UPLOAD");
           const allBlocks: ParsedBlock[] = [];
           response.batch.pages?.forEach((page: any) => {
             page.blocks?.forEach((block: any) => {
@@ -137,6 +139,8 @@ export default function ClassificationView({
     );
   }
 
+  const isManualTextBatch = batchSourceType === "MANUAL_TEXT";
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -152,6 +156,12 @@ export default function ClassificationView({
                 happens during knowledge extraction. You cannot edit these
                 values here.
               </p>
+              {isManualTextBatch && (
+                <p className="text-sm text-blue-700 mt-1">
+                  This batch comes from pasted text and is stored as a single
+                  raw block (no OCR).
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -266,7 +276,7 @@ export default function ClassificationView({
                     {/* Raw Text */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                        Raw Text (OCR Output)
+                        {isManualTextBatch ? "Raw Text (Pasted Input)" : "Raw Text (OCR Output)"}
                       </h4>
                       <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-64 overflow-y-auto">
                         <p className="text-sm text-gray-700 whitespace-pre-wrap">
