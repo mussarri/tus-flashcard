@@ -44,51 +44,17 @@ ${payload.repairRawOutput}`,
     };
   }
 
-  const systemPrompt = `Sen TUS odaklı bir tıbbi bilgi ayrıştırma motorusun.
+  const systemPrompt = `Sen TUS odaklı knowledge point çıkarım motorusun.
 
-Görevin:
-Verilen ders özetinden mümkün olan en fazla sayıda atomik KnowledgePoint üretmek.
+Kurallar:
+- Sadece verilen içerikten üret.
+- Sadece geçerli JSON döndür.
+- Markdown kullanma.
+- Açıklama yazma.
+- knowledgePoints[].fact Türkçe olsun.
+- Her fact tek cümle ve tek bilgi içersin.
 
-ZORUNLU KURALLAR:
-
-1) Sadece verilen içerikten üret.
-2) Açıklama yapma.
-3) Yorum ekleme.
-4) Başlık yazma.
-5) Özet yazma.
-6) Sadece GEÇERLİ JSON döndür.
-7) Markdown kullanma.
-8) JSON dışında hiçbir metin yazma.
-
-DİL:
-- knowledgePoints[].fact mutlaka Türkçe cümle olmalı.
-- Tıbbi terimler Latin/İngilizce kalabilir.
-
-ATOMİKLİK:
-- Her fact tek cümle olmalı.
-- Her fact tek bilgi içermeli.
-- "ve", "ile", "ayrıca", "buna ek olarak" ile bağlı bilgiler AYRILMALI.
-- Fonksiyon, innervasyon, klinik sonuç ayrı fact olmalı.
-- Anatomi bilgi + klinik sonuç AYRI fact olmalı.
-- Bir fact başka fact olmadan anlaşılabilmeli.
-
-YOĞUN ÜRETİM:
-- Az sayıda genel bilgi üretme.
-- İçerikteki her bağımsız test edilebilir bilgiyi ayrı KnowledgePoint yap.
-- Bilgi yoğun içerikte mümkün olan en fazla atomik fact üret.
-- 3–4 madde ile yetinme.
-
-MARKDOWN ÖZET KURALLARI:
-- Başlıklar fact değildir.
-- Madde işaretli satırlar ayrı fact adayıdır.
-- “Klinik”, “TUS Spot”, “En sık”, “Önemli” kısımları özellikle tara.
-- Bir satırda birden fazla bilgi varsa ayır.
-
-TEKRAR:
-- Aynı anlamlı fact tekrar edilmemeli.
-
-ÇIKTI ŞEMASI:
-
+Şema:
 {
   "knowledgePoints": [
     {
@@ -98,40 +64,21 @@ TEKRAR:
       "classificationConfidence": 0
     }
   ]
-}
+}`;
 
-Alan kuralları:
-- priority: 0–10 integer
-- examRelevance: 0–1 sayı
-- classificationConfidence: 0–1 sayı`;
+  const userPrompt = `Ders:  ${payload.lesson || 'Bilinmiyor'}
 
-  const userPrompt = `Ders:  ${payload.lesson || 'Belirtilmedi'}
-
-Aşağıdaki ders özetinden atomik KnowledgePoint'ler üret.
+Aşağıdaki içerikten en fazla {{maxKnowledgePoints}} adet atomik knowledge point üret.
 
 İçerik:
-${payload.content}
+{{content}}
 
-Kesin kurallar:
+Kurallar:
 - Sadece JSON döndür.
 - Her fact tek cümle olsun.
-- Her fact tek bilgi içersin.
-- Aynı anlamlı tekrar üretme.
-- knowledgePoints[].fact Türkçe olsun.
-- priority 0–10 arası integer olsun.
-- examRelevance 0–1 arası olsun.
-- classificationConfidence 0–1 arası olsun.
-
-Örnek atomizasyon:
-
-"Latissimus dorsi kol ekstansiyonu, addüksiyonu ve iç rotasyonu yapar."
-
-Bunu tek fact yapma. Ayrı yaz:
-- Latissimus dorsi kası kol ekstansiyonu yapar.
-- Latissimus dorsi kası kol addüksiyonu yapar.
-- Latissimus dorsi kası kol iç rotasyonu yapar.
-
-Şimdi JSON üret.`;
+- priority 0-10 integer olsun.
+- examRelevance 0-1 olsun.
+- classificationConfidence 0-1 olsun.`;
 
   return { systemPrompt, userPrompt };
 }
