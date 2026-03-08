@@ -35,8 +35,6 @@ export class KnowledgePointGeneratorService {
   ): Promise<GeneratedKnowledgePointCandidate[]> {
     const maxKps = input.maxKnowledgePoints ?? 50;
 
-    console.log('generete from approved');
-
     if (input.blockType === 'TABLE') {
       const { context, candidates } = this.tableStrategy.extract(
         input.content,
@@ -100,26 +98,56 @@ export class KnowledgePointGeneratorService {
       basePayload,
     );
 
-    console.log(raw);
-
     try {
       const parsed = this.validateModelResponse(raw);
       return this.rankAndTrim(parsed, maxKps);
-    } catch (error) {
+    } catch {
+      const rawText =
+        typeof raw === 'string' ? raw : JSON.stringify(raw ?? null);
+
       this.logger.warn(
-        `Invalid JSON from model for approvedContent ${input.approvedContentId}. Retrying with repair mode.`,
+        `Invalid JSON from model for approvedContent ${input.approvedContentId}. Retrying with compact JSON mode.`,
       );
 
       this.logger.warn(
         `[KP RAW OUTPUT][${input.approvedContentId}] ${String(
-          typeof raw === 'string' ? raw : JSON.stringify(raw),
+          rawText,
         ).slice(0, 4000)}`,
       );
+
+      this.logger.warn(
+        `[KP RAW TAIL][${input.approvedContentId}] ${String(rawText).slice(-500)}`,
+      );
+
+      const retryRaw = await this.aiRouter.runTask(
+        AITaskType.KNOWLEDGE_EXTRACTION,
+        {
+          ...basePayload,
+          maxKnowledgePoints: Math.min(maxKps, 12),
+          strategyHint: 'COMPACT_JSON_ATOMIC',
+          temperature: 0,
+        },
+      );
+
+      this.logger.warn(
+        `[KP RETRY OUTPUT][${input.approvedContentId}] ${String(
+          typeof retryRaw === 'string' ? retryRaw : JSON.stringify(retryRaw),
+        ).slice(0, 4000)}`,
+      );
+
+      try {
+        const retried = this.validateModelResponse(retryRaw);
+        return this.rankAndTrim(retried, maxKps);
+      } catch {
+        this.logger.warn(
+          `Compact JSON retry failed for approvedContent ${input.approvedContentId}. Retrying with repair mode.`,
+        );
+      }
 
       const fixedRaw = await this.aiRouter.runTask(
         AITaskType.KNOWLEDGE_EXTRACTION,
         {
-          repairRawOutput: typeof raw === 'string' ? raw : JSON.stringify(raw),
+          repairRawOutput: rawText,
           lesson: input.lessonName,
           temperature: 0,
         },
@@ -139,10 +167,7 @@ export class KnowledgePointGeneratorService {
   private validateModelResponse(
     raw: unknown,
   ): GeneratedKnowledgePointCandidate[] {
-    const parsed =
-      typeof raw === 'string'
-        ? (this.parseJsonObject(raw) as RawModelResponse)
-        : (raw as RawModelResponse);
+    const parsed = this.parseJsonObject(raw) as RawModelResponse;
 
     const list =
       parsed?.knowledgePoints ??
@@ -159,7 +184,7 @@ export class KnowledgePointGeneratorService {
     for (const item of list) {
       if (!item || typeof item !== 'object') continue;
 
-      const rawFact = item.fact ?? item.statement ?? item.text ?? '';
+      const rawFact = item.fact ?? item.statement ?? item.text;
       const fact =
         typeof rawFact === 'string'
           ? rawFact.trim()
@@ -234,9 +259,9 @@ export class KnowledgePointGeneratorService {
 
   private cleanModelOutput(input: string): string {
     return input
-      .replace(/^\uFEFF/, '')
-      .replace(/[\u200B-\u200D]/g, '')
-      .replace(/```json/gi, '```')
+      .replace(/\uFEFF/g, '')
+      .replace(/[\u200B-\u200D\u2060]/g, '')
+      .replace(/```(?:json)?/gi, '')
       .replace(/```/g, '')
       .replace(/[“”]/g, '"')
       .replace(/[‘’]/g, "'")
@@ -308,25 +333,25 @@ export class KnowledgePointGeneratorService {
 
     // Normalize smart quotes and zero-width chars
     s = s
-      .replace(/^\uFEFF/, '')
-      .replace(/[\u200B-\u200D]/g, '')
+      .replace(/\uFEFF/g, '')
+      .replace(/[\u200B-\u200D\u2060]/g, '')
       .replace(/[“”]/g, '"')
       .replace(/[‘’]/g, "'");
 
     // Remove markdown fences if they somehow remain
-    s = s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+    s = s.replace(/```(?:json)?/gi, '').replace(/```/g, '');
 
     // Normalize line endings / tabs
-    s = s.replace(/\r\n/g, '\n').replace(/\t/g, ' ');
+    s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, ' ');
 
     // Remove trailing commas before } or ]
     s = s.replace(/,\s*([}\]])/g, '$1');
 
-    // Remove control chars except newline
+    // Remove invalid control chars except useful whitespace
     s = Array.from(s)
       .filter((ch) => {
         const code = ch.charCodeAt(0);
-        return code === 0x0a || code > 0x1f;
+        return code === 0x0a || code === 0x09 || code > 0x1f;
       })
       .join('');
 
@@ -352,12 +377,19 @@ export class KnowledgePointGeneratorService {
       .slice(0, maxKps);
   }
 
-  private clamp(value: number, min: number, max: number): number {
-    if (Number.isNaN(value)) return min;
-    return Math.max(min, Math.min(max, value));
+  private clamp(value: unknown, min: number, max: number): number {
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : Number.NaN;
+
+    if (!Number.isFinite(numeric)) return min;
+    return Math.max(min, Math.min(max, numeric));
   }
 
-  private clampInt(value: number, min: number, max: number): number {
+  private clampInt(value: unknown, min: number, max: number): number {
     return Math.round(this.clamp(value, min, max));
   }
 }
