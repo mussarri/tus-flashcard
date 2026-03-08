@@ -165,25 +165,85 @@ export class KnowledgePointGeneratorService {
       throw new Error('Model response is not JSON-compatible');
     }
 
-    const cleaned = raw
-      .replace(/^\uFEFF/, '')
-      .replace(/```json/gi, '```')
-      .replace(/```/g, '')
-      .trim();
+    const cleaned = this.cleanModelOutput(raw);
 
-    const jsonCandidate = this.extractJsonObject(cleaned);
-    if (!jsonCandidate) {
-      throw new Error('No JSON object found in model output');
+    const candidates: string[] = [];
+    const pushCandidate = (value?: string | null) => {
+      if (!value) return;
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      if (!candidates.includes(trimmed)) {
+        candidates.push(trimmed);
+      }
+    };
+
+    pushCandidate(cleaned);
+
+    const extractedBalanced = this.extractBalancedJsonObject(cleaned);
+    pushCandidate(extractedBalanced);
+
+    const extractedLoose = this.extractJsonObject(cleaned);
+    pushCandidate(extractedLoose);
+
+    for (const candidate of [...candidates]) {
+      pushCandidate(this.applyHeuristicJsonRepairs(candidate));
     }
 
-    const firstPass = this.safeParseObject(jsonCandidate);
-    if (firstPass) return firstPass;
-
-    const repaired = this.applyHeuristicJsonRepairs(jsonCandidate);
-    const secondPass = this.safeParseObject(repaired);
-    if (secondPass) return secondPass;
+    for (const candidate of candidates) {
+      const parsed = this.safeParseObject(candidate);
+      if (parsed) return parsed;
+    }
 
     throw new Error('Invalid JSON in model output after repair attempts');
+  }
+
+  private cleanModelOutput(input: string): string {
+    return input
+      .replace(/^\uFEFF/, '')
+      .replace(/[\u200B-\u200D]/g, '')
+      .replace(/```json/gi, '```')
+      .replace(/```/g, '')
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .trim();
+  }
+
+  private extractBalancedJsonObject(input: string): string | null {
+    const start = input.indexOf('{');
+    if (start === -1) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < input.length; i++) {
+      const ch = input[i];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+
+      if (ch === '{') depth++;
+      if (ch === '}') depth--;
+
+      if (depth === 0) {
+        return input.slice(start, i + 1).trim();
+      }
+    }
+
+    return null;
   }
 
   private extractJsonObject(text: string): string | null {
@@ -208,15 +268,34 @@ export class KnowledgePointGeneratorService {
       return null;
     }
   }
-
   private applyHeuristicJsonRepairs(text: string): string {
-    return text
+    let s = text.trim();
+
+    // Normalize smart quotes and zero-width chars
+    s = s
+      .replace(/^\uFEFF/, '')
+      .replace(/[\u200B-\u200D]/g, '')
       .replace(/[“”]/g, '"')
-      .replace(/[‘’]/g, "'")
-      .replace(/,\s*([}\]])/g, '$1')
-      .replace(/}\s*{/g, '},{')
-      .replace(/]\s*\[/g, '],[')
-      .trim();
+      .replace(/[‘’]/g, "'");
+
+    // Remove markdown fences if they somehow remain
+    s = s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+
+    // Normalize line endings / tabs
+    s = s.replace(/\r\n/g, '\n').replace(/\t/g, ' ');
+
+    // Remove trailing commas before } or ]
+    s = s.replace(/,\s*([}\]])/g, '$1');
+
+    // Remove control chars except newline
+    s = Array.from(s)
+      .filter((ch) => {
+        const code = ch.charCodeAt(0);
+        return code === 0x0a || code > 0x1f;
+      })
+      .join('');
+
+    return s.trim();
   }
 
   private rankAndTrim(
