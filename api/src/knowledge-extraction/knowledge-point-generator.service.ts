@@ -166,18 +166,57 @@ export class KnowledgePointGeneratorService {
     }
 
     const cleaned = raw
+      .replace(/^\uFEFF/, '')
       .replace(/```json/gi, '```')
       .replace(/```/g, '')
       .trim();
 
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-
-    if (start === -1 || end === -1 || end <= start) {
+    const jsonCandidate = this.extractJsonObject(cleaned);
+    if (!jsonCandidate) {
       throw new Error('No JSON object found in model output');
     }
 
-    return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+    const firstPass = this.safeParseObject(jsonCandidate);
+    if (firstPass) return firstPass;
+
+    const repaired = this.applyHeuristicJsonRepairs(jsonCandidate);
+    const secondPass = this.safeParseObject(repaired);
+    if (secondPass) return secondPass;
+
+    throw new Error('Invalid JSON in model output after repair attempts');
+  }
+
+  private extractJsonObject(text: string): string | null {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
+      return null;
+    }
+
+    return text.slice(start, end + 1);
+  }
+
+  private safeParseObject(text: string): Record<string, unknown> | null {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private applyHeuristicJsonRepairs(text: string): string {
+    return text
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/}\s*{/g, '},{')
+      .replace(/]\s*\[/g, '],[')
+      .trim();
   }
 
   private rankAndTrim(
