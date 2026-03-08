@@ -11,6 +11,7 @@ import { TableExtractionStrategy } from './strategies/table-extraction.strategy'
 
 interface RawModelKnowledgePoint {
   fact?: string;
+  text?: string;
   statement?: string;
   priority?: number;
   examRelevance?: number;
@@ -20,6 +21,7 @@ interface RawModelKnowledgePoint {
 interface RawModelResponse {
   knowledgePoints?: RawModelKnowledgePoint[];
   knowledge_points?: RawModelKnowledgePoint[];
+  knowledgepoints?: RawModelKnowledgePoint[];
 }
 
 @Injectable()
@@ -28,11 +30,12 @@ export class KnowledgePointGeneratorService {
   private readonly tableStrategy = new TableExtractionStrategy();
 
   constructor(private readonly aiRouter: AIRouterService) {}
-
   async generateFromApprovedContent(
     input: ApprovedContentGenerationInput,
   ): Promise<GeneratedKnowledgePointCandidate[]> {
     const maxKps = input.maxKnowledgePoints ?? 50;
+
+    console.log('generete from approved');
 
     if (input.blockType === 'TABLE') {
       const { context, candidates } = this.tableStrategy.extract(
@@ -54,13 +57,13 @@ export class KnowledgePointGeneratorService {
     }
 
     if (input.blockType === 'SPOT') {
-      return this.extractViaModel(input, Math.min(maxKps, 5), {
-        strategyHint: 'SPOT_HIGH_YIELD',
+      return this.extractViaModel(input, Math.min(maxKps, 12), {
+        strategyHint: 'SPOT_HIGH_YIELD_ATOMIC',
       });
     }
 
     return this.extractViaModel(input, maxKps, {
-      strategyHint: 'TEXT_ATOMIC',
+      strategyHint: 'MARKDOWN_SUMMARY_ATOMIC_MAX_COVERAGE',
     });
   }
 
@@ -79,7 +82,7 @@ export class KnowledgePointGeneratorService {
       strategyHint: extra.strategyHint,
       tableData: input.tableData,
       algorithmData: input.algorithmData,
-      temperature: 0.2,
+      temperature: 0.1,
       outputSchema: {
         knowledgePoints: [
           {
@@ -97,22 +100,35 @@ export class KnowledgePointGeneratorService {
       basePayload,
     );
 
+    console.log(raw);
+
     try {
       const parsed = this.validateModelResponse(raw);
       return this.rankAndTrim(parsed, maxKps);
     } catch (error) {
       this.logger.warn(
-        `Invalid JSON from model for approvedContent ${input.approvedContentId}. Retrying with JSON fixer prompt.`,
+        `Invalid JSON from model for approvedContent ${input.approvedContentId}. Retrying with repair mode.`,
+      );
+
+      this.logger.warn(
+        `[KP RAW OUTPUT][${input.approvedContentId}] ${String(
+          typeof raw === 'string' ? raw : JSON.stringify(raw),
+        ).slice(0, 4000)}`,
       );
 
       const fixedRaw = await this.aiRouter.runTask(
         AITaskType.KNOWLEDGE_EXTRACTION,
         {
-          ...basePayload,
-          strictJsonInstruction:
-            'Return ONLY valid JSON. Do not include explanations.',
           repairRawOutput: typeof raw === 'string' ? raw : JSON.stringify(raw),
+          lesson: input.lessonName,
+          temperature: 0,
         },
+      );
+
+      this.logger.warn(
+        `[KP REPAIRED OUTPUT][${input.approvedContentId}] ${String(
+          typeof fixedRaw === 'string' ? fixedRaw : JSON.stringify(fixedRaw),
+        ).slice(0, 4000)}`,
       );
 
       const repaired = this.validateModelResponse(fixedRaw);
@@ -123,8 +139,16 @@ export class KnowledgePointGeneratorService {
   private validateModelResponse(
     raw: unknown,
   ): GeneratedKnowledgePointCandidate[] {
-    const parsed = this.parseJsonObject(raw) as RawModelResponse;
-    const list = parsed.knowledgePoints ?? parsed.knowledge_points ?? [];
+    const parsed =
+      typeof raw === 'string'
+        ? (this.parseJsonObject(raw) as RawModelResponse)
+        : (raw as RawModelResponse);
+
+    const list =
+      parsed?.knowledgePoints ??
+      parsed?.knowledge_points ??
+      parsed?.knowledgepoints ??
+      [];
 
     if (!Array.isArray(list)) {
       throw new Error('knowledgePoints must be an array');
@@ -133,7 +157,14 @@ export class KnowledgePointGeneratorService {
     const candidates: GeneratedKnowledgePointCandidate[] = [];
 
     for (const item of list) {
-      const fact = (item.fact ?? item.statement ?? '').trim();
+      if (!item || typeof item !== 'object') continue;
+
+      const rawFact = item.fact ?? item.statement ?? item.text ?? '';
+      const fact =
+        typeof rawFact === 'string'
+          ? rawFact.trim()
+          : String(rawFact ?? '').trim();
+
       if (!fact) continue;
 
       const priority = this.clampInt(item.priority ?? 3, 0, 10);
@@ -151,6 +182,10 @@ export class KnowledgePointGeneratorService {
         classificationConfidence,
         kind: 'ATOMIC',
       });
+    }
+
+    if (candidates.length === 0) {
+      throw new Error('No valid knowledgePoints found in model output');
     }
 
     return candidates;
