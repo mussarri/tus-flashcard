@@ -44,73 +44,51 @@ ${payload.repairRawOutput}`,
     };
   }
 
-  const systemPrompt = `Sen TUS odaklı bir tıbbi içerik ayrıştırma ve atomik Knowledge Point çıkarım motorusun.
+  const systemPrompt = `Sen TUS odaklı bir tıbbi bilgi ayrıştırma motorusun.
 
 Görevin:
-Verilen ders özetinden mümkün olan en fazla sayıda, atomik, sınavda ölçülebilir ve bağımsız KnowledgePoint üretmek.
+Verilen ders özetinden mümkün olan en fazla sayıda atomik KnowledgePoint üretmek.
 
-TEMEL PRENSİP:
-Bu içerikler çoğunlukla markdown benzeri, başlıklı, maddeli, high-yield ders özetleridir.
-Modeli özetleyici gibi değil, bilgi-parçalayıcı gibi kullan.
+ZORUNLU KURALLAR:
 
-GENEL KURALLAR:
-- Sadece verilen içerikten üret.
-- Harici bilgi ekleme.
-- Başlıkları bilgi olarak alma.
-- Açıklama yapma.
-- Yorum ekleme.
-- Özet yazma.
-- Sadece strict JSON döndür.
+1) Sadece verilen içerikten üret.
+2) Açıklama yapma.
+3) Yorum ekleme.
+4) Başlık yazma.
+5) Özet yazma.
+6) Sadece GEÇERLİ JSON döndür.
+7) Markdown kullanma.
+8) JSON dışında hiçbir metin yazma.
 
 DİL:
-- knowledgePoints[].fact Türkçe cümle olmalı.
-- Latin / İngilizce tıbbi terimler korunabilir.
+- knowledgePoints[].fact mutlaka Türkçe cümle olmalı.
+- Tıbbi terimler Latin/İngilizce kalabilir.
 
-ATOMİKLİK KURALLARI:
+ATOMİKLİK:
 - Her fact tek cümle olmalı.
-- Her fact tek hüküm içermeli.
-- Bir fact içinde iki ayrı bilgi birleşmemeli.
-- "ve", "ile", "ayrıca", "buna ek olarak", "sonuç olarak", "nedeniyle" ile bağlanan çoklu bilgi tek fact olmamalı.
-- Fonksiyon, innervasyon, klinik sonuç, komşuluk, lezyon, en sık bilgi, hareket bilgisi ayrı fact'lere bölünmeli.
-- Anatomi bilgi + klinik bilgi aynı fact'te birleşmemeli.
-- Bir fact başka bir fact olmadan anlaşılabilmeli.
+- Her fact tek bilgi içermeli.
+- "ve", "ile", "ayrıca", "buna ek olarak" ile bağlı bilgiler AYRILMALI.
+- Fonksiyon, innervasyon, klinik sonuç ayrı fact olmalı.
+- Anatomi bilgi + klinik sonuç AYRI fact olmalı.
+- Bir fact başka fact olmadan anlaşılabilmeli.
 
-YOĞUN ATOMİZASYON KURALI:
-- Az sayıda genel cümle üretme.
-- İçerikteki her bağımsız test edilebilir bilgiyi ayrı değerlendirme.
-- Bir kas için fonksiyon, innervasyon, klinik hasar, lezyon sonucu ve özel kullanım ayrı ayrı çıkarılmalıdır.
-- Bir yapı için komşuluk, içerik, görev, klinik önem ve en sık sorulan özellikler ayrı ayrı çıkarılmalıdır.
-- İçerik bilgi yoğun ise 3-4 KnowledgePoint ile yetinme.
-- Mümkün olan en yüksek kapsama ile üret.
+YOĞUN ÜRETİM:
+- Az sayıda genel bilgi üretme.
+- İçerikteki her bağımsız test edilebilir bilgiyi ayrı KnowledgePoint yap.
+- Bilgi yoğun içerikte mümkün olan en fazla atomik fact üret.
+- 3–4 madde ile yetinme.
 
-MARKDOWN ÖZET İÇİN ÖZEL KURALLAR:
-- Başlıklar KnowledgePoint değildir.
-- Madde işaretli satırları aktif olarak parçala.
-- "Klinik", "TUS Spot", "En sık", "Önemli", "Lezyon", "Sendrom", "İnnervasyon", "Fonksiyon", "Hareket" bölümlerini özellikle tara.
-- Bir satırda birden fazla bilgi varsa bunları ayır.
+MARKDOWN ÖZET KURALLARI:
+- Başlıklar fact değildir.
+- Madde işaretli satırlar ayrı fact adayıdır.
+- “Klinik”, “TUS Spot”, “En sık”, “Önemli” kısımları özellikle tara.
+- Bir satırda birden fazla bilgi varsa ayır.
 
-TEKRAR AZALTMA:
-- Aynı anlamlı fact'leri tekrar etme.
-- Anlamca eşdeğerse en kısa ve en net cümleyi seç.
-
-DERS ÖNCELİĞİ:
-- ANATOMI:
-  yapı-komşuluk, kas-innervasyon, kas-hareket, kas-başlangıç, kas-tutunma, duvar-içerik, foramen-içerik, en/tek/ilk bilgileri önceliklidir.
-- FIZYOLOJI:
-  artar/azalır, uyarır/baskılar, hormon-etki, feedback, transport bilgileri önceliklidir.
-- PATOLOJI / KLINIK:
-  tipik bulgu, en sık neden, komplikasyon, lezyon-sonuç, ayırıcı özellik, tanı kriteri önceliklidir.
-
-SKORLAMA:
-- priority: 0-10 integer
-- examRelevance: 0-1
-- classificationConfidence: 0-1
-
-SIRALAMA:
-- Önce en yüksek TUS değeri taşıyan fact'leri ver.
-- Sonra destekleyici fact'leri ver.
+TEKRAR:
+- Aynı anlamlı fact tekrar edilmemeli.
 
 ÇIKTI ŞEMASI:
+
 {
   "knowledgePoints": [
     {
@@ -120,55 +98,40 @@ SIRALAMA:
       "classificationConfidence": 0
     }
   ]
-}`;
+}
 
-  const userPrompt = `Aşağıdaki ders özetinden atomik KnowledgePoint'ler üret.
+Alan kuralları:
+- priority: 0–10 integer
+- examRelevance: 0–1 sayı
+- classificationConfidence: 0–1 sayı`;
 
-Ders:
-${payload.lesson ?? 'UNKNOWN'}
+  const userPrompt = `Ders:  ${payload.lesson || 'Belirtilmedi'}
+
+Aşağıdaki ders özetinden atomik KnowledgePoint'ler üret.
 
 İçerik:
 ${payload.content}
 
 Kesin kurallar:
-- Sadece geçerli JSON döndür.
-- Markdown kullanma.
+- Sadece JSON döndür.
 - Her fact tek cümle olsun.
-- Her fact tek hüküm içersin.
+- Her fact tek bilgi içersin.
 - Aynı anlamlı tekrar üretme.
 - knowledgePoints[].fact Türkçe olsun.
-- priority integer ve 0-10 arasında olsun.
-- examRelevance 0-1 arasında olsun.
-- classificationConfidence 0-1 arasında olsun.
+- priority 0–10 arası integer olsun.
+- examRelevance 0–1 arası olsun.
+- classificationConfidence 0–1 arası olsun.
 
-Çok önemli:
-- Başlıkları fact olarak alma.
-- Madde satırlarını aktif biçimde parçala.
-- Fonksiyon, innervasyon, klinik sonuç, lezyon, hareket, komşuluk, "en sık" bilgilerini ayrı ayrı çıkar.
-- Az sayıda genel sonuç üretme.
-- İçerik bilgi yoğun ise mümkün olduğunca fazla atomik fact çıkar.
+Örnek atomizasyon:
 
-Atomizasyon örnekleri:
-- "Latissimus dorsi kol ekstansiyonu, addüksiyonu ve iç rotasyonu yapar."
-  Bunu tek fact verme.
-  Ayrı ver:
-  1) Latissimus dorsi kası kol ekstansiyonu yapar.
-  2) Latissimus dorsi kası kol addüksiyonu yapar.
-  3) Latissimus dorsi kası kol iç rotasyonu yapar.
+"Latissimus dorsi kol ekstansiyonu, addüksiyonu ve iç rotasyonu yapar."
 
-- "N. accessorius hasarında omuz silkme zayıflığı ve omuz düşüklüğü görülür."
-  Bunu tek fact verme.
-  Ayrı ver:
-  1) N. accessorius hasarında omuz silkme zayıflar.
-  2) N. accessorius hasarında omuz düşüklüğü görülebilir.
+Bunu tek fact yapma. Ayrı yaz:
+- Latissimus dorsi kası kol ekstansiyonu yapar.
+- Latissimus dorsi kası kol addüksiyonu yapar.
+- Latissimus dorsi kası kol iç rotasyonu yapar.
 
-- "Trapezius skapula retraksiyonu yapar ve N. accessorius ile innerve olur."
-  Bunu tek fact verme.
-  Ayrı ver:
-  1) Trapezius kası skapula retraksiyonu yapar.
-  2) Trapezius kasının motor innervasyonu N. accessorius tarafından sağlanır.
-
-Şimdi mümkün olan en yüksek kapsama ile strict JSON üret.`;
+Şimdi JSON üret.`;
 
   return { systemPrompt, userPrompt };
 }
