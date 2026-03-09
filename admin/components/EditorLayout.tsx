@@ -106,6 +106,11 @@ export default function EditorLayout({
       icon: Brain,
     },
     {
+      label: "KP Save",
+      href: "/knowledge-point-generator",
+      icon: Brain,
+    },
+    {
       label: "Topics",
       href: "/topics",
       icon: BookOpen,

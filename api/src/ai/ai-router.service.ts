@@ -466,7 +466,7 @@ export class AIRouterService {
     // Use generic content-based prompt
     const result = buildKnowledgeExtractionPrompt({
       content: payload.content || '',
-
+      maxKnowledgePoints: payload.maxKnowledgePoints,
       lesson: payload.lesson,
     });
     const systemPrompt = result.systemPrompt;

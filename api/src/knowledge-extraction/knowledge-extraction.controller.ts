@@ -4,6 +4,7 @@ import {
   ExtractionMode,
   KnowledgeExtractionLogsQueryDto,
   KnowledgeExtractionStatusQueryDto,
+  SaveKnowledgePointsDto,
   RunBatchKnowledgeExtractionDto,
   RunKnowledgeExtractionDto,
 } from './dto/knowledge-extraction.dto';
@@ -15,6 +16,28 @@ export class KnowledgeExtractionController {
   constructor(
     private readonly knowledgeExtractionService: KnowledgeExtractionService,
   ) {}
+
+  @Post('save-from-input')
+  async saveFromInput(
+    @Body() body: SaveKnowledgePointsDto,
+  ): Promise<{
+    success: true;
+    saved: number;
+    created: number;
+    updated: number;
+  }> {
+    const result = await this.knowledgeExtractionService.saveKnowledgePointsFromInput(
+      {
+        lesson: body.lesson,
+        knowledgePoints: body.knowledgePoints,
+      },
+    );
+
+    return {
+      success: true,
+      ...result,
+    };
+  }
 
   @Post('run')
   async run(@Body() body: RunKnowledgeExtractionDto): Promise<{

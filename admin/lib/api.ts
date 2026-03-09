@@ -425,6 +425,25 @@ export const api = {
       `admin/approved-contents${queryString ? `?${queryString}` : ""}`,
     ),
 
+  saveKnowledgePointsFromInput: (data: {
+    lesson: string;
+    knowledgePoints: Array<{
+      fact: string;
+      priority: number;
+      examRelevance: number;
+      classificationConfidence: number;
+    }>;
+  }) =>
+    apiRequest<{
+      success: boolean;
+      saved: number;
+      created: number;
+      updated: number;
+    }>("admin/knowledge-extraction/save-from-input", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Get all knowledge points with pagination and filters
   getKnowledgePoints: (queryString: string = "") =>
     apiRequest<{

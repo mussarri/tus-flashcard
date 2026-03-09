@@ -22,7 +22,10 @@ import { KnowledgePointRepository } from './knowledge-point.repository';
 import { buildNormalizedKey } from './knowledge-point-normalizer.util';
 import { GeneratedKnowledgePointCandidate } from './knowledge-point.types';
 import { RelationshipType } from '.prisma/client/wasm';
-import { ExtractionMode } from './dto/knowledge-extraction.dto';
+import {
+  ExtractionMode,
+  ManualKnowledgePointDto,
+} from './dto/knowledge-extraction.dto';
 
 export interface ExtractedKnowledgePoint {
   normalizedKey: string;
@@ -72,6 +75,87 @@ export class KnowledgeExtractionService {
     private readonly questionGenerationQueue: Queue,
   ) {
     this.logger.log('Knowledge extraction service initialized with AI Router');
+  }
+
+  async saveKnowledgePointsFromInput(params: {
+    lesson: string;
+    knowledgePoints: ManualKnowledgePointDto[];
+  }): Promise<{
+    saved: number;
+    created: number;
+    updated: number;
+  }> {
+    const lessonName = params.lesson.trim();
+
+    const lesson = await this.prisma.lesson.findFirst({
+      where: {
+        OR: [
+          { name: { equals: lessonName, mode: 'insensitive' } },
+          { displayName: { equals: lessonName, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true, name: true },
+    });
+
+    if (!lesson) {
+      throw new BadRequestException(
+        `Lesson not found: "${lessonName}". Please use an existing lesson name.`,
+      );
+    }
+
+    let created = 0;
+    let updated = 0;
+
+    for (const kp of params.knowledgePoints) {
+      const fact = kp.fact.trim();
+      if (!fact) {
+        continue;
+      }
+
+      const normalizedKey = buildNormalizedKey(lesson.name, undefined, fact);
+      const existing = await this.prisma.knowledgePoint.findUnique({
+        where: { normalizedKey },
+        select: { id: true },
+      });
+
+      if (existing) {
+        await this.prisma.knowledgePoint.update({
+          where: { normalizedKey },
+          data: {
+            fact,
+            lessonId: lesson.id,
+            priority: kp.priority,
+            examRelevance: kp.examRelevance,
+            classificationConfidence: kp.classificationConfidence,
+            source: 'ADMIN',
+            approvalStatus: 'PENDING',
+            rejectionReason: null,
+            isActive: true,
+          },
+        });
+        updated += 1;
+      } else {
+        await this.prisma.knowledgePoint.create({
+          data: {
+            source: 'ADMIN',
+            normalizedKey,
+            fact,
+            lessonId: lesson.id,
+            priority: kp.priority,
+            examRelevance: kp.examRelevance,
+            classificationConfidence: kp.classificationConfidence,
+            sourceCount: 1,
+          },
+        });
+        created += 1;
+      }
+    }
+
+    return {
+      saved: created + updated,
+      created,
+      updated,
+    };
   }
 
   async queueSingleExtraction(
