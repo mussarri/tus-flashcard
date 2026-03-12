@@ -5317,12 +5317,29 @@ export class AdminService {
 
   async getUserFlashcardsWithDifficulty(
     userId: string,
-    limit = 100,
+    page = 1,
+    pageSize = 50,
     lessonId?: string,
     topicId?: string,
+    difficulty?: string,
   ) {
-    const safeLimit =
-      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 100;
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0
+        ? Math.min(Math.floor(pageSize), 100)
+        : 50;
+
+    const difficultyMap = {
+      easy: 'EASY',
+      medium: 'MEDIUM',
+      hard: 'HARD',
+    } as const;
+    const normalizedDifficulty = difficulty?.toLowerCase();
+    const difficultyStatus =
+      normalizedDifficulty &&
+      Object.prototype.hasOwnProperty.call(difficultyMap, normalizedDifficulty)
+        ? difficultyMap[normalizedDifficulty as keyof typeof difficultyMap]
+        : undefined;
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -5335,9 +5352,11 @@ export class AdminService {
 
     const progressWhere: Prisma.UserFlashcardProgressWhereInput = {
       userId,
-      status: {
-        in: ['EASY', 'MEDIUM', 'HARD'],
-      },
+      status: difficultyStatus
+        ? difficultyStatus
+        : {
+            in: ['EASY', 'MEDIUM', 'HARD'],
+          },
       flashcard: {
         approvalStatus: 'APPROVED',
         ...(lessonId ? { lessonId } : {}),
@@ -5382,13 +5401,17 @@ export class AdminService {
         },
       },
       orderBy: [{ updatedAt: 'desc' }],
-      take: safeLimit,
+      skip: (safePage - 1) * safePageSize,
+      take: safePageSize,
     });
 
     return {
       user,
       totalCount,
-      limit: safeLimit,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: Math.max(1, Math.ceil(totalCount / safePageSize)),
+      difficulty: normalizedDifficulty && difficultyStatus ? normalizedDifficulty : 'all',
       flashcards: progressRows.map((row) => ({
         progressId: row.id,
         flashcardId: row.flashcardId,

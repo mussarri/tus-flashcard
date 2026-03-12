@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
 import {
   ArrowLeft,
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import VisualTab from "./components/VisualTab";
@@ -58,6 +60,7 @@ type Tab = "content" | "visual" | "edit" | "audit";
 export default function FlashcardDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params.id as string;
   const initialTab = (searchParams.get("tab") as Tab) || "content";
 
@@ -145,6 +148,20 @@ export default function FlashcardDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Bu flashcard silinsin mi?")) {
+      return;
+    }
+
+    try {
+      await api.deleteFlashcard(id);
+      alert("Flashcard silindi.");
+      router.push("/flashcards");
+    } catch (error: any) {
+      alert(error.message || "Silme başarısız oldu");
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8">
@@ -173,13 +190,22 @@ export default function FlashcardDetailPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <Link
-          href="/flashcards"
-          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Geri Dön
-        </Link>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <Link
+            href="/flashcards"
+            className="inline-flex items-center text-blue-600 hover:text-blue-800"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Geri Dön
+          </Link>
+          <button
+            onClick={handleDelete}
+            className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+          >
+            <Trash2 className="h-4 w-4" />
+            Sil
+          </button>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900">Flashcard Detayı</h1>
       </div>
       <div>

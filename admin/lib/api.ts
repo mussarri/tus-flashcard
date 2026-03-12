@@ -1444,14 +1444,23 @@ export const api = {
 
   getUserFlashcardsWithDifficulty: (
     userId: string,
-    limit = 100,
-    filters?: { lessonId?: string; topicId?: string },
+    params?: {
+      page?: number;
+      pageSize?: number;
+      lessonId?: string;
+      topicId?: string;
+      difficulty?: "all" | "easy" | "medium" | "hard";
+    },
   ) => {
-    const params = new URLSearchParams();
-    params.append("limit", String(limit));
-    if (filters?.lessonId) params.append("lessonId", filters.lessonId);
-    if (filters?.topicId) params.append("topicId", filters.topicId);
-    const queryString = params.toString();
+    const searchParams = new URLSearchParams();
+    searchParams.append("page", String(params?.page ?? 1));
+    searchParams.append("pageSize", String(params?.pageSize ?? 50));
+    if (params?.lessonId) searchParams.append("lessonId", params.lessonId);
+    if (params?.topicId) searchParams.append("topicId", params.topicId);
+    if (params?.difficulty && params.difficulty !== "all") {
+      searchParams.append("difficulty", params.difficulty);
+    }
+    const queryString = searchParams.toString();
     return (
     apiRequest<{
       success: boolean;
@@ -1461,7 +1470,10 @@ export const api = {
         name: string | null;
       };
       totalCount: number;
-      limit: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      difficulty: "all" | "easy" | "medium" | "hard";
       flashcards: Array<{
         progressId: string;
         flashcardId: string;

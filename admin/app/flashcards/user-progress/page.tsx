@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import Link from "next/link";
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -13,7 +14,10 @@ interface UserFlashcardResponse {
     name: string | null;
   };
   totalCount: number;
-  limit: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  difficulty: "all" | Difficulty;
   flashcards: Array<{
     progressId: string;
     flashcardId: string;
@@ -38,7 +42,7 @@ const DIFFICULTY_STYLE: Record<Difficulty, string> = {
 
 export default function UserFlashcardProgressPage() {
   const [userId, setUserId] = useState("");
-  const [limit, setLimit] = useState(100);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<UserFlashcardResponse | null>(null);
@@ -50,9 +54,9 @@ export default function UserFlashcardProgressPage() {
   >([]);
   const [lessonFilter, setLessonFilter] = useState("all");
   const [topicFilter, setTopicFilter] = useState("all");
-  const [difficultyFilter, setDifficultyFilter] = useState<
-    "all" | Difficulty
-  >("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | Difficulty>(
+    "all",
+  );
 
   useEffect(() => {
     void (async () => {
@@ -66,18 +70,12 @@ export default function UserFlashcardProgressPage() {
     })();
   }, []);
 
-  const filteredRows = useMemo(() => {
-    if (!data) return [];
-    if (difficultyFilter === "all") return data.flashcards;
-    return data.flashcards.filter((row) => row.difficulty === difficultyFilter);
-  }, [data, difficultyFilter]);
-
   const availableTopics =
     lessonFilter === "all"
       ? topics
       : topics.filter((topic) => topic.lessonId === lessonFilter);
 
-  const handleFetch = async () => {
+  const handleFetch = async (nextPage = page) => {
     if (!userId.trim()) {
       setError("Kullanıcı ID gerekli.");
       setData(null);
@@ -89,24 +87,49 @@ export default function UserFlashcardProgressPage() {
       setError(null);
       const response = await api.getUserFlashcardsWithDifficulty(
         userId.trim(),
-        limit,
         {
+          page: nextPage,
+          pageSize: 50,
           lessonId: lessonFilter !== "all" ? lessonFilter : undefined,
           topicId: topicFilter !== "all" ? topicFilter : undefined,
+          difficulty: difficultyFilter,
         },
       );
       setData(response);
+      setPage(response.page);
     } catch (fetchError) {
       setData(null);
       setError(
-        fetchError instanceof Error
-          ? fetchError.message
-          : "Veriler alınamadı.",
+        fetchError instanceof Error ? fetchError.message : "Veriler alınamadı.",
       );
     } finally {
       setLoading(false);
     }
   };
+
+  const selectedLessonLabel =
+    lessonFilter === "all"
+      ? "Tüm dersler"
+      : lessons.find((lesson) => lesson.id === lessonFilter)?.displayName ||
+        lessons.find((lesson) => lesson.id === lessonFilter)?.name ||
+        lessonFilter;
+
+  const selectedTopicLabel =
+    topicFilter === "all"
+      ? "Tüm konular"
+      : topics.find((topic) => topic.id === topicFilter)?.displayName ||
+        topics.find((topic) => topic.id === topicFilter)?.name ||
+        topicFilter;
+
+  const selectedDifficultyLabel =
+    difficultyFilter === "all" ? "Tümü" : difficultyFilter;
+
+  const pageStart =
+    data && data.totalCount > 0 ? (data.page - 1) * data.pageSize + 1 : 0;
+  const pageEnd =
+    data && data.totalCount > 0
+      ? Math.min(data.page * data.pageSize, data.totalCount)
+      : 0;
 
   return (
     <div className="p-8">
@@ -122,25 +145,13 @@ export default function UserFlashcardProgressPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Kullanıcı ID
               <input
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 placeholder="uuid"
-                className="h-10 px-3 rounded-md border border-gray-300"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Limit
-              <input
-                value={limit}
-                type="number"
-                min={1}
-                max={500}
-                onChange={(e) => setLimit(Number(e.target.value) || 100)}
                 className="h-10 px-3 rounded-md border border-gray-300"
               />
             </label>
@@ -153,6 +164,7 @@ export default function UserFlashcardProgressPage() {
                   const nextLesson = e.target.value;
                   setLessonFilter(nextLesson);
                   setTopicFilter("all");
+                  setPage(1);
                 }}
                 className="h-10 px-3 rounded-md border border-gray-300"
               >
@@ -169,7 +181,10 @@ export default function UserFlashcardProgressPage() {
               Konu
               <select
                 value={topicFilter}
-                onChange={(e) => setTopicFilter(e.target.value)}
+                onChange={(e) => {
+                  setTopicFilter(e.target.value);
+                  setPage(1);
+                }}
                 disabled={availableTopics.length === 0}
                 className="h-10 px-3 rounded-md border border-gray-300 disabled:bg-gray-100"
               >
@@ -186,9 +201,10 @@ export default function UserFlashcardProgressPage() {
               Zorluk filtresi
               <select
                 value={difficultyFilter}
-                onChange={(e) =>
-                  setDifficultyFilter(e.target.value as "all" | Difficulty)
-                }
+                onChange={(e) => {
+                  setDifficultyFilter(e.target.value as "all" | Difficulty);
+                  setPage(1);
+                }}
                 className="h-10 px-3 rounded-md border border-gray-300"
               >
                 <option value="all">Tümü</option>
@@ -199,7 +215,7 @@ export default function UserFlashcardProgressPage() {
             </label>
 
             <button
-              onClick={handleFetch}
+              onClick={() => void handleFetch()}
               disabled={loading}
               className="h-10 px-4 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -217,27 +233,17 @@ export default function UserFlashcardProgressPage() {
         {data && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-700">
-              <span className="font-semibold">Kullanıcı:</span> {data.user.name || "-"} (
-              {data.user.email}) |{" "}
+              <span className="font-semibold">Kullanıcı:</span>{" "}
+              {data.user.name || "-"} ({data.user.email}) |{" "}
               <span className="font-semibold">Filtre:</span>{" "}
-              {lessonFilter === "all"
-                ? "Tüm dersler"
-                : (lessons.find((lesson) => lesson.id === lessonFilter)?.displayName ||
-                  lessons.find((lesson) => lesson.id === lessonFilter)?.name ||
-                  lessonFilter)}
-              {" / "}
-              {topicFilter === "all"
-                ? "Tüm konular"
-                : (topics.find((topic) => topic.id === topicFilter)?.displayName ||
-                  topics.find((topic) => topic.id === topicFilter)?.name ||
-                  topicFilter)}
+              {selectedLessonLabel} / {selectedTopicLabel} /{" "}
+              {selectedDifficultyLabel}
               {" | "}
               <span className="font-semibold">Toplam kart:</span>{" "}
-              {data.totalCount} |{" "}
-              <span className="font-semibold">Çekilen:</span>{" "}
-              {data.flashcards.length} / {data.limit} |{" "}
-              <span className="font-semibold">Gösterilen:</span>{" "}
-              {filteredRows.length}
+              {data.totalCount} | <span className="font-semibold">Sayfa:</span>{" "}
+              {data.page} / {data.totalPages} |{" "}
+              <span className="font-semibold">Gösterilen:</span> {pageStart}-
+              {pageEnd}
             </div>
 
             <div className="overflow-x-auto">
@@ -253,13 +259,19 @@ export default function UserFlashcardProgressPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row) => (
-                    <tr key={row.progressId} className="border-t border-gray-100">
+                  {data.flashcards.map((row) => (
+                    <tr
+                      key={row.progressId}
+                      className="border-t border-gray-100"
+                    >
                       <td className="px-4 py-3 text-gray-900 max-w-lg">
                         <div className="line-clamp-2">{row.front}</div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <Link
+                          href={`/flashcards/${row.flashcardId}`}
+                          className="text-xs text-blue-600 hover:text-blue-800 mt-1 inline-block"
+                        >
                           {row.flashcardId}
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -268,7 +280,9 @@ export default function UserFlashcardProgressPage() {
                           {row.difficulty}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{row.cardType}</td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {row.cardType}
+                      </td>
                       <td className="px-4 py-3 text-gray-700">
                         {row.correctCount} / {row.incorrectCount}{" "}
                         <span className="text-xs text-gray-500">
@@ -290,7 +304,31 @@ export default function UserFlashcardProgressPage() {
               </table>
             </div>
 
-            {filteredRows.length === 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                {pageStart > 0
+                  ? `${pageStart}-${pageEnd} / ${data.totalCount}`
+                  : "Kayıt yok"}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void handleFetch(page - 1)}
+                  disabled={loading || page <= 1}
+                  className="h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-gray-700 disabled:opacity-50"
+                >
+                  Önceki
+                </button>
+                <button
+                  onClick={() => void handleFetch(page + 1)}
+                  disabled={loading || !data || page >= data.totalPages}
+                  className="h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-gray-700 disabled:opacity-50"
+                >
+                  Sonraki
+                </button>
+              </div>
+            </div>
+
+            {data.flashcards.length === 0 && (
               <div className="px-4 py-8 text-center text-sm text-gray-500">
                 Filtreye uyan kart bulunamadı.
               </div>

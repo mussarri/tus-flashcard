@@ -3000,16 +3000,20 @@ export class AdminController {
   @Get('analytics/user-flashcards/:userId')
   async getUserFlashcardsWithDifficulty(
     @Param('userId') userId: string,
-    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
     @Query('lessonId') lessonId?: string,
     @Query('topicId') topicId?: string,
+    @Query('difficulty') difficulty?: string,
   ) {
     try {
       const result = await this.adminService.getUserFlashcardsWithDifficulty(
         userId,
-        limit ? parseInt(limit, 10) : undefined,
+        page ? parseInt(page, 10) : undefined,
+        pageSize ? parseInt(pageSize, 10) : undefined,
         lessonId,
         topicId,
+        difficulty,
       );
       return {
         success: true,
