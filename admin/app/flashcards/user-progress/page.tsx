@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 
 type Difficulty = "easy" | "medium" | "hard";
@@ -12,6 +12,8 @@ interface UserFlashcardResponse {
     email: string;
     name: string | null;
   };
+  totalCount: number;
+  limit: number;
   flashcards: Array<{
     progressId: string;
     flashcardId: string;
@@ -40,15 +42,40 @@ export default function UserFlashcardProgressPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<UserFlashcardResponse | null>(null);
+  const [lessons, setLessons] = useState<
+    Array<{ id: string; name: string; displayName: string }>
+  >([]);
+  const [topics, setTopics] = useState<
+    Array<{ id: string; name: string; displayName: string; lessonId: string }>
+  >([]);
+  const [lessonFilter, setLessonFilter] = useState("all");
+  const [topicFilter, setTopicFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState<
     "all" | Difficulty
   >("all");
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await api.getTopics();
+        setLessons(response.lessons || []);
+        setTopics(response.topics || []);
+      } catch (loadError) {
+        console.error("Failed to load lesson/topic filters", loadError);
+      }
+    })();
+  }, []);
 
   const filteredRows = useMemo(() => {
     if (!data) return [];
     if (difficultyFilter === "all") return data.flashcards;
     return data.flashcards.filter((row) => row.difficulty === difficultyFilter);
   }, [data, difficultyFilter]);
+
+  const availableTopics =
+    lessonFilter === "all"
+      ? topics
+      : topics.filter((topic) => topic.lessonId === lessonFilter);
 
   const handleFetch = async () => {
     if (!userId.trim()) {
@@ -63,6 +90,10 @@ export default function UserFlashcardProgressPage() {
       const response = await api.getUserFlashcardsWithDifficulty(
         userId.trim(),
         limit,
+        {
+          lessonId: lessonFilter !== "all" ? lessonFilter : undefined,
+          topicId: topicFilter !== "all" ? topicFilter : undefined,
+        },
       );
       setData(response);
     } catch (fetchError) {
@@ -91,7 +122,7 @@ export default function UserFlashcardProgressPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Kullanıcı ID
               <input
@@ -112,6 +143,43 @@ export default function UserFlashcardProgressPage() {
                 onChange={(e) => setLimit(Number(e.target.value) || 100)}
                 className="h-10 px-3 rounded-md border border-gray-300"
               />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Ders
+              <select
+                value={lessonFilter}
+                onChange={(e) => {
+                  const nextLesson = e.target.value;
+                  setLessonFilter(nextLesson);
+                  setTopicFilter("all");
+                }}
+                className="h-10 px-3 rounded-md border border-gray-300"
+              >
+                <option value="all">Tüm dersler</option>
+                {lessons.map((lesson) => (
+                  <option key={lesson.id} value={lesson.id}>
+                    {lesson.displayName || lesson.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Konu
+              <select
+                value={topicFilter}
+                onChange={(e) => setTopicFilter(e.target.value)}
+                disabled={availableTopics.length === 0}
+                className="h-10 px-3 rounded-md border border-gray-300 disabled:bg-gray-100"
+              >
+                <option value="all">Tüm konular</option>
+                {availableTopics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.displayName || topic.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -151,8 +219,23 @@ export default function UserFlashcardProgressPage() {
             <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-700">
               <span className="font-semibold">Kullanıcı:</span> {data.user.name || "-"} (
               {data.user.email}) |{" "}
+              <span className="font-semibold">Filtre:</span>{" "}
+              {lessonFilter === "all"
+                ? "Tüm dersler"
+                : (lessons.find((lesson) => lesson.id === lessonFilter)?.displayName ||
+                  lessons.find((lesson) => lesson.id === lessonFilter)?.name ||
+                  lessonFilter)}
+              {" / "}
+              {topicFilter === "all"
+                ? "Tüm konular"
+                : (topics.find((topic) => topic.id === topicFilter)?.displayName ||
+                  topics.find((topic) => topic.id === topicFilter)?.name ||
+                  topicFilter)}
+              {" | "}
               <span className="font-semibold">Toplam kart:</span>{" "}
-              {data.flashcards.length} |{" "}
+              {data.totalCount} |{" "}
+              <span className="font-semibold">Çekilen:</span>{" "}
+              {data.flashcards.length} / {data.limit} |{" "}
               <span className="font-semibold">Gösterilen:</span>{" "}
               {filteredRows.length}
             </div>

@@ -3,10 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '@theme/index';
 
 interface DashboardOverviewProps {
-    reviewCount: number;   // due cards
-    learningCount: number; // learning cards
-    newCount: number;      // new cards
-    easyCount: number;     // mastered cards
+    hardCount: number;
+    mediumCount: number;
+    newCount: number;
+    easyCount: number;
 }
 
 /**
@@ -14,8 +14,8 @@ interface DashboardOverviewProps {
  * Displays daily summary with card counts
  */
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({
-    reviewCount,
-    learningCount,
+    hardCount,
+    mediumCount,
     newCount,
     easyCount,
 }) => {
@@ -24,18 +24,18 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.title}>📚 Bugün</Text>
 
             <View style={styles.statsContainer}>
-                {/* Review Cards */}
+                {/* Hard Cards */}
                 <View style={styles.statRow}>
                     <Text style={styles.emoji}>🔴</Text>
-                    <Text style={styles.statLabel}>İncelenmeli</Text>
-                    <Text style={styles.statCount}>{reviewCount}</Text>
+                    <Text style={styles.statLabel}>Zor</Text>
+                    <Text style={styles.statCount}>{hardCount}</Text>
                 </View>
 
-                {/* Learning Cards */}
+                {/* Medium Cards */}
                 <View style={styles.statRow}>
                     <Text style={styles.emoji}>🟡</Text>
-                    <Text style={styles.statLabel}>Öğreniliyor</Text>
-                    <Text style={styles.statCount}>{learningCount}</Text>
+                    <Text style={styles.statLabel}>Orta</Text>
+                    <Text style={styles.statCount}>{mediumCount}</Text>
                 </View>
 
                 {/* New Cards */}

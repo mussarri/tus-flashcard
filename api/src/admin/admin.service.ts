@@ -22,6 +22,7 @@ import {
   AIProviderType,
   AtomicityStatus,
   KnowledgePointApprovalStatus,
+  Prisma,
 } from '@prisma/client';
 import { AuditLogService } from '../common/services/audit-log.service';
 import { VisualAssetService } from '../common/services/visual-asset.service';
@@ -5314,7 +5315,12 @@ export class AdminService {
     return results;
   }
 
-  async getUserFlashcardsWithDifficulty(userId: string, limit = 100) {
+  async getUserFlashcardsWithDifficulty(
+    userId: string,
+    limit = 100,
+    lessonId?: string,
+    topicId?: string,
+  ) {
     const safeLimit =
       Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 100;
 
@@ -5327,13 +5333,24 @@ export class AdminService {
       throw new NotFoundException(`User not found: ${userId}`);
     }
 
-    const progressRows = await this.prisma.userFlashcardProgress.findMany({
-      where: {
-        userId,
-        status: {
-          in: ['EASY', 'MEDIUM', 'HARD'],
-        },
+    const progressWhere: Prisma.UserFlashcardProgressWhereInput = {
+      userId,
+      status: {
+        in: ['EASY', 'MEDIUM', 'HARD'],
       },
+      flashcard: {
+        approvalStatus: 'APPROVED',
+        ...(lessonId ? { lessonId } : {}),
+        ...(topicId ? { topicId } : {}),
+      },
+    };
+
+    const totalCount = await this.prisma.userFlashcardProgress.count({
+      where: progressWhere,
+    });
+
+    const progressRows = await this.prisma.userFlashcardProgress.findMany({
+      where: progressWhere,
       include: {
         flashcard: {
           select: {
@@ -5370,6 +5387,8 @@ export class AdminService {
 
     return {
       user,
+      totalCount,
+      limit: safeLimit,
       flashcards: progressRows.map((row) => ({
         progressId: row.id,
         flashcardId: row.flashcardId,

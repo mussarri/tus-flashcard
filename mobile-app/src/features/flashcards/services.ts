@@ -59,20 +59,20 @@ export const flashcardApiService = {
     // Map mode to statuses
     let statuses: string[];
     switch (request.mode) {
-      case "LEARN":
+      case "NEW":
         statuses = ["UNSEEN"];
         break;
-      case "WEAKNESS":
+      case "HARD":
         statuses = ["HARD"];
+        break;
+      case "MEDIUM":
+        statuses = ["MEDIUM"];
         break;
       case "EASY":
         statuses = ["EASY"];
         break;
-      case "SRS":
-        statuses = ["MEDIUM"];
-        break;
       default:
-        statuses = ["EASY", "MEDIUM", "HARD"];
+        statuses = ["UNSEEN", "EASY", "MEDIUM", "HARD"];
     }
 
     const response = await api.post("/api/student/flashcards/session", {

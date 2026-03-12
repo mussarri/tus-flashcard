@@ -5,11 +5,10 @@ import { SessionMode } from '../types';
  * Based on UX design specifications
  */
 export const FLASHCARD_COLORS = {
-    NEW: '#9C27B0',      // Purple - New cards (LEARN mode)
-    REVIEW: '#F44336',   // Red - Review/Hard cards (WEAKNESS mode)
-    SRS: '#4CAF50',      // Green - SRS mode
-    LEARNING: '#FFC107', // Yellow - Learning cards
-    EASY: '#2E7D32',     // Dark green - Easy/mastered cards
+    NEW: '#9C27B0',
+    HARD: '#F44336',
+    MEDIUM: '#FFC107',
+    EASY: '#2E7D32',
 } as const;
 
 /**
@@ -22,23 +21,23 @@ export const MODE_CONFIG: Record<SessionMode, {
     description: string;
     color: string;
 }> = {
-    LEARN: {
+    NEW: {
         emoji: '🟢',
         label: 'Yeni Kartlar',
         description: 'Hiç görmediğin kartları öğren',
         color: FLASHCARD_COLORS.NEW,
     },
-    WEAKNESS: {
+    HARD: {
         emoji: '🔴',
         label: 'Zorlanılanlar',
         description: 'Zor gelen kartları tekrar et',
-        color: FLASHCARD_COLORS.REVIEW,
+        color: FLASHCARD_COLORS.HARD,
     },
-    SRS: {
+    MEDIUM: {
         emoji: '🟡',
         label: 'Orta Seviye',
-        description: 'Aralıklı tekrar algoritması',
-        color: FLASHCARD_COLORS.SRS,
+        description: 'Orta zorluktaki kartları tekrar et',
+        color: FLASHCARD_COLORS.MEDIUM,
     },
     EASY: {
         emoji: '✅',

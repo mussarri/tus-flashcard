@@ -246,6 +246,7 @@ export interface LessonStats {
   due: number;
   learning: number;
   new: number;
+  medium?: number;
   hard: number; // Cards marked as HARD (needs urgent review)
   easy: number; // Cards marked as EASY (mastered)
 }
@@ -258,7 +259,7 @@ export interface DashboardData {
 }
 
 // Session Management Types
-export type SessionMode = 'SRS' | 'LEARN' | 'WEAKNESS' | 'EASY';
+export type SessionMode = 'NEW' | 'HARD' | 'MEDIUM' | 'EASY';
 
 export interface SessionStartRequest {
   lessonId?: string;

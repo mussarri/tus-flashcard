@@ -1442,7 +1442,17 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getUserFlashcardsWithDifficulty: (userId: string, limit = 100) =>
+  getUserFlashcardsWithDifficulty: (
+    userId: string,
+    limit = 100,
+    filters?: { lessonId?: string; topicId?: string },
+  ) => {
+    const params = new URLSearchParams();
+    params.append("limit", String(limit));
+    if (filters?.lessonId) params.append("lessonId", filters.lessonId);
+    if (filters?.topicId) params.append("topicId", filters.topicId);
+    const queryString = params.toString();
+    return (
     apiRequest<{
       success: boolean;
       user: {
@@ -1450,6 +1460,8 @@ export const api = {
         email: string;
         name: string | null;
       };
+      totalCount: number;
+      limit: number;
       flashcards: Array<{
         progressId: string;
         flashcardId: string;
@@ -1476,5 +1488,7 @@ export const api = {
           displayName: string;
         } | null;
       }>;
-    }>(`admin/analytics/user-flashcards/${userId}?limit=${limit}`),
+    }>(`admin/analytics/user-flashcards/${userId}?${queryString}`)
+    );
+  },
 };

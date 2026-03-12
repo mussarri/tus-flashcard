@@ -3001,11 +3001,15 @@ export class AdminController {
   async getUserFlashcardsWithDifficulty(
     @Param('userId') userId: string,
     @Query('limit') limit?: string,
+    @Query('lessonId') lessonId?: string,
+    @Query('topicId') topicId?: string,
   ) {
     try {
       const result = await this.adminService.getUserFlashcardsWithDifficulty(
         userId,
         limit ? parseInt(limit, 10) : undefined,
+        lessonId,
+        topicId,
       );
       return {
         success: true,

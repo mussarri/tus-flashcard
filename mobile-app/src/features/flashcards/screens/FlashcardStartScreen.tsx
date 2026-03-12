@@ -17,7 +17,7 @@ import ModeSelector from "../components/ModeSelector";
 
 /**
  * Flashcard Start Screen
- * Purpose: Lesson selection, Mode selection (SRS/Learn/Weakness), Card count
+ * Purpose: Lesson selection, Mode selection (Yeni/Kolay/Orta/Zor), Card count
  */
 export default function FlashcardStartScreen() {
   const router = useRouter();
@@ -26,10 +26,8 @@ export default function FlashcardStartScreen() {
   const { data: dashboardData, isLoading, error, refetch } = useDashboard();
   const startSessionMutation = useStartSession();
 
-  console.log(dashboardData);
-  
-  // State    const [refreshing, setRefreshing] = useState(false);    const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
-  const [studyMode, setStudyMode] = useState<SessionMode>("SRS");
+  // State
+  const [studyMode, setStudyMode] = useState<SessionMode>("NEW");
   const [cardCount, setCardCount] = useState<number>(20);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
@@ -45,12 +43,15 @@ export default function FlashcardStartScreen() {
   // Calculate total stats for overview
   const totalStats = useMemo(() => {
     if (!dashboardData?.overview) {
-      return { review: 0, learning: 0, new: 0, easy: 0 };
+      return { hard: 0, medium: 0, new: 0, easy: 0 };
     }
     const stats = Object.values(dashboardData.overview);
     return {
-      review: stats.reduce((sum, s) => sum + s.hard, 0),
-      learning: stats.reduce((sum, s) => sum + s.learning, 0),
+      hard: stats.reduce((sum, s) => sum + (s.hard || 0), 0),
+      medium: stats.reduce(
+        (sum, s) => sum + (s.medium ?? (s.due || 0) + (s.learning || 0)),
+        0,
+      ),
       new: stats.reduce((sum, s) => sum + s.new, 0),
       easy: stats.reduce((sum, s) => sum + (s.easy || 0), 0),
     };
@@ -65,8 +66,6 @@ export default function FlashcardStartScreen() {
         mode: studyMode,
         limit: cardCount,
       });
-
-      alert("Bağlantı  " + response); // Telefon ekranında hatayı görmeni sağlar
 
       // Navigate to session screen with sessionId
       router.push({
@@ -99,21 +98,22 @@ export default function FlashcardStartScreen() {
   const availableCounts = selectedLessonStats
     ? {
         new: selectedLessonStats.new,
-        due: selectedLessonStats.due,
-        learning: selectedLessonStats.learning,
+        medium:
+          selectedLessonStats.medium ??
+          (selectedLessonStats.due || 0) + (selectedLessonStats.learning || 0),
         hard: selectedLessonStats.hard || 0,
         easy: selectedLessonStats.easy || 0,
       }
-    : { new: 0, due: 0, learning: 0, hard: 0, easy: 0 };
+    : { new: 0, medium: 0, hard: 0, easy: 0 };
 
   const availableCards =
-    studyMode === "SRS"
-      ? availableCounts.due + availableCounts.learning + availableCounts.easy
-      : studyMode === "LEARN"
-        ? availableCounts.new
-        : studyMode === "EASY"
-          ? availableCounts.easy
-          : availableCounts.due;
+    studyMode === "NEW"
+      ? availableCounts.new
+      : studyMode === "EASY"
+        ? availableCounts.easy
+        : studyMode === "MEDIUM"
+          ? availableCounts.medium
+          : availableCounts.hard;
 
   // Loading state
   if (isLoading) {
@@ -158,8 +158,8 @@ export default function FlashcardStartScreen() {
 
         {/* Dashboard Overview */}
         <DashboardOverview
-          reviewCount={totalStats.review}
-          learningCount={totalStats.learning}
+          hardCount={totalStats.hard}
+          mediumCount={totalStats.medium}
           newCount={totalStats.new}
           easyCount={totalStats.easy}
         />
@@ -190,15 +190,21 @@ export default function FlashcardStartScreen() {
                   </Text>
                   <View style={styles.lessonStats}>
                     <Text style={styles.lessonStat}>
-                      {lessonStats?.due || 0} due
+                      {lessonStats?.new || 0} yeni
                     </Text>
                     <Text style={styles.lessonStatDivider}>•</Text>
                     <Text style={styles.lessonStat}>
-                      {lessonStats?.learning || 0} learning
+                      {lessonStats?.easy || 0} kolay
                     </Text>
                     <Text style={styles.lessonStatDivider}>•</Text>
                     <Text style={styles.lessonStat}>
-                      {lessonStats?.new || 0} new
+                      {lessonStats?.medium ??
+                        (lessonStats?.due || 0) + (lessonStats?.learning || 0)}{" "}
+                      orta
+                    </Text>
+                    <Text style={styles.lessonStatDivider}>•</Text>
+                    <Text style={styles.lessonStat}>
+                      {lessonStats?.hard || 0} zor
                     </Text>
                   </View>
                 </View>
