@@ -5411,7 +5411,8 @@ export class AdminService {
       page: safePage,
       pageSize: safePageSize,
       totalPages: Math.max(1, Math.ceil(totalCount / safePageSize)),
-      difficulty: normalizedDifficulty && difficultyStatus ? normalizedDifficulty : 'all',
+      difficulty:
+        normalizedDifficulty && difficultyStatus ? normalizedDifficulty : 'all',
       flashcards: progressRows.map((row) => ({
         progressId: row.id,
         flashcardId: row.flashcardId,

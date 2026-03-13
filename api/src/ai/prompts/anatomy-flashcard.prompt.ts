@@ -77,14 +77,25 @@ OUTPUT (STRICT JSON ONLY):
   ]
 }
 
-HARD CONSTRAINTS:
-- Sadece geçerli JSON döndür. Markdown yok.
-- 0 kart üretme (statement boş değilse en az 1 kart).
-- maxCards limitini aşma.
--Sadece geçerli JSON döndür.
--Kök nesnede yalnızca "flashcards" alanı olsun.
-"flashcards" bir array olmalıdır.
--Uygun kart üretilemiyorsa bile "flashcards": [] döndür.
+Kurallar:
+- Sadece geçerli JSON döndür.
+- Markdown kullanma.
+- Açıklama yazma.
+- Kök nesnede yalnızca "flashcards" alanı olsun.
+- "flashcards" her zaman bir array olmalıdır.
+- Her flashcard şu alanlara sahip olmalıdır:
+  - cardType
+  - question
+  - answer
+  - difficulty
+- "q" ve "a" alanlarını kullanma.
+- Card type isimlerini root key olarak kullanma.
+- Şu format yasaktır:
+  {
+    "STRUCTURE_ID": { "q": "...", "a": "..." }
+  }
+- Uygun kart yoksa:
+  {"flashcards":[]}
 `;
 
   const userPrompt = `
