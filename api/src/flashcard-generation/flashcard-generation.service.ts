@@ -128,6 +128,7 @@ export class FlashcardGenerationService {
       const knowledgePoint = await this.prisma.knowledgePoint.findUnique({
         where: { id: knowledgePointId },
         include: {
+          lesson: true,
           topic: { include: { lesson: true } },
           subtopic: true,
         },
@@ -157,7 +158,10 @@ export class FlashcardGenerationService {
 
       const targetTypes = this.getTargetCardTypes(knowledgePoint.examPattern);
 
-      const lesson = knowledgePoint.topic?.lesson?.name || undefined;
+      const lesson =
+        knowledgePoint.topic?.lesson?.name ||
+        knowledgePoint.lesson?.name ||
+        undefined;
 
       // Generate flashcards using AI (lesson-specific prompts)
       const cards = await this.generateCardsWithAI(
