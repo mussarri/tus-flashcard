@@ -78,9 +78,13 @@ OUTPUT (STRICT JSON ONLY):
 }
 
 HARD CONSTRAINTS:
-- Sadece JSON döndür. Markdown yok.
+- Sadece geçerli JSON döndür. Markdown yok.
 - 0 kart üretme (statement boş değilse en az 1 kart).
 - maxCards limitini aşma.
+-Sadece geçerli JSON döndür.
+-Kök nesnede yalnızca "flashcards" alanı olsun.
+"flashcards" bir array olmalıdır.
+-Uygun kart üretilemiyorsa bile "flashcards": [] döndür.
 `;
 
   const userPrompt = `
