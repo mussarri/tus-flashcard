@@ -48,7 +48,7 @@ Kart kalite kuralları:
 {
   "flashcards": [
     {
-      "type": "DIRECT|CLOZE|STRUCTURE_CONTENT|RELATION_BORDER|FUNCTIONAL|DISTINCTION|LESION_CLINICAL|EXCEPT_TRAP",
+      "cardType": "DIRECT|CLOZE|STRUCTURE_CONTENT|RELATION_BORDER|FUNCTIONAL|DISTINCTION|LESION_CLINICAL|EXCEPT_TRAP",
       "question": "string",
       "answer": "string",
       "hint": "string | null",
