@@ -15,7 +15,7 @@ import { buildAtomicitySplittingPrompt } from './prompts/atomicity-splitting.pro
 import { buildFizyolojiSingleCallPrompt } from './prompts/fizyoloji.question-analyze-and-kp.prompt';
 import { buildAnatomiSingleCallPrompt } from './prompts/anatomi.question-analyze-and-kp.prompt';
 import { buildDahiliyeSingleCallPrompt } from './prompts/dahiliye.question-analyze-and-kp.prompt';
-import { buildPathologySingleCallPrompt } from './prompts/patoloji.question-analyze-and-kp.prompt';
+import { buildPatolojiSingleCallPrompt } from './prompts/patoloji.question-analyze-and-kp.prompt';
 
 @Injectable()
 export class AIRouterService {
@@ -596,7 +596,7 @@ export class AIRouterService {
         break;
       }
       case 'patoloji': {
-        const result = buildPathologySingleCallPrompt(payload);
+        const result = buildPatolojiSingleCallPrompt(payload);
         systemPrompt = result.systemPrompt;
         userPrompt = result.userPrompt;
         break;

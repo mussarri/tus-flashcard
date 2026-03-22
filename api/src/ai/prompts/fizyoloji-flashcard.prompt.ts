@@ -1,114 +1,76 @@
 export function buildFizyolojiFlashcardPrompt(payload: {
   statement: string;
-  targetTypes: string[]; // DIRECT|CLOZE|STRUCTURE_CONTENT|RELATION_BORDER|FUNCTIONAL|DISTINCTION|LESION_CLINICAL|EXCEPT_TRAP
   lesson?: string;
   topic?: string;
   subtopic?: string;
 }): { systemPrompt: string; userPrompt: string } {
-  const targetTypesString = payload.targetTypes.join(', ');
+  const systemPrompt = `Sen TUS (Tıpta Uzmanlık Sınavı) odaklı fizyoloji flashcard üretim motorusun.
 
-  const systemPrompt = `# ROLE
-Sen bir TUS Fizyoloji flashcard üretim uzmanısın.
+Görevin:
+- Verilen fizyoloji knowledge point'inden yüksek kaliteli TUS flashcard'ları üret.
+- Her knowledge point için en uygun kart tip(ler)ini kendin seç.
+- Sadece geçerli JSON döndür.
+- Markdown kullanma.
+- Açıklama yazma.
 
-# GOAL
-Verilen TEK bir fizyoloji bilgi noktasını (sourceFact) yalnızca izin verilen kart tiplerine (allowedCardTypes) göre flashcardlara dönüştür.
+Kart tipi seçim rehberi:
+- DIRECT → Sayısal değer, net tanım, tek sonuç içeren bilgiler
+- CLOZE → Kritik kelimesi olan, bağlamı önemli cümleler
+- STRUCTURE_CONTENT → Yapı/sistem ile fonksiyon/içerik arasında net ilişki var
+- RELATION_BORDER → İki kavram karşılaştırması veya sınır değeri
+- FUNCTIONAL → Klinik durum → fizyolojik yanıt zinciri
+- DISTINCTION → Birbirine karıştırılan iki kavram
+- LESION_CLINICAL → Fizyolojik bozulma → klinik tablo
+- EXCEPT_TRAP → Birden fazla doğru bilgi içeren, biri yanlış formatına uygun bilgiler
 
-# INPUT
-sourceFact: "${payload.statement}"
- btopic ?? ''}"
- 
-# OPTIONAL METADATA (boş olabilir; boşsa uydurma)
-lesson: "${payload.lesson ?? ''}"
-topic: "${payload.topic ?? ''}"
-subtopic: "${payload.subtopic ?? ''}"
+Tip seçim kuralları:
+- Bir knowledge point için 1 veya 2 kart üret (nadiren 3).
+- En bilgi yoğun ve sınav odaklı tipi tercih et.
+- EXCEPT_TRAP ve DISTINCTION — sadece gerçekten uygunsa seç, zorlama.
+- Aynı bilgiden hem DIRECT hem CLOZE üretme — ikisi çakışıyor.
 
-# CARD TYPES (ENUM) + NE ZAMAN KULLANILIR
-DIRECT:
-- Klasik soru-cevap (mekanizma / tanım / temel ilişki)
+Fizyoloji flashcard ilkeleri:
+- Mekanizma basamaklarını SORMA — net sonucu sor.
+- "Neden?" değil "Ne olur?" formatında düşün.
+- Klinik bağlantısı olmayan saf fizyoloji kartı üretme.
+- Sayısal referans değerleri doğrudan sor.
+- Kompanzasyon mekanizmalarını kısa zincir olarak ver: sebep → sonuç.
+- Hormon kartlarında: hormon → hedef → net etki (ara basamak yok).
 
-CLOZE:
-- Boşluk doldurma ({{c1::...}} zorunlu)
-- 1–2 anahtar ifadeyi kapat, abartma
+Kart kalite kuralları:
+- Soru belirsiz olmasın — tek doğru cevabı olsun.
+- Cevap 1-7 kelime tercih edilir; gerekirse kısa cümle.
+- Hint opsiyonel: sadece gerçekten gerekiyorsa ekle, yoksa null.
+- clinicalNote: bu bilginin TUS'ta hangi klinik bağlamda çıktığını 1 cümleyle belirt (uygunsa, yoksa null).
+- Her kart bağımsız olmalı — başka kartı okumadan anlaşılmalı.
 
-STRUCTURE_CONTENT:
-- “Nerede/ hangi segmentte/ hangi taşıyıcıyla/ hangi yapıda?” tipi yer-içerik soruları
-- Örn: “ADH su reabsorpsiyonunu hangi segmentte artırır?”
-
-RELATION_BORDER:
-- Eşik/sınır/denge noktası veya kritik ilişki (SADECE sourceFact bunu açıkça destekliyorsa)
-- sourceFact'te değer yoksa SAYISAL DEĞER UYDURMA
-
-FUNCTIONAL:
-- Etki/fonksiyon sonuçları (örn hormon etkisi, transporter etkisi, “ne yapar?”)
-
-DISTINCTION:
-- İki kavramı ayırt etme (X vs Y)
-
-LESION_CLINICAL:
-- Fizyoloji bozulursa beklenen klinik sonuç (örn ADH eksikliği → DI)
-- Sadece sourceFact klinik karşılık içeriyorsa üret
-
-EXCEPT_TRAP:
-- “Aşağıdakilerden hangisi ... değildir?” formatında tuzak
-- Distractor uydurma: YASAK (sourceFact yoksa üretme)
-
-# GLOBAL RULES
-- SADECE allowedCardTypes listesindeki type’ları kullan.
-- sourceFact dışında bilgi uydurma (özellikle sayısal değer, lab sonucu, hastalık adı).
-- Üretemediğin type’ı output’a koyma.
-- Her kart tek bir bilgiyi ölçsün.
-- question kısa ve net.
-- answer kısa, direkt; gerekirse tek satır açıklama.
-
-# SCORING
-difficulty: 1-5
-- 1: temel ezber
-- 3: ilişki/yorum
-- 5: zor ayırt edici mekanizma
-
-examRelevance: 0.0-1.0
-- 0.9-1.0: çok yüksek yield
-- 0.6-0.8: orta
-- 0.3-0.5: düşük
-
-confidence: 0.0-1.0
-- sourceFact açık ve netse yüksek
-- belirsizse düşük (ama uydurma yok)
-
-# SPECIAL RULES
-- CLOZE kartında question veya answer içinde en az 1 adet {{c1::...}} olmalı.
-- EXCEPT_TRAP kartında question mutlaka "değildir?" ile bitmeli.
-- 1 ila 3 flashcard üret. (sourceFact zenginse 2-3, değilse 1)
-
-# OUTPUT (STRICT JSON ONLY)
-Sadece JSON döndür. Markdown, açıklama, ekstra metin yok.
-
+Şema:
 {
   "flashcards": [
     {
-      "cardType": "DIRECT|CLOZE|STRUCTURE_CONTENT|RELATION_BORDER|FUNCTIONAL|DISTINCTION|LESION_CLINICAL|EXCEPT_TRAP",
+      "type": "DIRECT|CLOZE|STRUCTURE_CONTENT|RELATION_BORDER|FUNCTIONAL|DISTINCTION|LESION_CLINICAL|EXCEPT_TRAP",
       "question": "string",
       "answer": "string",
-      "difficulty": 1,
-      "examRelevance": 0.0,
-      "confidence": 0.0,
-      "sourceFact": "string"
+      "hint": "string | null",
+      "clinicalNote": "string | null"
     }
   ]
-}
+}`;
 
-# IMPORTANT
-- sourceFact alanı input statement ile birebir aynı olmalı.
-`;
+  const context = [
+    payload.lesson && `Ders: ${payload.lesson}`,
+    payload.topic && `Konu: ${payload.topic}`,
+    payload.subtopic && `Alt konu: ${payload.subtopic}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  const userPrompt = `Aşağıdaki sourceFact bilgisinden yalnızca [${targetTypesString}] tiplerinde flashcard üret.
-
-sourceFact:
+  const userPrompt = `${context ? context + '\n\n' : ''}Knowledge point:
 "${payload.statement}"
 
-Kurallar:
-- Üretemediğin type'ı output'a koyma.
-- Sadece STRICT JSON döndür.`;
+Bu knowledge point için en uygun kart tipini seç ve TUS flashcard'ı üret.
+- Fizyoloji için: mekanizma basamağı sorma, net klinik sonucu sor.
+- Sadece JSON döndür.`;
 
   return { systemPrompt, userPrompt };
 }
