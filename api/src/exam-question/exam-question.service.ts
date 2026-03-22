@@ -413,7 +413,6 @@ export class ExamQuestionService {
   async triggerAnalysis(
     examQuestionId: string,
     lessonId: string,
-    mode?: 'LEGACY' | 'SINGLE_CALL',
   ) {
     const examQuestion = await this.prisma.examQuestion.findUnique({
       where: { id: examQuestionId },
@@ -448,26 +447,14 @@ export class ExamQuestionService {
       );
     }
 
-    // Determine effective mode
-    const envFlag = process.env.QUESTION_SINGLE_CALL_MODE === 'true';
-    const effectiveMode = mode ?? (envFlag ? 'SINGLE_CALL' : 'LEGACY');
-
-    // Determine if single-call is applicable
-    const useSingleCall =
-      effectiveMode === 'SINGLE_CALL' &&
-      (examQuestion.lesson?.name === 'Fizyoloji' ||
-        lessonId === examQuestion.lesson?.id);
-
-    const jobName = useSingleCall
-      ? 'analyze-single-call'
-      : 'analyze-exam-question';
+    const jobName = 'analyze-single-call';
 
     // Add job to queue
     await this.examQuestionAnalysisQueue.add(
       jobName,
       { examQuestionId },
       {
-        jobId: useSingleCall ? `q-single-${examQuestionId}` : undefined,
+        jobId: `q-single-${examQuestionId}`,
         attempts: 3,
         backoff: {
           type: 'exponential',
@@ -483,7 +470,7 @@ export class ExamQuestionService {
     return {
       success: true,
       examQuestionId,
-      mode: useSingleCall ? 'SINGLE_CALL' : 'LEGACY',
+      mode: 'SINGLE_CALL',
       message: 'Analysis queued',
     };
   }
@@ -812,8 +799,7 @@ export class ExamQuestionService {
 
   /**
    * Analyze exam question AND extract knowledge points in a single AI call
-   * Currently supports: Fizyoloji
-   * Feature flag: QUESTION_SINGLE_CALL_MODE=true
+    * Supports lesson-specific prompts via QUESTION_ANALYZE_AND_KP
    */
   async analyzeQuestionSingleCall(
     examQuestionId: string,
@@ -969,7 +955,9 @@ export class ExamQuestionService {
 
       const analysisPayload = {
         ...analysisFields,
-        _meta: meta || { promptVersion: 'fizyoloji-v2' },
+        _meta: meta || {
+          promptVersion: `${lessonName.toLowerCase()}-v1`,
+        },
       };
 
       await this.prisma.examQuestion.update({

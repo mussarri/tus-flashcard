@@ -1,12 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable no-constant-condition */
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  Inject,
-  forwardRef,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AITaskType, VisionPayload, AIModelOptions, TokenUsage } from './types';
 import { AIProvider } from './providers/ai-provider.interface';
@@ -16,16 +8,14 @@ import { buildVisionPrompt } from './prompts/vision.prompt';
 import { buildKnowledgeExtractionPrompt } from './prompts/knowledge.prompt';
 import { buildFlashcardPrompt } from './prompts/flashcard-prompt-builder';
 import { buildQuestionPrompt } from './prompts/question.prompt';
-import { buildAnatomyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-anatomy.prompt';
-import { buildInternalMedicineExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-internal-medicine.prompt';
-import { buildPathologyExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-pathology.prompt';
 import { AIProviderType } from '@prisma/client';
 import { PricingService } from './pricing.service';
-import { PrerequisiteLearningService } from '../exam-question/prerequisite-learning.service';
-import { buildFizyolojiExamQuestionAnalysisPrompt } from './prompts/exam-question-analysis-fizyoloji.prompt';
 import { buildAtomicityValidationPrompt } from './prompts/atomicity-validation.prompt';
 import { buildAtomicitySplittingPrompt } from './prompts/atomicity-splitting.prompt';
 import { buildFizyolojiSingleCallPrompt } from './prompts/fizyoloji.question-analyze-and-kp.prompt';
+import { buildAnatomiSingleCallPrompt } from './prompts/anatomi.question-analyze-and-kp.prompt';
+import { buildDahiliyeSingleCallPrompt } from './prompts/dahiliye.question-analyze-and-kp.prompt';
+import { buildPathologySingleCallPrompt } from './prompts/patoloji.question-analyze-and-kp.prompt';
 
 @Injectable()
 export class AIRouterService {
@@ -37,8 +27,6 @@ export class AIRouterService {
     private readonly openaiProvider: OpenAIProvider,
     private readonly geminiProvider: GeminiProvider,
     private readonly pricingService: PricingService,
-    @Inject(forwardRef(() => PrerequisiteLearningService))
-    private readonly prerequisiteLearningService: PrerequisiteLearningService,
   ) {
     // Initialize provider registry
     this.providers = new Map();
@@ -233,28 +221,6 @@ export class AIRouterService {
           break;
         }
 
-        case AITaskType.EXAM_QUESTION_ANALYSIS: {
-          const examAnalysisResult = await this.runExamQuestionAnalysisTask(
-            provider,
-            taskPayload as {
-              question: string;
-              options: Record<string, string>;
-              correctAnswer: string;
-              explanation?: string;
-              year?: number;
-              examType?: string;
-              lesson: string;
-              topic?: string;
-              prerequiseiteContext?: string[];
-            },
-            options,
-            effectiveModel,
-          );
-          result = examAnalysisResult.content;
-          usage = examAnalysisResult.usage;
-          break;
-        }
-
         case AITaskType.QUESTION_ANALYZE_AND_KP: {
           const singleCallResult = await this.runQuestionAnalyzeAndKPTask(
             provider,
@@ -326,15 +292,21 @@ export class AIRouterService {
 
       // Log token usage (non-blocking)
       if (usage && taskType !== AITaskType.EMBEDDING) {
+        const batchIdStr = typeof batchId === 'string' ? batchId : undefined;
+        const pageIdStr = typeof pageId === 'string' ? pageId : undefined;
+        const topicIdStr = typeof topicId === 'string' ? topicId : undefined;
+        const knowledgePointIdStr =
+          typeof knowledgePointId === 'string' ? knowledgePointId : undefined;
+
         this.logTokenUsage(
           taskType,
           providerType,
           effectiveModel,
           usage,
-          batchId,
-          pageId,
-          topicId,
-          knowledgePointId,
+          batchIdStr,
+          pageIdStr,
+          topicIdStr,
+          knowledgePointIdStr,
         ).catch((error) => {
           // Log error but don't block the main task
           this.logger.error(
@@ -600,14 +572,40 @@ export class AIRouterService {
     }
 
     const lessonLower = payload.lesson.toLowerCase();
-    if (lessonLower !== 'fizyoloji') {
-      throw new NotFoundException(
-        `No single-call analysis prompt found for lesson: ${payload.lesson}. Supported lessons: Fizyoloji.`,
-      );
-    }
 
-    const { systemPrompt, userPrompt } =
-      buildFizyolojiSingleCallPrompt(payload);
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    switch (lessonLower) {
+      case 'anatomi': {
+        const result = buildAnatomiSingleCallPrompt(payload);
+        systemPrompt = result.systemPrompt;
+        userPrompt = result.userPrompt;
+        break;
+      }
+      case 'fizyoloji': {
+        const result = buildFizyolojiSingleCallPrompt(payload);
+        systemPrompt = result.systemPrompt;
+        userPrompt = result.userPrompt;
+        break;
+      }
+      case 'dahiliye': {
+        const result = buildDahiliyeSingleCallPrompt(payload);
+        systemPrompt = result.systemPrompt;
+        userPrompt = result.userPrompt;
+        break;
+      }
+      case 'patoloji': {
+        const result = buildPathologySingleCallPrompt(payload);
+        systemPrompt = result.systemPrompt;
+        userPrompt = result.userPrompt;
+        break;
+      }
+      default:
+        throw new NotFoundException(
+          `No single-call analysis prompt found for lesson: ${payload.lesson}. Supported lessons: Anatomi, Fizyoloji, Dahiliye, Patoloji.`,
+        );
+    }
 
     const textOptions = {
       ...options,
@@ -615,97 +613,6 @@ export class AIRouterService {
     };
 
     return await provider.runText(systemPrompt, userPrompt, model, textOptions);
-  }
-
-  /**
-   * Run exam question analysis task
-   */
-  private async runExamQuestionAnalysisTask(
-    provider: AIProvider,
-    payload: {
-      question: string;
-      options: Record<string, string>;
-      correctAnswer: string;
-      explanation?: string;
-      year?: number;
-      examType?: string;
-      lesson: string; // Required: lesson name to select lesson-specific prompt
-      topic?: string; // Optional: topic for prerequisite context injection
-    },
-    options: AIModelOptions,
-    model: string,
-  ): Promise<{ content: string; usage?: TokenUsage }> {
-    // Lesson is required - each lesson must have its own prompt
-    if (!payload.lesson) {
-      throw new NotFoundException(
-        'Lesson is required for exam question analysis. Please select a lesson before analyzing.',
-      );
-    }
-
-    const lessonLower = payload.lesson.toLowerCase();
-    let systemPrompt: string;
-    let userPrompt: string;
-    let prerequisiteContext: string[] | undefined;
-    if (payload.topic) {
-      try {
-        prerequisiteContext =
-          await this.prerequisiteLearningService.getPrerequisiteContextForTopic(
-            payload.topic,
-          );
-        this.logger.debug(
-          `Fetched ${prerequisiteContext.length} prerequisite contexts for topic: ${payload.topic}`,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to fetch prerequisite context for topic ${payload.topic}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-        // Continue without prerequisite context
-      }
-    }
-
-    // Select lesson-specific prompt based on lesson name
-    if (lessonLower === 'anatomi') {
-      // Fetch prerequisite context for anatomy questions if topic is available
-      const result = buildAnatomyExamQuestionAnalysisPrompt({
-        ...payload,
-        prerequisiteContext,
-      });
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else if (lessonLower === 'fizyoloji') {
-      const result = buildFizyolojiExamQuestionAnalysisPrompt({
-        ...payload,
-        prerequisiteContext,
-      });
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else if (lessonLower === 'dahiliye') {
-      const result = buildInternalMedicineExamQuestionAnalysisPrompt(payload);
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else if (lessonLower === 'patoloji') {
-      const result = buildPathologyExamQuestionAnalysisPrompt(payload);
-      systemPrompt = result.systemPrompt;
-      userPrompt = result.userPrompt;
-    } else {
-      // Unknown lesson - throw error
-      throw new NotFoundException(
-        `No analysis prompt found for lesson: ${payload.lesson}. Supported lessons: Anatomi, Farmakoloji, Dahiliye, Patoloji.`,
-      );
-    }
-
-    const textOptions = {
-      ...options,
-      responseFormat: 'json_object' as const,
-    };
-
-    const result = await provider.runText(
-      systemPrompt,
-      userPrompt,
-      model,
-      textOptions,
-    );
-    return result;
   }
 
   /**

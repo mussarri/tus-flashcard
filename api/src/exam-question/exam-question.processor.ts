@@ -32,12 +32,7 @@ export class ExamQuestionProcessor extends WorkerHost {
     );
 
     try {
-      // Route based on job name
-      if (job.name === 'analyze-single-call') {
-        return await this.processSingleCallJob(examQuestionId);
-      } else {
-        return await this.processLegacyAnalysisJob(examQuestionId);
-      }
+      return await this.processSingleCallJob(examQuestionId);
     } catch (error) {
       this.logger.error(
         `Exam question job [${job.name}] failed for ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -103,73 +98,5 @@ export class ExamQuestionProcessor extends WorkerHost {
       mode: 'SINGLE_CALL',
       result,
     };
-  }
-
-  /**
-   * Process legacy analysis job: analysis only (KP extraction queued separately)
-   */
-  private async processLegacyAnalysisJob(examQuestionId: string) {
-    this.logger.log(`[Legacy] Processing analysis for: ${examQuestionId}`);
-
-    try {
-      const result =
-        await this.examQuestionService.analyzeExamQuestion(examQuestionId);
-
-      this.logger.log(
-        `Exam question analysis completed for ${examQuestionId}: lesson=${result.lesson}, topic=${result.topic}`,
-      );
-
-      // Register lesson, topic, subtopic in registry
-      try {
-        await this.registryService.registerAnalysisResults(
-          result.lesson,
-          result.topic,
-          result.subtopic,
-          examQuestionId,
-        );
-        this.logger.log(
-          `Registry updated for question ${examQuestionId}: ${result.lesson} > ${result.topic} > ${result.subtopic}`,
-        );
-      } catch (registryError) {
-        this.logger.error(
-          `Failed to update registry for question ${examQuestionId}: ${registryError instanceof Error ? registryError.message : 'Unknown error'}`,
-        );
-        // Don't fail the job if registry update fails
-      }
-
-      // Update prerequisite graph for anatomy questions
-
-      try {
-        await this.prerequisiteLearningService.processAnalyzedQuestion(
-          examQuestionId,
-        );
-        this.logger.log(
-          `Prerequisite graph updated for question ${examQuestionId}`,
-        );
-      } catch (prereqError) {
-        this.logger.error(
-          `Failed to update prerequisite graph for question ${examQuestionId}: ${prereqError instanceof Error ? prereqError.message : 'Unknown error'}`,
-        );
-        // Don't fail the job if prerequisite learning fails
-      }
-
-      this.logger.log(
-        `------------------------------------------------------------------`,
-      );
-
-      return {
-        success: true,
-        examQuestionId,
-        mode: 'LEGACY',
-        result,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Exam question analysis job failed for ${examQuestionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-
-      throw error;
-    }
   }
 }
