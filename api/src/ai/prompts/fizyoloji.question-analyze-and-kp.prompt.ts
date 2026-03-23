@@ -1,222 +1,164 @@
-export interface FizyolojiSingleCallPayload {
-  question: string;
-  options: Record<string, string>; // { A: "...", B: "...", ... }
-  correctAnswer: string;
-  explanation?: string;
-  year?: number;
-  lesson: string;
-  topic?: string;
-  subtopic?: string;
-  repairRawOutput?: string;
-}
+import { LessonSingleCallPayload } from './question-analyze-and-kp.shared.prompt';
 
 export function buildFizyolojiSingleCallPrompt(
-  payload: FizyolojiSingleCallPayload,
-) {
-  // -----------------------------
-  // JSON REPAIR MODE (STRICT)
-  // -----------------------------
-  if (payload.repairRawOutput) {
-    return {
-      systemPrompt: `ROLE:
-Sen TUS Fizyoloji single-call analiz çıktıları için katı bir JSON onarım motorusun.
+  payload: LessonSingleCallPayload,
+): {
+  systemPrompt: string;
+  userPrompt: string;
+} {
+  const systemPrompt = `Sen TUS (Tıpta Uzmanlık Sınavı) fizyoloji soru analiz motorusun.
 
-RULES (HARD):
-- SADECE geçerli JSON döndür (başka hiçbir metin yok).
-- Markdown, açıklama, yorum, ön/son ek metin YOK.
-- Çıktı "{" ile başlamalı ve "}" ile bitmeli; başka karakter olmamalı.
-- Yeni tıbbi bilgi UYDURMA.
-- Mevcut anlamı KORU; sadece şema/alan tipi/dizi yapısını düzelt.
-- knowledgePoints bir array olmalı; BOŞ OLMAMALI.
-- Eğer knowledgePoints boşsa: RAW OUTPUT içindeki mevcut bilgilerden (spotRule/mechanismChain/examTrap/clinicalCorrelation/optionAnalysis) çıkarılabilen atomik maddelerle DOLDUR ve toplamı en az 6 yapmaya çalış.
+Görevin:
+- Verilen TUS sorusunu fizyoloji perspektifinden derinlemesine analiz et.
+- Sorunun arkasındaki fizyolojik mekanizma, kompanzasyon ve klinik bağlantıyı çıkart.
+- Her seçeneği fizyolojik açıdan değerlendir.
+- Sadece geçerli JSON döndür.
+- Markdown kullanma.
+- Açıklama yazma.
 
-OUTPUT SCHEMA (example values required):
-{
-  "lesson": "Fizyoloji",
-  "topic": "string",
-  "subtopic": "string",
-  "patternType": "string",
-  "patternConfidence": 0.0,
-  "spotRule": "string",
-  "mechanismChain": "string",
-  "optionAnalysis": [
-    {
-      "option": "A",
-      "mechanism": "string",
-      "physiologicalOutcome": "string",
-      "whyWrong": "string",
-      "examFrequency": "HIGH|MEDIUM|LOW",
-      "importance": "HIGH|LOW"
-    }
-  ],
-  "prerequisites": [
-    {
-      "label": "string",
-      "conceptHints": ["string"]
-    }
-  ],
-  "clinicalCorrelation": "string",
-  "examTrap": {
-    "confusedWith": "string",
-    "keyDifference": "string"
-  },
-  "knowledgePoints": [
-    {
-      "fact": "string",
-      "normalizedKeyCandidate": "string",
-      "priority": 0,
-      "examRelevance": 0.0,
-      "relationshipType": "MEASURED|TRAP|CLINICAL_OUTCOME",
-      "derivedFrom": {
-        "field": "spotRule|mechanismChain|examTrap|clinicalCorrelation|optionAnalysis",
-        "note": "string"
-      }
-    }
-  ],
-  "meta": {
-    "promptVersion": "fizyoloji-v2"
-  }
-}`,
-      userPrompt: `Aşağıdaki RAW OUTPUT'u, yukarıdaki şemaya uyan STRICT VALID JSON'a dönüştür.
+Alan tanımları:
 
-HARD:
-- Sadece JSON döndür.
-- knowledgePoints array olmalı ve mümkünse en az 6 madde içermeli.
-- Yeni tıbbi bilgi uydurma; yalnızca mevcut metinden türet.
+patternType:
+- Sorunun test ettiği temel fizyoloji pattern'i.
+- Örn: "KOMPANZASYON_MEKANİZMASI", "REFERANS_DEĞER", "HORMON_ETKİ", "KLİNİK_SONUÇ", "HOMEOSTAZ_BOZULMA", "REFLEKS_YAY"
 
-RAW OUTPUT:
-${payload.repairRawOutput}`,
-    };
-  }
+patternConfidence:
+- Bu sorunun gerçekten o pattern'i test ettiğine dair güven skoru (0-1).
 
-  // -----------------------------
-  // MAIN SINGLE-CALL MODE
-  // -----------------------------
-  const systemPrompt = `
-ROLE:
-Sen TUS Fizyoloji (Fizyoloji) alanında uzman bir tıp eğitimi yapay zekâsısın.
+spotRule:
+- Bu soruyu çözen tek cümlelik kural.
+- Mekanizma değil, net sonuç: "X → Y olur."
+- Örn: "ACEi → efferent dilate → GFR düşer → proteinüri azalır."
 
-IMPORTANT (HARD):
-- lesson editör tarafından seçildi ve KESİNLEŞTİ.
-- lesson alanı HER ZAMAN "Fizyoloji" olmalı.
-- lesson'ı değiştirmek, başka derse taşımak YASAK.
+physiologyChain:
+- Soruyu çözdüren fizyolojik zincir — sadece klinik açıdan anlamlı basamaklar.
+- Maksimum 4 basamak. Ara iyon kanalı detayı ekleme.
+- Örn: "Hiperventilasyon → CO2 düşer → respiratuar alkaloz → kompanzasyon: HCO3 atılır"
+- Yoksa null.
 
-LANGUAGE (HARD):
-- TÜM çıktı TÜRKÇE olmalı.
-- Latince/fizyolojik terminoloji kullanılabilir.
-- İngilizce cümle kurma.
+compensationMechanism:
+- Soruda geçen veya soruyu çözdüren kompanzasyon mekanizması.
+- Format: "Bozulma → Kompanzasyon → Net etki"
+- Örn: "Metabolik asidoz → hiperventilasyon → pH kısmen düzelir"
+- Yoksa null.
 
-OUTPUT (HARD):
-- SADECE STRICT JSON döndür.
-- Çıktı "{" ile başlamalı ve "}" ile bitmeli; başka hiçbir karakter olmamalı.
-- Markdown / açıklama / yorum / ekstra metin YOK.
+referenceValues:
+- Soruda geçen veya soruyu çözdüren normal referans değerler.
+- Her biri: { parameter, normalRange, unit, clinicalNote }
+- Örn: { parameter: "GFR", normalRange: "90-120", unit: "mL/dk", clinicalNote: "60 altı → KBH" }
+- Yoksa boş array [].
 
-GOAL (SINGLE CALL):
-1) Soruyu TUS tarzında analiz et.
-2) Atomik KnowledgePoint (KP) adayları üret.
-
-OPTION ANALYSIS (HARD):
-- A–E tüm seçenekleri analiz et.
-- physiologicalOutcome her seçenek için ZORUNLU.
-- importance="HIGH" en fazla 2 seçenek olabilir.
-
-spotRule & mechanismChain (HARD):
-- spotRule: doğru seçeneğin neden doğru olduğunu TEK NET KURAL şeklinde söyle.
-- mechanismChain: "->" ile yaz, maksimum 6 adım.
+hormoneTable:
+- Soruda geçen hormon varsa: hormon → hedef organ → net etki.
+- Her biri: { hormone, target, effect }
+- Örn: { hormone: "ADH", target: "Toplayıcı kanal", effect: "Serbest su reabsorpsiyonu artar" }
+- Yoksa boş array [].
 
 clinicalCorrelation:
-- Güçlü klinik korelasyon yoksa TAM OLARAK şu cümleyi yaz:
-  "Bu soru temel fizyolojik mekanizmaya dayalıdır."
+- Bu fizyoloji bilgisinin hangi klinik hastalıkta veya TUS sorusunda karşımıza çıktığı.
+- 1-2 cümle, klinik bağlantı net olsun.
 
-KNOWLEDGEPOINTS (HARD):
-- knowledgePoints 6–12 arası OLMAK ZORUNDA.
-- BOŞ ARRAY YASAK.
-- Her KP atomik: TEK test edilebilir hüküm.
-- Max 180 karakter.
-- Uydurma yok: sadece soru + seçenekler + senin spotRule / mechanismChain / examTrap / optionAnalysis yorumlarından türet.
+optionAnalysis[]:
+- Her seçenek için:
+  - physiologicClue: bu seçeneğin fizyolojik ipucu veya tanımlayıcı özelliği
+  - mechanismMeaning: fizyolojik mekanizma açısından ne ifade ediyor?
+  - whyWrong: neden yanlış (doğru şık için neden doğru)
+  - examFrequency: bu seçeneğin TUS'ta ne sıklıkla çıktığı (HIGH|MEDIUM|LOW)
+  - importance: öğrencinin bu seçeneği bilmesi ne kadar kritik (HIGH|LOW)
 
-KP SOURCES (HARD MINIMA):
-- En az 2 KP: spotRule'dan.
-- En az 2 KP: mechanismChain'den.
-- examTrap.keyDifference anlamlıysa en az 1 KP buradan; değilse spotRule'dan telafi et.
-- clinicalCorrelation anlamlıysa en az 1 KP; değilse spotRule'dan telafi et.
-- optionAnalysis'dan en fazla 3 KP.
+prerequisites[]:
+- Bu soruyu çözebilmek için bilinmesi gereken ön bilgiler.
+- label: ön bilginin adı
+- conceptHints: bu kavramı hatırlatacak kısa ipuçları listesi
 
-normalizedKeyCandidate (HARD):
-- lowercase
-- Türkçe karakter normalize: ı->i, ş->s, ğ->g, ü->u, ö->o, ç->c
-- noktalama kaldır
-- çoklu boşluk tek boşluk
-ÖRNEK:
-"Renin-Angiotensin Sistemi ↑ aldosteron" -> "renin angiotensin sistemi aldosteron"
-- Hash YOK (backend hashleyecek).
+examTrap:
+- confusedWith: bu soru tipinde en sık yapılan karışıklık
+- keyDifference: ikisini ayıran tek cümlelik kural
 
-NUMERIC FIELDS (HARD):
-- patternConfidence 0..1 float
-- examRelevance 0..1 float
-- priority 0..10 integer
-`;
+knowledgePoints[]:
+- Bu sorudan çıkarılabilecek TUS'a girebilecek bilgi noktaları.
+- fact: Türkçe, tek cümle, doğrudan sınava girebilecek bilgi
+- normalizedKeyCandidate: bu fact'in anahtar kavramı
+- priority: 0-10 (10 = mutlak bilinmeli)
+- examRelevance: 0-1 (TUS'ta direkt soru olma ihtimali)
+- relationshipType:
+    MEASURED → sayısal referans değer veya eşik
+    TRAP → sık karıştırılan, tuzak bilgi
+    CLINICAL_OUTCOME → fizyolojik bozulma → klinik sonuç
+- derivedFrom:
+    field: physiologyChain|compensationMechanism|referenceValues|hormoneTable|clinicalCorrelation|examTrap|optionAnalysis
+    note: kısa açıklama
 
-  let userPrompt = `Aşağıdaki TUS FİZYOLOJİ sorusunu analiz et ve hem tam analiz hem de atomik KnowledgePoint üret.
+Kalite kuralları:
+- spotRule sınav günü kullanılabilecek kadar kısa olmalı — mekanizma zinciri değil, net kural.
+- physiologyChain maksimum 4 basamak — iyon kanalı veya enzim detayı ekleme.
+- knowledgePoints içinde saf mekanizma basamağı olmasın — sonuç, eşleşme, klinik çıktı olsun.
+- examFrequency ve importance gerçekçi olsun — her şeyi HIGH yapma.
+- referenceValues sadece soruda geçen veya soruyu çözdüren değerleri içersin.
+- hormoneTable sadece soruda geçen hormonları içersin.`;
 
-Question:
+  const optionsFormatted = Object.entries(payload.options)
+    .map(([key, value]) => `${key}) ${value}`)
+    .join('\n');
+
+  const context = [
+    `Ders: ${payload.lesson}`,
+    payload.topic && `Konu: ${payload.topic}`,
+    payload.subtopic && `Alt konu: ${payload.subtopic}`,
+    payload.year && `Sınav yılı: ${payload.year}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const userPrompt = `${context}
+
+Soru:
 ${payload.question}
 
-Options:
-`;
+Seçenekler:
+${optionsFormatted}
 
-  Object.entries(payload.options).forEach(([key, value]) => {
-    userPrompt += `${key}) ${value}\n`;
-  });
+Doğru cevap: ${payload.correctAnswer}
+${payload.explanation ? `\nAçıklama:\n${payload.explanation}` : ''}
+${payload.repairRawOutput ? `\nÖnceki hatalı çıktı (düzelt):\n${payload.repairRawOutput}` : ''}
 
-  userPrompt += `
+Bu soruyu analiz et ve tam şemaya uygun JSON döndür.
+- spotRule tek cümlede soruyu çözen fizyolojik kuralı versin.
+- physiologyChain maksimum 4 basamak — mekanizma değil klinik zincir.
+- knowledgePoints içinde sadece TUS'ta direkt sorulabilecek bilgiler olsun.
+- Sadece JSON döndür.
 
-Correct Answer: ${payload.correctAnswer}
-`;
-
-  if (payload.explanation) {
-    userPrompt += `
-Existing Explanation:
-${payload.explanation}
-`;
-  }
-
-  if (payload.year) {
-    userPrompt += `
-Year: ${payload.year}
-`;
-  }
-
-  if (payload.topic) {
-    userPrompt += `
-Preselected Topic: ${payload.topic}
-`;
-  }
-
-  if (payload.subtopic) {
-    userPrompt += `Preselected Subtopic: ${payload.subtopic}
-`;
-  }
-
-  // IMPORTANT: avoid "number" literal in schema
-  userPrompt += `
-====================================================
-OUTPUT FORMAT (STRICT JSON) — MUST MATCH EXACTLY
-====================================================
-
+Şema:
 {
-  "lesson": "Fizyoloji",
+  "lesson": "string",
   "topic": "string",
   "subtopic": "string",
   "patternType": "string",
   "patternConfidence": 0.0,
   "spotRule": "string",
-  "mechanismChain": "string",
+  "physiologyChain": "string | null",
+  "compensationMechanism": "string | null",
+  "referenceValues": [
+    {
+      "parameter": "string",
+      "normalRange": "string",
+      "unit": "string",
+      "clinicalNote": "string"
+    }
+  ],
+  "hormoneTable": [
+    {
+      "hormone": "string",
+      "target": "string",
+      "effect": "string"
+    }
+  ],
+  "clinicalCorrelation": "string",
   "optionAnalysis": [
     {
-      "option": "A",
-      "mechanism": "string",
-      "physiologicalOutcome": "string",
+      "option": "string",
+      "physiologicClue": "string",
+      "mechanismMeaning": "string",
       "whyWrong": "string",
       "examFrequency": "HIGH|MEDIUM|LOW",
       "importance": "HIGH|LOW"
@@ -228,7 +170,6 @@ OUTPUT FORMAT (STRICT JSON) — MUST MATCH EXACTLY
       "conceptHints": ["string"]
     }
   ],
-  "clinicalCorrelation": "string",
   "examTrap": {
     "confusedWith": "string",
     "keyDifference": "string"
@@ -241,21 +182,15 @@ OUTPUT FORMAT (STRICT JSON) — MUST MATCH EXACTLY
       "examRelevance": 0.0,
       "relationshipType": "MEASURED|TRAP|CLINICAL_OUTCOME",
       "derivedFrom": {
-        "field": "spotRule|mechanismChain|examTrap|clinicalCorrelation|optionAnalysis",
+        "field": "string",
         "note": "string"
       }
     }
   ],
   "meta": {
-    "promptVersion": "fizyoloji-v2"
+    "promptVersion": "fizyoloji-v1-tr"
   }
-}
-
-HARD REMINDERS:
-- SADECE JSON döndür.
-- Çıktı "{" ile başlamalı ve "}" ile bitmeli; ekstra karakter yok.
-- knowledgePoints 6–12 arası, BOŞ OLAMAZ.
-`;
+}`;
 
   return { systemPrompt, userPrompt };
 }
