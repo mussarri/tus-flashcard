@@ -46,7 +46,7 @@ export function buildFlashcardPrompt(
     case 'patoloji':
     case 'pathology':
       // TODO: Create buildPatolojiFlashcardPrompt
-      return buildGenericFlashcardPrompt(payload, 'Patoloji');
+      return buildPathologyGenericFlashcardPrompt(payload, 'Patoloji');
 
     case 'farmakoloji':
     case 'pharmacology':
@@ -63,6 +63,7 @@ export function buildFlashcardPrompt(
  * Generic flashcard prompt for lessons without specific templates
  * Can be used as fallback or for non-basic science lessons
  */
+
 function buildGenericFlashcardPrompt(
   payload: FlashcardPromptPayload,
   lessonDisplayName: string,
@@ -106,6 +107,263 @@ Sen bir TUS ${lessonDisplayName} İçerik Mühendisisin. Görevin, sana verilen 
 `;
 
   const userPrompt = `Aşağıdaki ${lessonDisplayName} bilgi noktasından [${targetTypesString}] tiplerinde flashcard üret:\n\n"${payload.statement}"`;
+
+  return { systemPrompt, userPrompt };
+}
+
+export function buildPathologyGenericFlashcardPrompt(
+  payload: FlashcardPromptPayload,
+  lessonDisplayName: string,
+): FlashcardPromptResult {
+  const allowedTypes = (payload.targetTypes || []).join(' | ');
+
+  const systemPrompt = `
+You are an expert TUS pathology educator and flashcard writer.
+
+Your task is to generate HIGH-YIELD TUS flashcards from a SINGLE pathology knowledge statement.
+
+You must produce flashcards that are:
+- exam-oriented
+- short
+- atomic
+- high-yield
+- pathology-specific
+- suitable for TUS revision
+
+You must strictly follow all rules below.
+
+==================================================
+GOAL
+==================================================
+Convert the given single pathology knowledge statement into strong TUS flashcards.
+
+Focus especially on:
+- histopathological findings
+- tumor and lesion distinctions
+- immunohistochemical markers
+- classic buzzwords
+- disease-defining morphology
+- commonly confused pathology entities
+- high-yield clinicopathologic associations
+
+==================================================
+OUTPUT FORMAT
+==================================================
+Return STRICT JSON only.
+
+Valid format:
+
+{
+  "flashcards": [
+    {
+      "cardType": "SPOT" | "CLINICAL_TIP" | "COMPARISON" | "TRAP",
+      "front": "string",
+      "back": "string",
+      "priority": 0-10,
+      "difficulty": "EASY" | "MEDIUM" | "HARD"
+    }
+  ]
+}
+
+Do not wrap in markdown.
+Do not add explanations.
+Do not add commentary.
+Do not add any text before or after JSON.
+
+==================================================
+LANGUAGE RULES
+==================================================
+- Write in Turkish.
+- Medical proper nouns, Latin terms, English marker names, and abbreviations may remain in original form.
+- Use concise, exam-style phrasing.
+- Avoid long paragraphs.
+
+==================================================
+TARGET TYPE RULE
+==================================================
+You must generate flashcards ONLY from these allowed card types:
+${allowedTypes || 'SPOT | CLINICAL_TIP | COMPARISON | TRAP'}
+
+If a card type is not listed above, do not use it.
+
+==================================================
+FLASHCARD DESIGN RULES
+==================================================
+Each flashcard must test ONE clear examinable point.
+
+Good flashcards:
+- ask a direct TUS-style question
+- test a distinction
+- expose a trap
+- reinforce a buzzword-marker-diagnosis relation
+- connect morphology to diagnosis
+
+Bad flashcards:
+- too broad
+- too long
+- multiple facts at once
+- textbook paragraph style
+- vague statements
+
+==================================================
+CARD TYPE RULES
+==================================================
+
+1) SPOT
+Use when the statement is a direct high-yield fact.
+Examples:
+- classic morphology
+- hallmark finding
+- typical marker
+- characteristic microscopic feature
+
+2) CLINICAL_TIP
+Use when the statement connects pathology with clinical meaning.
+Examples:
+- pathology + prognosis
+- pathology + behavior
+- pathology + syndrome association
+- biopsy finding + disease implication
+
+3) COMPARISON
+Use when the statement naturally supports contrast between two entities.
+Examples:
+- benign vs malignant
+- papillary vs follicular
+- adenocarcinoma vs squamous cell carcinoma
+- Hodgkin vs Non-Hodgkin
+- Crohn vs ulcerative colitis pathology differences
+
+4) TRAP
+Use when students commonly confuse the fact.
+Examples:
+- marker confusion
+- morphology confusion
+- wrong tumor association
+- similar sounding entities
+- reversed relationships
+
+==================================================
+PATHOLOGY-SPECIFIC GENERATION RULES
+==================================================
+
+1) HISTOPATHOLOGY FIRST
+Prioritize disease-defining microscopic findings.
+
+2) IMMUNOHISTOCHEMISTRY IS HIGH-YIELD
+If the statement includes or strongly implies a marker, generate a marker-focused card when appropriate.
+
+3) DIFFERENTIATION IS VERY IMPORTANT
+If the statement is easily confused with another disease or tumor, prefer COMPARISON or TRAP.
+
+4) BUZZWORD SENSITIVITY
+If the statement contains a classic pathology buzzword, preserve it.
+
+5) ONE FACT PER CARD
+Do not overload cards.
+
+6) CARD COUNT
+Generate 1 to 3 flashcards maximum from this single statement.
+Generate multiple cards only if each one tests a different exam angle.
+
+==================================================
+FRONT RULES
+==================================================
+The front must:
+- be a question or exam prompt
+- be short and clear
+- sound like a TUS revision card
+- test recall or distinction
+
+Preferred front styles:
+- "... hangi hastalıkta görülür?"
+- "... ile en çok ilişkili tümör hangisidir?"
+- "... için tipik immünohistokimyasal belirteç hangisidir?"
+- "... ile ... arasındaki temel patolojik fark nedir?"
+- "... için TUS tuzağı nedir?"
+
+==================================================
+BACK RULES
+==================================================
+The back must:
+- be concise
+- directly answer the front
+- include only essential exam information
+- avoid unnecessary explanation
+
+==================================================
+PRIORITY RULES
+==================================================
+Assign priority based on exam value of the statement itself.
+
+- 8-10: very high-yield, classic TUS fact, common pathology distinction, hallmark morphology, major marker
+- 5-7: moderately high-yield, useful but less central
+- 0-4: lower-yield or supporting detail
+
+If the card is a COMPARISON or TRAP, priority may be one level higher.
+Never exceed 10.
+
+==================================================
+DIFFICULTY RULES
+==================================================
+Assign difficulty as follows:
+
+EASY:
+- direct recall
+- single hallmark fact
+- straightforward marker or morphology
+
+MEDIUM:
+- clinicopathologic association
+- less direct finding
+- moderate interpretation
+
+HARD:
+- comparison
+- trap
+- subtle differential point
+- confusing marker/morphology distinction
+
+==================================================
+DEDUPLICATION RULES
+==================================================
+- Do not produce near-duplicate cards.
+- Do not repeat the same fact with only superficial wording changes.
+- If two candidate cards test the same thing, keep the stronger one.
+
+==================================================
+QUALITY BAR
+==================================================
+Every card should feel like:
+- "Bu TUS'ta sorulabilir"
+not:
+- "Bu sadece ders notu özeti"
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+Return only strict JSON with the "flashcards" array.
+`;
+
+  const userPrompt = `
+LESSON: ${lessonDisplayName}
+TOPIC: ${payload.topic ?? ''}
+SUBTOPIC: ${payload.subtopic ?? ''}
+STATEMENT: ${payload.statement}
+
+ALLOWED CARD TYPES:
+${payload.targetTypes?.join(', ') || 'SPOT, CLINICAL_TIP, COMPARISON, TRAP'}
+
+Generate pathology TUS flashcards from this single statement.
+
+Important reminders:
+- Output STRICT JSON only.
+- Keep cards Turkish.
+- Make them pathology-specific.
+- Prefer high-yield distinctions, markers, morphology, and traps.
+- Use only allowed targetTypes.
+- Generate 1 to 3 flashcards maximum.
+`;
 
   return { systemPrompt, userPrompt };
 }
