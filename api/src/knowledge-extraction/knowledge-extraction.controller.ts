@@ -18,20 +18,17 @@ export class KnowledgeExtractionController {
   ) {}
 
   @Post('save-from-input')
-  async saveFromInput(
-    @Body() body: SaveKnowledgePointsDto,
-  ): Promise<{
+  async saveFromInput(@Body() body: SaveKnowledgePointsDto): Promise<{
     success: true;
     saved: number;
     created: number;
     updated: number;
   }> {
-    const result = await this.knowledgeExtractionService.saveKnowledgePointsFromInput(
-      {
+    const result =
+      await this.knowledgeExtractionService.saveKnowledgePointsFromInput({
         lesson: body.lesson,
         knowledgePoints: body.knowledgePoints,
-      },
-    );
+      });
 
     return {
       success: true,

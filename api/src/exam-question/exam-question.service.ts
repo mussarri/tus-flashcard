@@ -410,10 +410,7 @@ export class ExamQuestionService {
   /**
    * Trigger AI analysis for an exam question
    */
-  async triggerAnalysis(
-    examQuestionId: string,
-    lessonId: string,
-  ) {
+  async triggerAnalysis(examQuestionId: string, lessonId: string) {
     const examQuestion = await this.prisma.examQuestion.findUnique({
       where: { id: examQuestionId },
       include: {
@@ -564,7 +561,6 @@ export class ExamQuestionService {
           })),
         },
       );
-      console.log(rawAIResponse);
 
       /* =========================
        3️⃣ PARSE AI JSON
@@ -799,7 +795,7 @@ export class ExamQuestionService {
 
   /**
    * Analyze exam question AND extract knowledge points in a single AI call
-    * Supports lesson-specific prompts via QUESTION_ANALYZE_AND_KP
+   * Supports lesson-specific prompts via QUESTION_ANALYZE_AND_KP
    */
   async analyzeQuestionSingleCall(
     examQuestionId: string,

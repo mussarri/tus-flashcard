@@ -1456,7 +1456,6 @@ export class KnowledgeExtractionService {
 
     const payload = examQuestion.analysisPayload;
     const createdKpIds: string[] = [];
-    console.log(payload);
 
     // AI ile Knowledge Point Extraction
     try {
@@ -1482,8 +1481,6 @@ export class KnowledgeExtractionService {
       this.logger.debug(
         `AI Knowledge Extraction Response: ${JSON.stringify(aiResponse)}`,
       );
-
-      console.log(aiResponse);
 
       // Parse AI response
       let extractedKPs: any;

@@ -76,10 +76,7 @@ export class AdminAIUsageController {
   }
 
   @Get('by-day')
-  async getUsageByDay(
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  async getUsageByDay(@Query('from') from?: string, @Query('to') to?: string) {
     try {
       const fromDate = from ? new Date(from) : undefined;
       const toDate = to ? new Date(to) : undefined;
@@ -91,7 +88,10 @@ export class AdminAIUsageController {
         throw new HttpException('Invalid to date format', 400);
       }
 
-      const usage = await this.adminAIUsageService.getUsageByDay(fromDate, toDate);
+      const usage = await this.adminAIUsageService.getUsageByDay(
+        fromDate,
+        toDate,
+      );
       return {
         success: true,
         data: usage,

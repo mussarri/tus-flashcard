@@ -723,7 +723,7 @@ export class AdminService {
     const subtopicCountMap = new Map(
       subtopicCounts.map((s) => [s.subtopicId, s._count._all]),
     );
-    console.log(subtopicCountMap);
+
     /** --------------------
      * RESPONSE
      * ------------------- */

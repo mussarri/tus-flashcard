@@ -110,9 +110,10 @@ export class KnowledgePointGeneratorService {
       );
 
       this.logger.warn(
-        `[KP RAW OUTPUT][${input.approvedContentId}] ${String(
-          rawText,
-        ).slice(0, 4000)}`,
+        `[KP RAW OUTPUT][${input.approvedContentId}] ${String(rawText).slice(
+          0,
+          4000,
+        )}`,
       );
 
       this.logger.warn(
