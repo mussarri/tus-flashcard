@@ -67,8 +67,6 @@ export function buildFlashcardPrompt(
 export function buildPathologyGenericFlashcardPrompt(
   payload: FlashcardPromptPayload,
 ): FlashcardPromptResult {
-  const allowedTypes = (payload.targetTypes || []).join(' | ');
-
   const systemPrompt = `
 You are an expert TUS pathology educator and flashcard writer.
 
@@ -134,7 +132,7 @@ LANGUAGE RULES
 TARGET TYPE RULE
 ==================================================
 You must generate flashcards ONLY from these allowed card types:
-${allowedTypes || 'SPOT | CLINICAL_TIP | COMPARISON | TRAP'}
+${'SPOT | CLINICAL_TIP | COMPARISON | TRAP'}
 
 If a card type is not listed above, do not use it.
 

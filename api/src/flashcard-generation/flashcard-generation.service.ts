@@ -233,8 +233,12 @@ export class FlashcardGenerationService {
       for (const item of arr as AiFlashcard[]) {
         if (!item || typeof item !== 'object') continue;
 
-        const question = this.cleanText((item as any).question);
-        const answer = this.cleanText((item as any).answer);
+        const question = this.cleanText(
+          (item as any).question || (item as any).front,
+        );
+        const answer = this.cleanText(
+          (item as any).answer || (item as any).back,
+        );
         const sourceFact = this.cleanText((item as any).sourceFact);
 
         if (!question || !answer) continue;
