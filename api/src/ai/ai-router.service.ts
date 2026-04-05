@@ -470,11 +470,6 @@ export class AIRouterService {
     // Legacy: use default target types if not provided
     const payloadWithTypes = {
       ...payload,
-      targetTypes: [
-        'FUNCTIONAL_ANATOMY',
-        'CLINICAL_CORRELATION',
-        'HIGH_YIELD_DISTINCTION',
-      ],
     };
     const { systemPrompt, userPrompt } = buildFlashcardPrompt(payloadWithTypes);
 
