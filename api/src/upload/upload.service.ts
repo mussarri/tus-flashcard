@@ -60,7 +60,7 @@ export class UploadService {
           contentTypeHint: contentTypeHint as any,
           visionProvider: visionProvider as any,
           status: 'PENDING',
-        },s
+        },
       });
       this.logger.log(`Batch created: ${batch.id}`);
       return batch;
