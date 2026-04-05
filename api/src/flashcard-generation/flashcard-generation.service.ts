@@ -55,6 +55,10 @@ const PHYSIO_AI_TO_DB_CARDTYPE: Record<string, CardType> = {
   EXCEPT_TRAP: 'TRAP',
 
   LESION_CLINICAL: 'CLINICAL_TIP',
+  SPOT: 'SPOT',
+  CLINICAL_TIP: 'CLINICAL_TIP',
+  COMPARISON: 'COMPARISON',
+  TRAP: 'TRAP',
 
   // Eğer DB’de CLOZE diye bir CardType yoksa bunu da SPOT’a maple
   // ya da DB enumuna CLOZE ekle.
