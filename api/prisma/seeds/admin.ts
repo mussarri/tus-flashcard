@@ -1,6 +1,15 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 
-import { hashPassword } from '../../src/auth/password.util';
+import { randomBytes, scryptSync } from 'crypto';
+
+const SALT_LENGTH = 16;
+const KEY_LENGTH = 64;
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(SALT_LENGTH).toString('hex');
+  const derivedKey = scryptSync(password, salt, KEY_LENGTH) as Buffer;
+  return `${salt}:${derivedKey.toString('hex')}`;
+}
 
 export interface AdminSeedInput {
   email?: string;
