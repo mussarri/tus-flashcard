@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Logger, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query, } from '@nestjs/common';
 import { KnowledgeExtractionService } from './knowledge-extraction.service';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import {
   ExtractionMode,
   KnowledgeExtractionLogsQueryDto,
@@ -11,7 +10,6 @@ import {
 } from './dto/knowledge-extraction.dto';
 
 @Controller('admin/knowledge-extraction')
-@UseGuards(AdminAuthGuard)
 export class KnowledgeExtractionController {
   private readonly logger = new Logger(KnowledgeExtractionController.name);
 

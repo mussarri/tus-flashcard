@@ -6,13 +6,10 @@ import {
   Logger,
   HttpException,
   ParseUUIDPipe,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { AdminAIUsageService } from './admin-ai-usage.service';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('admin/ai-usage')
-@UseGuards(AdminAuthGuard)
 export class AdminAIUsageController {
   private readonly logger = new Logger(AdminAIUsageController.name);
 

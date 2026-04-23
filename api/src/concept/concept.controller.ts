@@ -11,10 +11,8 @@ import {
   Query,
   ParseIntPipe,
   DefaultValuePipe,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ConceptService } from './concept.service';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CreateConceptDto } from './dto/create-concept.dto';
 import { UpdateConceptDto } from './dto/update-concept.dto';
 import { AddAliasDto } from './dto/add-alias.dto';
@@ -22,7 +20,6 @@ import { MergeConceptsDto } from './dto/merge-concepts.dto';
 import { ConceptType, ConceptStatus } from '@prisma/client';
 
 @Controller('admin/concepts')
-@UseGuards(AdminAuthGuard)
 export class ConceptController {
   constructor(private readonly conceptService: ConceptService) {}
 

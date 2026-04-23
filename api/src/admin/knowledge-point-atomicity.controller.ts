@@ -8,14 +8,12 @@ import {
   Query,
   Logger,
   HttpException,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { KnowledgePointAtomicityService } from '../concept/knowledge-point-atomicity.service';
 import { QueueName } from '../queue/queues';
 import { AtomicityStatus } from '@prisma/client';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import {
   IsString,
   IsOptional,
@@ -72,7 +70,6 @@ class AtomicitySplitRequestDto {
 }
 
 @Controller('admin/knowledge-points/atomicity')
-@UseGuards(AdminAuthGuard)
 export class KnowledgePointAtomicityController {
   private readonly logger = new Logger(KnowledgePointAtomicityController.name);
 

@@ -19,8 +19,7 @@ import {
   Delete,
   Patch,
   BadRequestException,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -64,10 +63,8 @@ import { AITaskType } from '@prisma/client';
 import { ManualBatchService } from '../upload/manual-batch.service';
 import { CreateManualBatchDto } from '../upload/dto/create-manual-batch.dto';
 import { CurrentAdmin } from '../auth/current-admin.decorator';
-import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('admin')
-@UseGuards(AdminAuthGuard)
 export class AdminController {
   private readonly logger = new Logger(AdminController.name);
 
