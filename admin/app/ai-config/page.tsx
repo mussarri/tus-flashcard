@@ -1,4 +1,4 @@
-import { serverFetch } from '../../lib/api';
+import { serverFetch } from '../../lib/serverFetch';;
 import AIConfigView from './AIConfigView';
 
 export default async function AIConfigPage() {

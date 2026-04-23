@@ -6,8 +6,11 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { OntologyResolutionService } from './ontology-resolution.service';
+import { CurrentAdmin } from '../auth/current-admin.decorator';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import {
   ListUnresolvedTopicsDto,
   ResolveTopicDto,
@@ -22,6 +25,7 @@ import {
  * AI analysis NEVER auto-creates topics/subtopics - admins must explicitly approve here
  */
 @Controller('admin/ontology')
+@UseGuards(AdminAuthGuard)
 export class OntologyResolutionController {
   constructor(
     private readonly ontologyResolutionService: OntologyResolutionService,
@@ -97,10 +101,8 @@ export class OntologyResolutionController {
   @HttpCode(HttpStatus.OK)
   async resolveTopic(
     @Body() dto: ResolveTopicDto,
+    @CurrentAdmin('id') adminUserId: string,
   ): Promise<ResolveTopicResponseDto> {
-    // TODO: Get actual admin user ID from auth context
-    const adminUserId = 'system'; // Replace with real auth when implemented
-
     return this.ontologyResolutionService.resolveTopic(dto, adminUserId);
   }
 }

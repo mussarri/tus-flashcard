@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/error-boundaries */
-import { serverFetch } from "@/lib/api";
+import { serverFetch } from '@/lib/serverFetch';;
 import TopicsPageClient from "./TopicsPageClient";
 
 interface Lesson {

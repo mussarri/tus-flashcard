@@ -1,4 +1,4 @@
-import { serverFetch } from '@/lib/api';
+import { serverFetch } from '@/lib/serverFetch';;
 import AIAnalyticsView from './AIAnalyticsView';
 
 export const dynamic = 'force-dynamic';

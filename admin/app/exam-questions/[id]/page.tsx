@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { serverFetch } from "../../../lib/api";
+import { serverFetch } from '../../../lib/serverFetch';;
 import ExamQuestionDetailView from "./ExamQuestionDetailView";
 
 async function getExamQuestion(id: string) {

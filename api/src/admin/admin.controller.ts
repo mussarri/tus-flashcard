@@ -19,6 +19,7 @@ import {
   Delete,
   Patch,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs/promises';
@@ -62,8 +63,11 @@ import {
 import { AITaskType } from '@prisma/client';
 import { ManualBatchService } from '../upload/manual-batch.service';
 import { CreateManualBatchDto } from '../upload/dto/create-manual-batch.dto';
+import { CurrentAdmin } from '../auth/current-admin.decorator';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('admin')
+@UseGuards(AdminAuthGuard)
 export class AdminController {
   private readonly logger = new Logger(AdminController.name);
 
@@ -2537,12 +2541,12 @@ export class AdminController {
   @Post('generated-questions/:id/approve')
   async approveGeneratedQuestion(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { approvedBy: string },
+    @CurrentAdmin('id') approvedBy: string,
   ) {
     try {
       const question = await this.adminService.approveGeneratedQuestion(
         id,
-        body.approvedBy,
+        approvedBy,
       );
       return {
         success: true,
@@ -2567,12 +2571,13 @@ export class AdminController {
   @Post('generated-questions/:id/reject')
   async rejectGeneratedQuestion(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { rejectedBy: string; reason?: string },
+    @Body() body: { reason?: string },
+    @CurrentAdmin('id') rejectedBy: string,
   ) {
     try {
       const question = await this.adminService.rejectGeneratedQuestion(
         id,
-        body.rejectedBy,
+        rejectedBy,
         body.reason,
       );
       return {

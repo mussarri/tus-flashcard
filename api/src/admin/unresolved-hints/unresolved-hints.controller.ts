@@ -8,8 +8,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { UnresolvedHintsService } from './unresolved-hints.service';
+import { AdminAuthGuard } from '../../auth/admin-auth.guard';
 import {
   ListUnresolvedHintsDto,
   CreateConceptFromHintDto,
@@ -20,6 +22,7 @@ import {
 } from './dto';
 
 @Controller('admin/unresolved-hints')
+@UseGuards(AdminAuthGuard)
 export class UnresolvedHintsController {
   constructor(private readonly service: UnresolvedHintsService) {}
 

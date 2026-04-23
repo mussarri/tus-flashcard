@@ -11,6 +11,7 @@ import {
 import { ApprovalService } from './approval.service';
 import { ApproveBlockDto, RejectBlockDto } from './dto/approve-block.dto';
 import { CreateManualBlockDto } from './dto/create-manual-block.dto';
+import { CurrentAdmin } from '../auth/current-admin.decorator';
 
 @Controller('api/approval')
 export class ApprovalController {
@@ -22,10 +23,9 @@ export class ApprovalController {
   async approveBlock(
     @Param('blockId', ParseUUIDPipe) blockId: string,
     @Body() dto: ApproveBlockDto,
+    @CurrentAdmin('id') approvedBy: string,
   ) {
     try {
-      // TODO: Get actual admin user ID from auth
-      const approvedBy = 'admin-user-id';
       this.logger.log(
         `Approving block: ${blockId}, edited: ${!!dto.editedText}`,
       );
@@ -55,10 +55,9 @@ export class ApprovalController {
   async rejectBlock(
     @Param('blockId', ParseUUIDPipe) blockId: string,
     @Body() dto: RejectBlockDto,
+    @CurrentAdmin('id') approvedBy: string,
   ) {
     try {
-      // TODO: Get actual admin user ID from auth
-      const approvedBy = 'admin-user-id';
       this.logger.log(
         `Rejecting block: ${blockId}, reason: ${dto.reason || 'none'}`,
       );
@@ -80,10 +79,11 @@ export class ApprovalController {
   }
 
   @Post('block/:blockId/delete')
-  async deleteBlock(@Param('blockId', ParseUUIDPipe) blockId: string) {
+  async deleteBlock(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @CurrentAdmin('id') approvedBy: string,
+  ) {
     try {
-      // TODO: Get actual admin user ID from auth
-      const approvedBy = 'admin-user-id';
       this.logger.log(`Deleting block: ${blockId}`);
 
       await this.approvalService.deleteBlock(blockId, approvedBy);

@@ -5,12 +5,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { PrismaClient } from '@prisma/client';
 import { allConcepts } from './seeds';
+import { seedAdminUser } from './seeds/admin';
 import { normalizeConceptKey } from '../src/common/normalize/normalize-concept-key';
 
 const prisma = new PrismaClient();
 
 async function seed() {
   console.log('🌱 Seeding TUS Anatomy (modular)...');
+
+  await seedAdminUser(prisma);
 
   const lesson = await prisma.lesson.upsert({
     where: { name: 'Anatomi' },

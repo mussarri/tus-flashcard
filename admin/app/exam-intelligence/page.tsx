@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Suspense } from "react";
 import ExamIntelligenceView from "./ExamIntelligenceView";
-import { serverFetch } from "@/lib/api";
+import { serverFetch } from '@/lib/serverFetch';;
 
 export const metadata = {
   title: "Exam Intelligence Report | TUS Admin",

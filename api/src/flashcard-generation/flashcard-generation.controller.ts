@@ -21,6 +21,7 @@ import { AdaptiveAlgorithmService } from './adaptive-algorithm.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIProviderType } from '@prisma/client';
 import { VisualAssetService } from '../common/services/visual-asset.service';
+import { CurrentAdmin } from '../auth/current-admin.decorator';
 
 @Controller('flashcards')
 export class FlashcardGenerationController {
@@ -166,14 +167,15 @@ export class FlashcardGenerationController {
   @Patch('admin/:id/approve')
   async approveFlashcard(
     @Param('id') id: string,
-    @Body() body: { adminUserId: string; visualAssetId?: string },
+    @Body() body: { visualAssetId?: string },
+    @CurrentAdmin('id') adminUserId: string,
   ) {
     const flashcard = await this.prisma.flashcard.update({
       where: { id },
       data: {
         approvalStatus: 'APPROVED',
         approvedAt: new Date(),
-        approvedBy: body.adminUserId,
+        approvedBy: adminUserId,
         imageAssetId: body.visualAssetId,
         visualStatus: body.visualAssetId ? 'UPLOADED' : undefined,
       },
@@ -188,13 +190,14 @@ export class FlashcardGenerationController {
   @Patch('admin/:id/reject')
   async rejectFlashcard(
     @Param('id') id: string,
-    @Body() body: { adminUserId: string; reason: string },
+    @Body() body: { reason: string },
+    @CurrentAdmin('id') adminUserId: string,
   ) {
     const flashcard = await this.prisma.flashcard.update({
       where: { id },
       data: {
         approvalStatus: 'REJECTED',
-        approvedBy: body.adminUserId,
+        approvedBy: adminUserId,
         // Store rejection reason in a custom field if needed
       },
     });

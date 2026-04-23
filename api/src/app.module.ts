@@ -13,6 +13,7 @@ import { FlashcardGenerationModule } from './flashcard-generation/flashcard-gene
 import { QuestionGenerationModule } from './question-generation/question-generation.module';
 import { ExamQuestionModule } from './exam-question/exam-question.module';
 import { AIModule } from './ai/ai.module';
+import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { ConceptModule } from './concept/concept.module';
 import { StudentModule } from './student/student.module';
@@ -31,6 +32,7 @@ import { StudentModule } from './student/student.module';
     FlashcardGenerationModule,
     QuestionGenerationModule,
     ExamQuestionModule,
+    AuthModule,
     AdminModule,
     ConceptModule,
     StudentModule,

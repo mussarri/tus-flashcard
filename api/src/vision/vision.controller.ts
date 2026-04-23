@@ -5,14 +5,17 @@ import {
   UploadedFile,
   HttpException,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VisionService } from './vision.service';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
 @Controller('admin/vision')
+@UseGuards(AdminAuthGuard)
 export class VisionController {
   private readonly logger = new Logger(VisionController.name);
 

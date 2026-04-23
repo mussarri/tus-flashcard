@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { serverFetch } from "@/lib/api";
+import { serverFetch } from '@/lib/serverFetch';;
 import PrerequisiteDetailView from "./PrerequisiteDetailView";
 interface PageProps {
   params: Promise<{ id: string }>;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Upload,
@@ -43,6 +43,7 @@ export default function EditorLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [workQueueCounts, setWorkQueueCounts] = useState<WorkQueueCounts>({
     batchesAwaitingReview: 0,
@@ -117,7 +118,11 @@ export default function EditorLayout({
       badge: workQueueCounts.topicsWithoutFlashcards,
     },
     { label: "Flashcards", href: "/flashcards", icon: CreditCard },
-    { label: "Flashcards Review", href: "/flashcards/review", icon: CreditCard },
+    {
+      label: "Flashcards Review",
+      href: "/flashcards/review",
+      icon: CreditCard,
+    },
     {
       label: "User Flashcard Zorluk",
       href: "/flashcards/user-progress",
@@ -160,6 +165,10 @@ export default function EditorLayout({
   };
 
   const activeContext = getActiveContext();
+
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -232,6 +241,19 @@ export default function EditorLayout({
             );
           })}
         </nav>
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={() => {
+              document.cookie =
+                "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+              router.push("/login");
+              router.refresh();
+            }}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+          >
+            <span className="text-sm font-medium">Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { serverFetch } from "@/lib/api";
+import { serverFetch } from '@/lib/serverFetch';;
 import SubtopicDetailsView from "./SubtopicDetailsView";
 import { FileSearch } from "lucide-react";
 import Link from "next/link";
