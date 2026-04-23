@@ -32,7 +32,7 @@ export default function LoginPage() {
       const res = await response.json();
 
       // Store token in auth_token cookie
-      document.cookie = `auth_token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `auth_token=${res.token}; path=/tus-admin; max-age=86400; SameSite=Lax`;
 
       // Redirect to home
       router.push("/");

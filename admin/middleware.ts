@@ -12,12 +12,15 @@ export function middleware(request: NextRequest) {
 
   // If trying to access login page while authenticated, redirect to home
   if (isLoginPage && token) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = "/";
+    return NextResponse.redirect(homeUrl);
   }
 
   // If not authenticated and trying to access protected route, redirect to login
   if (!token && !isLoginPage) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 

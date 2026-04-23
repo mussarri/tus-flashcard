@@ -20,7 +20,7 @@ export async function seedAdminUser(
     .trim()
     .toLowerCase();
   const password =
-    input.password ?? process.env.ADMIN_SEED_PASSWORD ?? 'Admin1234!';
+    input.password ?? process.env.ADMIN_SEED_PASSWORD ?? 'Th17mac1!';
   const name = input.name ?? 'Admin';
 
   const passwordHash = hashPassword(password);
