@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
@@ -17,8 +18,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Direct fetch to proxy for login
-      const response = await fetch("/tus-admin/api/proxy/auth/admin/login", {
+      // Fetch to Next.js route handler
+      const response = await fetch("/tus-admin/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -26,13 +27,10 @@ export default function LoginPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Invalid credentials");
+        throw new Error(errorData.error || "Invalid credentials");
       }
 
-      const res = await response.json();
-
-      // Store token in auth_token cookie
-      document.cookie = `auth_token=${res.token}; path=/tus-admin; max-age=86400; SameSite=Lax`;
+      // No need to set cookie manually, it's handled securely server-side via HttpOnly cookie
 
       // Redirect to home
       router.push("/");
