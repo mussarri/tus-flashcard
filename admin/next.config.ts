@@ -2,11 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  basePath: "/tus-admin",
-  assetPrefix: "/tus-admin", // Statik dosyaların başına /tus-admin ekler
+  basePath: "/tus-admin", // Tüm uygulama /tus-admin altına taşınır
+  // assetPrefix'i kaldırın veya sadece çok özel CDN durumlarında kullanın
   typescript: {
-    // !! TEHLİKELİ !!
-    // Projenizde tip hataları olsa bile build alınmasını sağlar.
     ignoreBuildErrors: true,
   },
 };
