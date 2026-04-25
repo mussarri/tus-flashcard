@@ -52,3 +52,17 @@ export async function seedAdminUser(
 
   return admin;
 }
+// --- DOSYANIN EN ALTINA EKLE ---
+if (require.main === module || !require.main) {
+  const prisma = new PrismaClient();
+  seedAdminUser(prisma)
+    .then(async () => {
+      console.log('Seed işlemi başarıyla tamamlandı.');
+      await prisma.$disconnect();
+    })
+    .catch(async (e) => {
+      console.error('Seed hatası:', e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}
