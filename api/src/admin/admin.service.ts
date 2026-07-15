@@ -2447,11 +2447,23 @@ export class AdminService {
     }
 
     if (query.reportedOnly === 'true') {
-      where.issueReports = {
-        some: {
-          status: 'OPEN',
-        },
-      };
+      try {
+        const reportedCards =
+          await this.prisma.flashcardIssueReport.findMany({
+            where: { status: 'OPEN' },
+            select: { flashcardId: true },
+            distinct: ['flashcardId'],
+          });
+
+        where.id = {
+          in: reportedCards.map((report) => report.flashcardId),
+        };
+      } catch (error) {
+        this.logger.warn(
+          `Flashcard issue report table is not available yet: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        where.id = { in: [] };
+      }
     }
 
     // Determine sort order
@@ -2493,29 +2505,49 @@ export class AdminService {
             displayName: true,
           },
         },
-        issueReports: {
-          where: {
-            status: 'OPEN',
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          select: {
-            id: true,
-            userId: true,
-            reason: true,
-            note: true,
-            createdAt: true,
-          },
-        },
       },
       orderBy,
       skip,
       take: pageSize,
     });
 
+    const issueReportsByFlashcard = new Map<string, any[]>();
+    if (flashcards.length > 0) {
+      try {
+        const issueReports = await this.prisma.flashcardIssueReport.findMany({
+          where: {
+            status: 'OPEN',
+            flashcardId: {
+              in: flashcards.map((flashcard) => flashcard.id),
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            flashcardId: true,
+            userId: true,
+            reason: true,
+            note: true,
+            createdAt: true,
+          },
+        });
+
+        for (const report of issueReports) {
+          const reports = issueReportsByFlashcard.get(report.flashcardId) || [];
+          reports.push(report);
+          issueReportsByFlashcard.set(report.flashcardId, reports);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not load flashcard issue reports: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+      }
+    }
+
     const flashcardsWithIssueSummary = flashcards.map((flashcard) => {
-      const issueReports = flashcard.issueReports || [];
+      const issueReports = issueReportsByFlashcard.get(flashcard.id) || [];
       return {
         ...flashcard,
         issueReportCount: issueReports.length,
@@ -2559,14 +2591,6 @@ export class AdminService {
             },
           },
         },
-        issueReports: {
-          where: {
-            status: 'OPEN',
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
       },
     });
 
@@ -2574,7 +2598,30 @@ export class AdminService {
       throw new NotFoundException(`Flashcard ${id} not found`);
     }
 
-    return flashcard;
+    try {
+      const issueReports = await this.prisma.flashcardIssueReport.findMany({
+        where: {
+          flashcardId: id,
+          status: 'OPEN',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return {
+        ...flashcard,
+        issueReports,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Could not load flashcard issue reports for ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return {
+        ...flashcard,
+        issueReports: [],
+      };
+    }
   }
 
   /**
