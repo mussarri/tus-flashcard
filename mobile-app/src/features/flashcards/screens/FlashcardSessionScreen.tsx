@@ -6,10 +6,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { theme } from "@theme/index";
-import { useNextCard, useRespondToCard } from "../hooks/useFlashcardApi";
+import {
+  useNextCard,
+  useReportFlashcardIssue,
+  useRespondToCard,
+} from "../hooks/useFlashcardApi";
 import FlashcardContainer from "../components/FlashcardContainer";
 import { ResponseType } from "../types";
 import { RESPONSE_CONFIG } from "../constants/flashcardColors";
@@ -24,11 +29,13 @@ export default function FlashcardSessionScreen() {
 
   const sessionId = params.sessionId as string;
   const totalCards = parseInt(params.totalCards as string, 10);
-  const mode = params.mode as string;
 
   // State
   const [currentPosition, setCurrentPosition] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [reportedCardIds, setReportedCardIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Fetch next card
   const {
@@ -39,6 +46,7 @@ export default function FlashcardSessionScreen() {
     isFetching,
   } = useNextCard(sessionId);
   const respondMutation = useRespondToCard();
+  const reportIssueMutation = useReportFlashcardIssue();
 
   const currentCard = nextCardData?.card;
   const sessionComplete = nextCardData?.sessionComplete || false;
@@ -126,6 +134,47 @@ export default function FlashcardSessionScreen() {
     }
   };
 
+  const handleReportIssue = () => {
+    if (!currentCard) {
+      return;
+    }
+
+    const flashcardId = currentCard.cardId || currentCard.id;
+    if (!flashcardId || reportedCardIds.has(flashcardId)) {
+      return;
+    }
+
+    Alert.alert(
+      "Kart işaretlensin mi?",
+      "Bu kart admin panelinde düzenleme gerektiriyor olarak görünecek.",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "İşaretle",
+          onPress: async () => {
+            try {
+              await reportIssueMutation.mutateAsync({
+                cardId: flashcardId,
+                note: "Student marked this flashcard as needing edit.",
+              });
+              setReportedCardIds((previous) => {
+                const next = new Set(previous);
+                next.add(flashcardId);
+                return next;
+              });
+            } catch (err) {
+              console.error("❌ Failed to report flashcard issue:", err);
+              Alert.alert(
+                "İşaretlenemedi",
+                "Lütfen bağlantını kontrol edip tekrar dene.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // Loading state
   if (isLoading && !currentCard) {
     return (
@@ -158,6 +207,9 @@ export default function FlashcardSessionScreen() {
     );
   }
 
+  const currentFlashcardId = currentCard.cardId || currentCard.id;
+  const isCurrentCardReported = reportedCardIds.has(currentFlashcardId);
+
   return (
     <ScrollView
       style={styles.container}
@@ -179,6 +231,28 @@ export default function FlashcardSessionScreen() {
             {currentPosition} / {totalCards}
           </Text>
         </View>
+        <TouchableOpacity
+          style={[
+            styles.reportButton,
+            isCurrentCardReported && styles.reportButtonDone,
+          ]}
+          onPress={handleReportIssue}
+          activeOpacity={0.8}
+          disabled={isCurrentCardReported || reportIssueMutation.isPending}
+        >
+          <Text
+            style={[
+              styles.reportButtonText,
+              isCurrentCardReported && styles.reportButtonTextDone,
+            ]}
+          >
+            {isCurrentCardReported
+              ? "İşaretlendi"
+              : reportIssueMutation.isPending
+                ? "İşaretleniyor..."
+                : "Düzenleme gerekli"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Flashcard */}
@@ -314,6 +388,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
   progressContainer: {
     gap: theme.spacing.xs,
@@ -334,6 +409,27 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.gray[600],
     textAlign: "center",
+  },
+  reportButton: {
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.gray[300],
+    borderRadius: 999,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.white,
+  },
+  reportButtonDone: {
+    borderColor: theme.colors.cta,
+    backgroundColor: theme.colors.gray[100],
+  },
+  reportButtonText: {
+    fontFamily: theme.typography.fonts.bodyBold,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.gray[700],
+  },
+  reportButtonTextDone: {
+    color: theme.colors.cta,
   },
   cardContainer: {
     flex: 1,

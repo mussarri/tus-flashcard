@@ -4,6 +4,9 @@ const API_BASE = "/tus-admin/api/proxy";
 // Server-side requests go directly to backend
 const BACKEND_URL = process.env.API_URL || "http://api:5000";
 
+export const getVisualAssetUrl = (assetId: string) =>
+  `${API_BASE}/admin/visual-assets/${assetId}`;
+
 // Server-side GET requests - direct to backend (no proxy)
 export async function serverFetch<T>(
   path: string,

@@ -1,12 +1,5 @@
 import api from "@services/api";
 import {
-  Flashcard,
-  UserFlashcardProgress,
-  CardType,
-  StudyMode,
-  PatternMastery,
-  ReviewSubmission,
-  SessionSummary,
   DashboardData,
   SessionStartRequest,
   SessionStartResponse,
@@ -14,6 +7,7 @@ import {
   CardResponseRequest,
   CardResponseResult,
   BookmarkToggleResponse,
+  FlashcardIssueReportResponse,
   MasteryData,
   HeatmapData,
 } from "./types";
@@ -38,10 +32,10 @@ export const flashcardApiService = {
    */
   getDashboard: async (): Promise<DashboardData> => {
     const userId = getUserId();
+
     const response = await api.get(
-      "/api/student/flashcards/overview?userId=" + userId,
+      "api/student/flashcards/overview?userId=" + userId,
     );
-    console.log(response);
 
     return response.data;
   },
@@ -75,13 +69,15 @@ export const flashcardApiService = {
         statuses = ["UNSEEN", "EASY", "MEDIUM", "HARD"];
     }
 
-    const response = await api.post("/api/student/flashcards/session", {
+    const response = await api.post("api/student/flashcards/session", {
       lessonId: request.lessonId,
       topicId: request.topicId,
       statuses,
       limit: request.limit,
       userId,
     });
+    console.log(response);
+
     return response.data;
   },
 
@@ -92,7 +88,7 @@ export const flashcardApiService = {
   getNextCard: async (sessionId: string): Promise<NextCardResponse> => {
     const userId = getUserId();
     const response = await api.get(
-      `/api/student/flashcards/session/${sessionId}/next?userId=` + userId,
+      `api/student/flashcards/session/${sessionId}/next?userId=` + userId,
     );
     return response.data;
   },
@@ -108,10 +104,10 @@ export const flashcardApiService = {
     request: CardResponseRequest,
   ): Promise<CardResponseResult> => {
     const userId = getUserId();
-    const response = await api.post(
-      `/api/student/flashcards/${cardId}/review`,
-      { ...request, userId },
-    );
+    const response = await api.post(`api/student/flashcards/${cardId}/review`, {
+      ...request,
+      userId,
+    });
     return response.data;
   },
 
@@ -125,8 +121,24 @@ export const flashcardApiService = {
   ): Promise<BookmarkToggleResponse> => {
     const userId = getUserId();
     const response = await api.patch(
-      `/api/student/flashcards/${cardId}/favorite`,
+      `api/student/flashcards/${cardId}/favorite`,
       { userId, isFavorite },
+    );
+    return response.data;
+  },
+
+  /**
+   * POST /api/student/flashcards/:cardId/report-issue
+   * Mark a card as needing admin review/editing
+   */
+  reportIssue: async (
+    cardId: string,
+    note?: string,
+  ): Promise<FlashcardIssueReportResponse> => {
+    const userId = getUserId();
+    const response = await api.post(
+      `api/student/flashcards/${cardId}/report-issue`,
+      { userId, note },
     );
     return response.data;
   },
@@ -140,7 +152,7 @@ export const flashcardApiService = {
   getMastery: async (): Promise<MasteryData> => {
     const userId = getUserId();
     const response = await api.get(
-      "/api/student/flashcards/mastery?userId=" + userId,
+      "api/student/flashcards/mastery?userId=" + userId,
     );
     return response.data;
   },
@@ -152,7 +164,7 @@ export const flashcardApiService = {
   getHeatmap: async (): Promise<HeatmapData> => {
     const userId = getUserId();
     const response = await api.get(
-      "/api/student/flashcards/activity?userId=" + userId,
+      "api/student/flashcards/activity?userId=" + userId,
     );
     return response.data;
   },
@@ -164,7 +176,7 @@ export const flashcardApiService = {
   getOverallStats: async () => {
     const userId = getUserId();
     const response = await api.get(
-      "/api/student/flashcards/stats?userId=" + userId,
+      "api/student/flashcards/stats?userId=" + userId,
     );
     return response.data;
   },

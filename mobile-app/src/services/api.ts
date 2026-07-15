@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 // TODO: Move to .env
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+console.log(API_URL);
 
 const api = axios.create({
   baseURL: API_URL,

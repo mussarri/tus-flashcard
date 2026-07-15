@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "../../lib/api";
+import { api, getVisualAssetUrl } from "../../lib/api";
 import {
   CreditCard,
   Eye,
@@ -42,6 +42,14 @@ interface Flashcard {
     id: string;
     question: string;
   };
+  issueReportCount?: number;
+  latestIssueReport?: {
+    id: string;
+    userId: string;
+    reason: string;
+    note?: string | null;
+    createdAt: string;
+  } | null;
   createdAt: string;
 }
 
@@ -81,6 +89,7 @@ export default function FlashcardsPage() {
   const [cardTypeFilter, setCardTypeFilter] = useState<string>("all");
   const [lessonFilter, setLessonFilter] = useState<string>("all");
   const [topicFilter, setTopicFilter] = useState<string>("all");
+  const [reportedOnly, setReportedOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -102,6 +111,7 @@ export default function FlashcardsPage() {
     cardTypeFilter,
     lessonFilter,
     topicFilter,
+    reportedOnly,
     searchQuery,
     sortBy,
     sortOrder,
@@ -128,6 +138,7 @@ export default function FlashcardsPage() {
       if (cardTypeFilter !== "all") params.append("cardType", cardTypeFilter);
       if (lessonFilter !== "all") params.append("lessonId", lessonFilter);
       if (topicFilter !== "all") params.append("topicId", topicFilter);
+      if (reportedOnly) params.append("reportedOnly", "true");
       if (searchQuery.trim()) params.append("search", searchQuery.trim());
       if (sortBy) params.append("sortBy", sortBy);
       if (sortOrder) params.append("sortOrder", sortOrder);
@@ -176,6 +187,7 @@ export default function FlashcardsPage() {
     setCardTypeFilter("all");
     setLessonFilter("all");
     setTopicFilter("all");
+    setReportedOnly(false);
     setSearchQuery("");
     setSortBy("createdAt");
     setSortOrder("desc");
@@ -353,7 +365,7 @@ export default function FlashcardsPage() {
           </div>
 
           {/* Filters Row */}
-          <div className="mb-6 grid grid-cols-6 gap-3">
+          <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
             <select
               value={filter}
               onChange={(e) =>
@@ -437,6 +449,22 @@ export default function FlashcardsPage() {
               <option value="desc">Descending</option>
               <option value="asc">Ascending</option>
             </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                setReportedOnly((value) => !value);
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-2 border rounded text-sm font-medium flex items-center justify-center gap-2 ${
+                reportedOnly
+                  ? "border-red-300 bg-red-50 text-red-700"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <AlertCircle className="w-4 h-4" />
+              Reported only
+            </button>
           </div>
 
           {/* Active Filters Summary */}
@@ -444,6 +472,7 @@ export default function FlashcardsPage() {
             cardTypeFilter !== "all" ||
             lessonFilter !== "all" ||
             topicFilter !== "all" ||
+            reportedOnly ||
             searchQuery ||
             sortBy !== "createdAt" ||
             sortOrder !== "desc") && (
@@ -473,6 +502,11 @@ export default function FlashcardsPage() {
               {searchQuery && (
                 <span className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded">
                   Search: &quot;{searchQuery}&quot;
+                </span>
+              )}
+              {reportedOnly && (
+                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                  Reported by students
                 </span>
               )}
               <button
@@ -534,6 +568,11 @@ export default function FlashcardsPage() {
                       }{" "}
                       approved
                     </span>
+                    <span>
+                      {flashcards.filter((f) => (f.issueReportCount || 0) > 0)
+                        .length}{" "}
+                      reported
+                    </span>
                   </div>
                 </div>
               </div>
@@ -572,7 +611,9 @@ export default function FlashcardsPage() {
                     <div
                       key={flashcard.id}
                       className={`border-2 rounded-lg overflow-hidden ${
-                        flashcard.visualStatus === "REQUIRED"
+                        (flashcard.issueReportCount || 0) > 0
+                          ? "border-red-300 bg-red-50"
+                          : flashcard.visualStatus === "REQUIRED"
                           ? "border-blue-400 bg-blue-50"
                           : statusInfo.color
                       }`}
@@ -608,12 +649,29 @@ export default function FlashcardsPage() {
                                 {flashcard.examPattern}
                               </span>
                             )}
+                            {(flashcard.issueReportCount || 0) > 0 && (
+                              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded border border-red-200 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                {flashcard.issueReportCount} report
+                                {flashcard.issueReportCount !== 1 ? "s" : ""}
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-600">
                             {flashcard.lesson?.name}{" "}
                             {flashcard.topic && `› ${flashcard.topic.name}`}
                           </div>
                         </div>
+
+                        {flashcard.latestIssueReport && (
+                          <div className="mb-3 rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-800">
+                            <span className="font-semibold">
+                              Student report:
+                            </span>{" "}
+                            {flashcard.latestIssueReport.note ||
+                              "Marked as needing edit."}
+                          </div>
+                        )}
 
                         {/* Preview Card - Mobile Style */}
                         <div className="max-w-sm mx-auto mb-3">
@@ -623,7 +681,9 @@ export default function FlashcardsPage() {
                               {flashcard.imageAssetId && (
                                 <div className="mb-4 w-full">
                                   <img
-                                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${flashcard.imageAssetId}`}
+                                    src={getVisualAssetUrl(
+                                      flashcard.imageAssetId,
+                                    )}
                                     alt="Visual"
                                     className="max-w-full max-h-32 mx-auto rounded-lg object-contain"
                                     onError={(e) => {

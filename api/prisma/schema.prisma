@@ -502,6 +502,7 @@ model Flashcard {
   updatedAt DateTime @updatedAt
 
   userProgress UserFlashcardProgress[]
+  issueReports FlashcardIssueReport[]
 
   @@index([knowledgePointId])
   @@index([examQuestionId])
@@ -510,6 +511,30 @@ model Flashcard {
   @@index([visualStatus])
   @@index([useVisual])
   @@index([examPattern])
+}
+
+model FlashcardIssueReport {
+  id          String               @id @default(uuid())
+  flashcardId String
+  flashcard   Flashcard            @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  userId      String
+  reason      String               @default("NEEDS_EDIT")
+  note        String?              @db.Text
+  status      FlashcardIssueStatus @default(OPEN)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([userId, flashcardId])
+  @@index([flashcardId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum FlashcardIssueStatus {
+  OPEN
+  RESOLVED
 }
 
 enum CardType {

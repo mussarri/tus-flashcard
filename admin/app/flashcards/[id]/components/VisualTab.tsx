@@ -2,11 +2,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { api } from "../../../../lib/api";
+import { api, getVisualAssetUrl } from "../../../../lib/api";
 import {
   Upload,
   CheckCircle,
-  XCircle,
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
@@ -42,15 +41,10 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
   const [loadingAssets, setLoadingAssets] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  console.log(process.env.NEXT_PUBLIC_API_URL);
 
   useEffect(() => {
     if (flashcard.imageAssetId) {
-      // Fetch image URL from backend
-      setPreviewUrl(
-        process.env.NEXT_PUBLIC_API_URL +
-          `/admin/visual-assets/${flashcard.imageAssetId}`,
-      );
+      setPreviewUrl(getVisualAssetUrl(flashcard.imageAssetId));
     }
   }, [flashcard.imageAssetId]);
 
@@ -318,7 +312,7 @@ export default function VisualTab({ flashcard, onUpdate }: VisualTabProps) {
                   onClick={() => handleBindExistingAsset(asset.id)}
                 >
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL}/admin/visual-assets/${asset.id}`}
+                    src={getVisualAssetUrl(asset.id)}
                     alt={asset.fileName}
                     className="w-full h-32 object-cover rounded mb-2"
                   />

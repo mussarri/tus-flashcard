@@ -325,6 +325,21 @@ export interface BookmarkToggleResponse {
   isBookmarked: boolean;
 }
 
+export interface FlashcardIssueReportResponse {
+  success: boolean;
+  report: {
+    id: string;
+    flashcardId: string;
+    userId: string;
+    reason: string;
+    note?: string | null;
+    status: "OPEN" | "RESOLVED";
+    createdAt: string;
+    updatedAt: string;
+  };
+  message?: string;
+}
+
 // Analytics Types
 export interface LessonMastery {
   lessonId: string;

@@ -163,20 +163,21 @@ async function handleProxyRequest(
       body,
     });
 
+    const responseContentType = response.headers.get("content-type") || "";
+
     // Check if response is an image or other binary content
     if (
-      contentType &&
-      (contentType.startsWith("image/") ||
-        contentType.startsWith("application/octet-stream") ||
-        contentType.startsWith("application/pdf"))
+      responseContentType.startsWith("image/") ||
+      responseContentType.startsWith("application/octet-stream") ||
+      responseContentType.startsWith("application/pdf")
     ) {
       // Return binary content directly
       const blob = await response.blob();
       return new NextResponse(blob, {
         status: response.status,
         headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Content-Type": responseContentType || "application/octet-stream",
+          "Cache-Control": "private, max-age=300",
         },
       });
     }

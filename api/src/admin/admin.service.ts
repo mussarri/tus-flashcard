@@ -2446,6 +2446,14 @@ export class AdminService {
       ];
     }
 
+    if (query.reportedOnly === 'true') {
+      where.issueReports = {
+        some: {
+          status: 'OPEN',
+        },
+      };
+    }
+
     // Determine sort order
     const sortBy = query.sortBy || 'createdAt';
     const sortOrder = query.sortOrder || 'desc';
@@ -2485,17 +2493,41 @@ export class AdminService {
             displayName: true,
           },
         },
+        issueReports: {
+          where: {
+            status: 'OPEN',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            userId: true,
+            reason: true,
+            note: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy,
       skip,
       take: pageSize,
     });
 
+    const flashcardsWithIssueSummary = flashcards.map((flashcard) => {
+      const issueReports = flashcard.issueReports || [];
+      return {
+        ...flashcard,
+        issueReportCount: issueReports.length,
+        latestIssueReport: issueReports[0] || null,
+      };
+    });
+
     this.logger.log(
       `Retrieved ${flashcards.length} flashcards with visual filters (page ${page}, total: ${total})`,
     );
     return {
-      flashcards,
+      flashcards: flashcardsWithIssueSummary,
       pagination: {
         page,
         pageSize,
@@ -2525,6 +2557,14 @@ export class AdminService {
                 },
               },
             },
+          },
+        },
+        issueReports: {
+          where: {
+            status: 'OPEN',
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },

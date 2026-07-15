@@ -162,6 +162,33 @@ export class StudentFlashcardController {
     );
   }
 
+  /**
+   * POST /api/student/flashcards/:cardId/report-issue
+   * Mark a flashcard as needing admin review/editing
+   */
+  @Post(':cardId/report-issue')
+  async reportIssue(
+    @Param('cardId') cardId: string,
+    @Body() body: { userId: string; note?: string },
+  ) {
+    if (!cardId || cardId === 'undefined' || cardId === 'null') {
+      throw new HttpException(
+        'Card ID is required and must be valid',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!body.userId) {
+      throw new HttpException('User ID is required', HttpStatus.BAD_REQUEST);
+    }
+
+    return this.flashcardService.reportIssue(
+      body.userId,
+      cardId,
+      body.note,
+    );
+  }
+
   // ============================================
   // 3. ANALYTICS & REPORTING
   // ============================================

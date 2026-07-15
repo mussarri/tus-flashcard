@@ -46,9 +46,13 @@ export default function FlashcardStartScreen() {
       return { hard: 0, medium: 0, new: 0, easy: 0 };
     }
     const stats = Object.values(dashboardData.overview);
+    console.log("Calculating total stats from overview:", stats);
     return {
       hard: stats.reduce((sum, s) => sum + (s.hard || 0), 0),
-      medium: stats.reduce((sum, s) => sum + (s.medium ?? (s.learning || 0)), 0),
+      medium: stats.reduce(
+        (sum, s) => sum + (s.medium ?? (s.learning || 0)),
+        0,
+      ),
       new: stats.reduce((sum, s) => sum + s.new, 0),
       easy: stats.reduce((sum, s) => sum + (s.easy || 0), 0),
     };
@@ -95,7 +99,8 @@ export default function FlashcardStartScreen() {
   const availableCounts = selectedLessonStats
     ? {
         new: selectedLessonStats.new,
-        medium: selectedLessonStats.medium ?? (selectedLessonStats.learning || 0),
+        medium:
+          selectedLessonStats.medium ?? (selectedLessonStats.learning || 0),
         hard: selectedLessonStats.hard || 0,
         easy: selectedLessonStats.easy || 0,
       }
@@ -193,8 +198,7 @@ export default function FlashcardStartScreen() {
                     </Text>
                     <Text style={styles.lessonStatDivider}>•</Text>
                     <Text style={styles.lessonStat}>
-                      {lessonStats?.medium ?? (lessonStats?.learning || 0)}{" "}
-                      orta
+                      {lessonStats?.medium ?? (lessonStats?.learning || 0)} orta
                     </Text>
                     <Text style={styles.lessonStatDivider}>•</Text>
                     <Text style={styles.lessonStat}>

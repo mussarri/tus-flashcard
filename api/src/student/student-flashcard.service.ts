@@ -629,6 +629,63 @@ export class StudentFlashcardService {
     }
   }
 
+  /**
+   * Mark a flashcard as needing admin review/editing.
+   */
+  async reportIssue(userId: string, cardId: string, note?: string) {
+    try {
+      const flashcard = await this.prisma.flashcard.findUnique({
+        where: { id: cardId },
+        select: { id: true },
+      });
+
+      if (!flashcard) {
+        throw new HttpException('Card not found', HttpStatus.NOT_FOUND);
+      }
+
+      const normalizedNote = note?.trim();
+      const report = await this.prisma.flashcardIssueReport.upsert({
+        where: {
+          userId_flashcardId: {
+            userId,
+            flashcardId: cardId,
+          },
+        },
+        create: {
+          userId,
+          flashcardId: cardId,
+          reason: 'NEEDS_EDIT',
+          note: normalizedNote || null,
+        },
+        update: {
+          status: 'OPEN',
+          reason: 'NEEDS_EDIT',
+          note: normalizedNote || undefined,
+          resolvedAt: null,
+          resolvedBy: null,
+        },
+      });
+
+      return {
+        success: true,
+        report,
+        message: 'Flashcard marked for admin review',
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Failed to report flashcard issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new HttpException(
+        'Failed to report flashcard issue',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // ============================================
   // 3. ANALYTICS & REPORTING
   // ============================================

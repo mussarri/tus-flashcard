@@ -109,43 +109,43 @@ services:
   # ============================================
   # BullMQ Worker Service
   # ============================================
-  # worker:
-  #   build:
-  #     context: ./api
-  #     dockerfile: Dockerfile
-  #     target: production
-  #   container_name: tus-worker
-  #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER:-tus}:${POSTGRES_PASSWORD:-tus_password}@postgres:5432/${POSTGRES_DB:-tus_db}
-  #     REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
-  #     NODE_ENV: production
-  #     UPLOAD_DIR: /app/uploads
-  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
-  #     GEMINI_API_KEY: ${GEMINI_API_KEY}
-  #   volumes:
-  #     - ./api/uploads:/app/uploads
-  #   networks:
-  #     - tus-network
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   command: ["node", "dist/worker.js"]
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: '2'
-  #         memory: 2G
-  #       reservations:
-  #         cpus: '1'
-  #         memory: 1G
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+  worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: production
+    container_name: tus-worker
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tus}:${POSTGRES_PASSWORD:-tus_password}@postgres:5432/${POSTGRES_DB:-tus_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+      NODE_ENV: production
+      UPLOAD_DIR: /app/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    volumes:
+      - ./api/uploads:/app/uploads
+    networks:
+      - tus-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/worker.js"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # Next.js Admin Panel

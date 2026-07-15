@@ -151,3 +151,18 @@ export const useToggleBookmark = () => {
     });
 };
 
+/**
+ * Hook to mark a flashcard as needing admin review/editing
+ * POST /student/flashcards/:cardId/report-issue
+ */
+export const useReportFlashcardIssue = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ cardId, note }: { cardId: string; note?: string }) =>
+            flashcardApiService.reportIssue(cardId, note),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: flashcardApiKeys.all });
+        },
+    });
+};

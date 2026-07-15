@@ -68,6 +68,10 @@ export class FlashcardListQueryDto {
 
   @IsOptional()
   @IsString()
+  reportedOnly?: string;
+
+  @IsOptional()
+  @IsString()
   sortBy?: string; // 'createdAt', 'cardType', 'approvalStatus'
 
   @IsOptional()

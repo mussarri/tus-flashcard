@@ -7,9 +7,6 @@ import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
 import {
   ArrowLeft,
-  Upload,
-  CheckCircle,
-  XCircle,
   AlertCircle,
   Trash2,
 } from "lucide-react";
@@ -30,6 +27,13 @@ interface Flashcard {
   highlightRegion: string | null;
   visualStatus: "NOT_REQUIRED" | "REQUIRED" | "UPLOADED";
   imageAssetId: string | null;
+  issueReports?: Array<{
+    id: string;
+    userId: string;
+    reason: string;
+    note?: string | null;
+    createdAt: string;
+  }>;
   knowledgePoint: {
     id: string;
     fact: string;
@@ -328,6 +332,27 @@ export default function FlashcardDetailPage() {
               {flashcard.approvalStatus}
             </span>
           </div>
+          {flashcard.issueReports && flashcard.issueReports.length > 0 && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                <span className="font-semibold">
+                  Öğrenci düzenleme bildirimi
+                </span>
+              </div>
+              <div className="space-y-2">
+                {flashcard.issueReports.map((report) => (
+                  <div key={report.id} className="text-sm text-red-800">
+                    <p>{report.note || "Kart düzenleme için işaretlendi."}</p>
+                    <p className="mt-1 text-xs text-red-600">
+                      {report.userId} ·{" "}
+                      {new Date(report.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="pt-4 border-t">
             <button
               onClick={handlePublish}

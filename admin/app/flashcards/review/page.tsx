@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "../../../lib/api";
+import { api, getVisualAssetUrl } from "../../../lib/api";
 import {
   CheckCircle,
   XCircle,
@@ -648,7 +648,7 @@ export default function FlashcardsReviewPage() {
                           {flashcard.imageAssetId && (
                             <div className="mb-4 w-full">
                               <img
-                                src={`/api/proxy/uploads/visual-assets/${flashcard.imageAssetId}.jpeg`}
+                                src={getVisualAssetUrl(flashcard.imageAssetId)}
                                 alt="Visual"
                                 className="max-w-full max-h-40 mx-auto rounded-lg object-contain shadow-sm"
                                 onError={(e) => {
@@ -949,7 +949,7 @@ export default function FlashcardsReviewPage() {
                     >
                       <div className="aspect-square bg-gray-100 rounded mb-2 flex items-center justify-center overflow-hidden">
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_URL}/${asset.filePath}`}
+                          src={getVisualAssetUrl(asset.id)}
                           alt={asset.fileName}
                           className="w-full h-full object-contain"
                           onError={(e) => {

@@ -13,7 +13,7 @@ interface BatchCardProps {
     status: string;
     sourceType?: string;
     createdAt: string;
-    pages?: any[];
+    pages?: Array<{ id: string }>;
   };
 }
 
@@ -35,7 +35,7 @@ export default function BatchCard({ batch }: BatchCardProps) {
       setIsDeleting(true);
       await api.deleteBatch(batch.id);
       router.refresh();
-    } catch (error) {
+    } catch {
       alert('Failed to delete batch');
       setIsDeleting(false);
       setShowConfirm(false);
