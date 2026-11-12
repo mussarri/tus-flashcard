@@ -65,11 +65,7 @@ docker-compose up -d
 cd api
 npm run start:dev
 
-# Terminal 2: Start Worker
-cd api
-npm run start:worker
-
-# Terminal 3: Start Admin Panel
+# Terminal 2: Start Admin Panel
 cd admin
 npm run dev
 ```
@@ -128,9 +124,9 @@ The OCR service (`src/ocr/ocr.service.ts`) currently has placeholder logic. To i
 2. Implement the actual API call in `OcrService.processPage()`
 3. Ensure the response format matches `OCRResult` interface
 
-### Worker Process
+### Queue Processing
 
-The worker (`src/worker.ts`) processes OCR jobs from the BullMQ queue. Make sure Redis is running for the worker to function.
+The API process runs BullMQ processors alongside HTTP endpoints. Redis must be running for queued jobs to be processed.
 
 ### File Storage
 
@@ -162,10 +158,10 @@ docker-compose ps
 docker-compose exec redis redis-cli ping
 ```
 
-### Worker Not Processing Jobs
+### Queue Jobs Not Processing
 
 1. Ensure Redis is running
-2. Check worker logs: `docker-compose logs worker`
+2. Check API logs: `docker-compose logs api`
 3. Verify queue configuration in `src/queue/queue.module.ts`
 
 ## Next Steps

@@ -125,7 +125,6 @@ docker-compose logs -f
 
 # Specific service
 docker-compose logs -f api
-docker-compose logs -f worker
 docker-compose logs -f admin
 
 # Last 100 lines
@@ -176,13 +175,6 @@ cat backup_20260209.sql | docker-compose exec -T postgres psql -U tus tus_db
 ```bash
 # Backup uploads directory
 tar -czf uploads_backup_$(date +%Y%m%d).tar.gz api/uploads/
-```
-
-### Scale Workers
-
-```bash
-# Scale worker service
-docker-compose up -d --scale worker=3
 ```
 
 ## 🐛 Troubleshooting

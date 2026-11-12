@@ -33,13 +33,12 @@ cp api/.env.example api/.env
 ### 2. Start Services
 
 ```bash
-# Start all services (postgres, redis, ocr, api, worker, admin)
+# Start all services (postgres, redis, api, admin)
 docker-compose up -d
 
 # Or start individually
-docker-compose up postgres redis ocr
+docker-compose up postgres redis
 docker-compose up api
-docker-compose up worker
 docker-compose up admin
 ```
 
@@ -77,9 +76,6 @@ npm install
 
 # Development mode
 npm run start:dev
-
-# Run worker
-npm run start:worker
 
 # Run tests
 npm test
@@ -179,7 +175,7 @@ All content must be admin-approved before use.
 
 ## OpenRouter AI provider
 
-Set `OPENROUTER_API_KEY` in the API and worker runtime environments. Optional
+Set `OPENROUTER_API_KEY` in the API runtime environment. Optional
 `OPENROUTER_SITE_URL` and `OPENROUTER_APP_TITLE` identify this application in
 OpenRouter. Apply the Prisma migrations before starting the updated API. Existing
 AI task configurations then use `~openai/gpt-sol-latest`; embeddings use
@@ -187,7 +183,7 @@ AI task configurations then use `~openai/gpt-sol-latest`; embeddings use
 OpenRouter model IDs.
 
 From `api/`, run `npx prisma migrate deploy` against the target database before
-restarting the API and worker.
+restarting the API.
 
 ## License
 

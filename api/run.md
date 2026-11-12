@@ -1,16 +1,23 @@
-Development ortamı başlatma
-Docker servislerini başlat (postgres, redis, ocr):
-./dev-start.sh
-./dev-start.sh
-Veya manuel olarak:
-docker-compose up -d postgres redis ocr
+Development ortamını başlatma
 
-Sonra manuel olarak başlat:
-Terminal 1 - API:
-cd apinpm run start:dev
-Terminal 2 - Worker:
-cd apinpm run start:worker
-Terminal 3 - Admin Panel:
-cd adminnpm run dev
+PostgreSQL ve Redis servislerini başlat:
+```bash
+./dev-start.sh
+```
+
+API ve BullMQ işlemcilerini aynı süreçte başlat:
+```bash
+cd api
+npm run start:dev
+```
+
+Admin panelini ayrı bir terminalde başlat:
+```bash
+cd admin
+npm run dev
+```
+
 Docker servislerini durdur:
+```bash
 docker-compose down
+```

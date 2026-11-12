@@ -24,6 +24,7 @@ import { StudentModule } from './student/student.module';
     PrismaModule,
     QueueModule,
     AIModule,
+    // These feature modules register BullMQ processors in the API process.
     UploadModule,
     VisionModule,
     ParsingModule,

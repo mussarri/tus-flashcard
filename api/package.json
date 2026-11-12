@@ -21,8 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seeds/admin.ts",
-    "start:worker": "ts-node src/worker.ts"
+    "prisma:seed": "ts-node prisma/seeds/admin.ts"
   },
   "dependencies": {
     "@google/genai": "^0.3.1",

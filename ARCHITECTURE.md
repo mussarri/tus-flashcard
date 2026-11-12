@@ -358,12 +358,11 @@ Sistemde 4 ana queue bulunur:
 3. **flashcard-generation** → Flashcard üretimi
 4. **question-generation** → Soru üretimi
 
-### Worker Architecture
+### Processor Architecture
 
-**Worker Process:**
-- Ayrı bir Node.js process olarak çalışır (`worker.ts`)
-- Main API'dan bağımsız ölçeklendirilebilir
-- Queue'lardaki job'ları sürekli dinler ve işler
+**API Process:**
+- `AppModule` içinde kayıtlı processor'lar HTTP sunucusuyla aynı Node.js sürecinde çalışır.
+- Queue'lardaki job'ları Redis üzerinden dinler ve işler.
 
 **Processor Pattern:**
 ```typescript
@@ -377,7 +376,7 @@ export class MyProcessor extends WorkerHost {
 
 **Job Flow:**
 1. Controller/Service → Queue'ya job ekleme
-2. Worker → Job'u yakalar
+2. API içindeki processor → Job'u yakalar
 3. Processor → İş mantığını çalıştırır
 4. Database → Sonuç kaydedilir
 5. Status → Job completed/failed
@@ -1206,7 +1205,7 @@ enum AITaskType {
 
 **Scalability:**
 - Stateless API design
-- Horizontal worker scaling (multiple worker processes)
+- Queue processing capacity monitoring
 - Database read replicas (future)
 - CDN for static assets (future)
 
@@ -1236,10 +1235,8 @@ enum AITaskType {
 **Services:**
 1. **postgres** - PostgreSQL database
 2. **redis** - Redis for queues
-3. **ocr** - PaddleOCR FastAPI service
-4. **api** - NestJS backend
-5. **worker** - Background job processor
-6. **admin** - Next.js admin panel
+3. **api** - NestJS backend and BullMQ processors
+4. **admin** - Next.js admin panel
 
 **Networking:**
 - Internal Docker network
@@ -1286,9 +1283,6 @@ docker-compose up postgres redis ocr
 # Run API
 cd api && npm run start:dev
 
-# Run worker
-cd api && npm run start:worker
-
 # Run admin panel
 cd admin && npm run dev
 ```
@@ -1299,10 +1293,7 @@ cd admin && npm run dev
 docker-compose up -d
 
 # View logs
-docker-compose logs -f api worker
-
-# Scale workers
-docker-compose up -d --scale worker=3
+docker-compose logs -f api
 ```
 
 ## 📝 Future Enhancements
