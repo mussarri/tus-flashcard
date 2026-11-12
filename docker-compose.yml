@@ -30,7 +30,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: tus-redis
-    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 64mb --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
     networks:
@@ -47,7 +47,7 @@ services:
           memory: 100M
 
   api:
-    image: ghcr.io/kullanici-adi/tus-flashcard-api:latest
+    image: ghcr.io/mussarri/tus-flashcard-api:latest
     container_name: tus-api
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-tus}:${POSTGRES_PASSWORD:-tus_password}@postgres:5432/${POSTGRES_DB:-tus_db}
@@ -99,12 +99,7 @@ volumes:
   # Next.js Admin Panel
   # ============================================
   # admin:
-  #   build:
-  #     context: ./admin
-  #     dockerfile: Dockerfile
-  #     target: production
-  #     args: # <--- BURAYI EKLE
-  #       NEXT_PUBLIC_API_URL: https://myrix.site/tus
+  #   image: ghcr.io/mussarri/tus-flashcard-admin:latest
   #   container_name: tus-admin   
   #   environment:
   #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
@@ -164,4 +159,3 @@ volumes:
   #       max-size: "5m"
   #       max-file: "3"
 
- 
