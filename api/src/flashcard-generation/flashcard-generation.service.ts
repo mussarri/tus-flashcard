@@ -201,7 +201,7 @@ export class FlashcardGenerationService {
   }
 
   /**
-   * Generate flashcards using AI (anatomy-flashcard.prompt.ts)
+   * Generate flashcards using the lesson-specific prompt registry.
    * @param fact - Knowledge point fact/statement
    * @param targetTypes - Array of card types to generate
    * @returns Array of generated flashcards

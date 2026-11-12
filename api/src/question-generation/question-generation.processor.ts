@@ -46,7 +46,7 @@ export class QuestionGenerationProcessor extends WorkerHost {
       const { question: questionData, similarQuestionIds } =
         await this.questionGenerationService.generateQuestionWithSimilarityCheck(
           knowledgePointId,
-          provider as 'OPENAI' | 'GEMINI' | undefined,
+          provider as 'OPENAI' | 'GEMINI' | 'OPENROUTER' | undefined,
         );
 
       // Save to database

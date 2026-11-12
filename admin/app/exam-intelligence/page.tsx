@@ -10,8 +10,6 @@ export const metadata = {
 
 export default async function ExamIntelligencePage() {
   // Fetch the intelligence report on the server
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:4000";
-
   let report = null;
   let error = null;
 
@@ -42,7 +40,6 @@ export default async function ExamIntelligencePage() {
         <ExamIntelligenceView
           initialReport={report}
           error={error}
-          backendUrl={backendUrl}
         />
       </Suspense>
     </div>

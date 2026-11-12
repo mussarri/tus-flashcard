@@ -29,6 +29,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
 
 // Free tier supported models
 const PROVIDER_MODELS: Record<string, string[]> = {
+  OPENROUTER: ["deepseek/deepseek-v4.1-flash-1017", "openai/text-embedding-3-small"],
   OPENAI: [
     // GPT-5.2 series (2025)
     "gpt-5.2",
@@ -148,7 +149,9 @@ export default function AIConfigView({
       // If current model is not in the new provider's model list, set default model
       if (!newProviderModels.includes(currentModel || '')) {
         // Set first model from new provider as default
-        const defaultModel = newProviderModels[0] || '';
+        const defaultModel = taskType === "EMBEDDING" && newProvider === "OPENROUTER"
+          ? "openai/text-embedding-3-small"
+          : newProviderModels[0] || '';
         updatedEditing[taskType].model = defaultModel;
       }
     }
@@ -217,7 +220,7 @@ export default function AIConfigView({
 
     // Prepare payload with correct types
     const payload: {
-      provider?: "OPENAI" | "GEMINI";
+      provider?: "OPENAI" | "GEMINI" | "OPENROUTER";
       model?: string;
       temperature?: number;
       maxTokens?: number;
@@ -225,7 +228,7 @@ export default function AIConfigView({
     } = {};
 
     if (edited.provider !== undefined) {
-      payload.provider = edited.provider as "OPENAI" | "GEMINI";
+      payload.provider = edited.provider as "OPENAI" | "GEMINI" | "OPENROUTER";
     }
     if (edited.model !== undefined) {
       payload.model = edited.model;
@@ -391,6 +394,7 @@ export default function AIConfigView({
                   >
                     <option value="OPENAI">OpenAI</option>
                     <option value="GEMINI">Gemini</option>
+                    <option value="OPENROUTER">OpenRouter</option>
                   </select>
                 </div>
 
@@ -399,7 +403,12 @@ export default function AIConfigView({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Model
                   </label>
-                  <select
+                  {currentConfig?.provider === "OPENROUTER" ? <input
+                    type="text"
+                    value={currentConfig.model}
+                    onChange={(e) => handleEdit(config.taskType, "model", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  /> : <select
                     value={currentConfig?.model || ""}
                     onChange={(e) =>
                       handleEdit(config.taskType, "model", e.target.value)
@@ -413,7 +422,7 @@ export default function AIConfigView({
                         </option>
                       ),
                     )}
-                  </select>
+                  </select>}
                 </div>
 
                 {/* Temperature */}

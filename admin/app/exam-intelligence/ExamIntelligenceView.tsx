@@ -127,13 +127,11 @@ interface ExamIntelligenceReport {
 interface Props {
   initialReport: ExamIntelligenceReport | null;
   error: string | null;
-  backendUrl: string;
 }
 
 export default function ExamIntelligenceView({
   initialReport,
   error,
-  backendUrl,
 }: Props) {
   const router = useRouter();
   const [selectedLesson, setSelectedLesson] = useState<string>("all");
@@ -242,7 +240,7 @@ export default function ExamIntelligenceView({
       params.set("endYear", endYear);
     }
     const query = params.toString();
-    return `${backendUrl}/admin/exam-intelligence/report${query ? `?${query}` : ""}`;
+    return `/tus-admin/api/proxy/admin/exam-intelligence/report${query ? `?${query}` : ""}`;
   };
 
   const handleRecalculate = async () => {

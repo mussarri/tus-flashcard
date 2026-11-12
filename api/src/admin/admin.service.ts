@@ -3384,6 +3384,12 @@ export class AdminService {
       if (finalProvider === 'GEMINI') {
         finalModel = 'gemini-2.5-flash';
       }
+      if (finalProvider === 'OPENROUTER') {
+        finalModel =
+          taskType === AITaskType.EMBEDDING
+            ? 'openai/text-embedding-3-small'
+            : 'deepseek/deepseek-v4.1-flash-1017';
+      }
     }
 
     if (finalProvider === 'OPENAI' && !openaiModels.includes(finalModel)) {
@@ -3395,6 +3401,14 @@ export class AdminService {
     if (finalProvider === 'GEMINI' && !geminiModels.includes(finalModel)) {
       throw new BadRequestException(
         `Model ${finalModel} is not compatible with provider GEMINI. Please select a valid Gemini model.`,
+      );
+    }
+    if (
+      finalProvider === 'OPENROUTER' &&
+      !/^~?[a-z0-9-]+\/[a-z0-9._:-]+$/i.test(finalModel)
+    ) {
+      throw new BadRequestException(
+        `Model ${finalModel} is not a valid OpenRouter model ID.`,
       );
     }
 
@@ -4952,7 +4966,7 @@ export class AdminService {
         content: prompt,
         lesson: lesson.name,
       },
-      'OPENAI',
+      undefined,
     );
 
     // Parse AI response

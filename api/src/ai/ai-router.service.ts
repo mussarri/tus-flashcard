@@ -4,9 +4,10 @@ import { AITaskType, VisionPayload, AIModelOptions, TokenUsage } from './types';
 import { AIProvider } from './providers/ai-provider.interface';
 import { OpenAIProvider } from './providers/openai.provider';
 import { GeminiProvider } from './providers/gemini.provider';
+import { OpenRouterProvider } from './providers/openrouter.provider';
 import { buildVisionPrompt } from './prompts/vision.prompt';
-import { buildKnowledgeExtractionPrompt } from './prompts/knowledge.prompt';
-import { buildFlashcardPrompt } from './prompts/flashcard-prompt-builder';
+import { buildContentKnowledgePrompt } from './prompts/content-knowledge/registry';
+import { buildFlashcardPrompt } from './prompts/flashcard/registry';
 import { buildQuestionPrompt } from './prompts/question.prompt';
 import { AIProviderType } from '@prisma/client';
 import { PricingService } from './pricing.service';
@@ -26,19 +27,21 @@ export class AIRouterService {
     private readonly prisma: PrismaService,
     private readonly openaiProvider: OpenAIProvider,
     private readonly geminiProvider: GeminiProvider,
+    private readonly openRouterProvider: OpenRouterProvider,
     private readonly pricingService: PricingService,
   ) {
     // Initialize provider registry
     this.providers = new Map();
     this.providers.set('OPENAI', openaiProvider);
     this.providers.set('GEMINI', geminiProvider);
+    this.providers.set('OPENROUTER', openRouterProvider);
   }
 
   /**
    * Run an AI task with the configured provider
    * @param taskType - The AI task type to run
    * @param payload - Task-specific payload (may include batchId, pageId, topicId, knowledgePointId)
-   * @param overrideProvider - Optional provider override (for admin control)
+   * @param overrideProvider - Kept for caller compatibility; routing uses OpenRouter.
    */
   async runTask(
     taskType: AITaskType,
@@ -64,58 +67,25 @@ export class AIRouterService {
         `AI Config for ${taskType}: provider=${config.provider}, model=${config.model}, isActive=${config.isActive}`,
       );
 
-      // Use override provider if provided, otherwise use config provider
-      const providerType = overrideProvider || config.provider;
-      let effectiveModel = config.model;
-
-      // Guard against provider-model mismatch
-      const openaiModelPrefixes = ['gpt-', 'o1-', 'text-embedding-'];
-      const geminiModelPrefixes = ['gemini-', 'text-embedding-'];
-
-      // Additional check for deprecated Gemini models
-      const deprecatedGeminiModels = [
-        'gemini-1.5-flash-002',
-        'gemini-1.5-pro',
-        'gemini-1.5-flash',
-        'gemini-pro',
-      ];
-      if (
-        providerType === 'GEMINI' &&
-        deprecatedGeminiModels.includes(effectiveModel)
-      ) {
+      // All AI tasks run through OpenRouter. Keep existing configs in sync.
+      const providerType: AIProviderType = 'OPENROUTER';
+      if (overrideProvider && overrideProvider !== providerType) {
         this.logger.warn(
-          `Model ${effectiveModel} is deprecated. Auto-upgrading to gemini-2.5-flash.`,
+          `Ignoring provider override ${overrideProvider} for ${taskType}; OpenRouter is required.`,
         );
-        effectiveModel = 'gemini-2.5-flash';
       }
+      const effectiveModel =
+        taskType === AITaskType.EMBEDDING
+          ? 'openai/text-embedding-3-small'
+          : 'google/gemini-2.5-flash';
 
-      if (
-        providerType === 'OPENAI' &&
-        !openaiModelPrefixes.some((prefix) => effectiveModel.startsWith(prefix))
-      ) {
-        this.logger.warn(
-          `Model ${effectiveModel} does not match provider OPENAI. Falling back to gpt-4o.`,
-        );
-        effectiveModel = 'gpt-4o';
-      }
-      if (
-        providerType === 'GEMINI' &&
-        !geminiModelPrefixes.some((prefix) => effectiveModel.startsWith(prefix))
-      ) {
-        this.logger.warn(
-          `Model ${effectiveModel} does not match provider GEMINI. Falling back to gemini-2.5-flash.`,
-        );
-        effectiveModel = 'gemini-2.5-flash';
-      }
-
-      // Auto-heal mismatched configs when no override provider is used
-      if (!overrideProvider && effectiveModel !== config.model) {
+      if (config.provider !== providerType || effectiveModel !== config.model) {
         await this.prisma.aITaskConfig.update({
           where: { taskType },
-          data: { model: effectiveModel },
+          data: { provider: providerType, model: effectiveModel },
         });
         this.logger.warn(
-          `Auto-corrected AI config model for ${taskType}: ${config.model} -> ${effectiveModel}`,
+          `Auto-corrected AI config for ${taskType}: ${config.provider}/${config.model} -> ${providerType}/${effectiveModel}`,
         );
       }
 
@@ -126,7 +96,7 @@ export class AIRouterService {
       }
 
       this.logger.log(
-        `Using provider: ${providerType}${overrideProvider ? ' (override)' : ''}, model: ${effectiveModel} for task: ${taskType}`,
+        `Using provider: ${providerType}, model: ${effectiveModel} for task: ${taskType}`,
       );
 
       // Build options from config
@@ -191,6 +161,7 @@ export class AIRouterService {
             provider,
             taskPayload as {
               statement: string;
+              targetTypes?: string[];
               lesson?: string;
               topic?: string;
               subtopic?: string;
@@ -338,12 +309,14 @@ export class AIRouterService {
     knowledgePointId?: string,
   ): Promise<void> {
     // Calculate cost
-    const costUSD = this.pricingService.calculateCost(
-      provider,
-      model,
-      usage.inputTokens,
-      usage.outputTokens,
-    );
+    const costUSD =
+      usage.costUSD ??
+      this.pricingService.calculateCost(
+        provider,
+        model,
+        usage.inputTokens,
+        usage.outputTokens,
+      );
 
     // Persist to database
     await this.prisma.aITokenUsage.create({
@@ -406,8 +379,7 @@ export class AIRouterService {
   }
 
   /**
-   * Run knowledge extraction task
-   * Supports lesson-based routing for specialized extraction (e.g., Fizyoloji exam questions)
+   * Run content-based knowledge extraction or repair its JSON output.
    */
   private async runKnowledgeExtractionTask(
     provider: AIProvider,
@@ -435,11 +407,13 @@ export class AIRouterService {
     options: AIModelOptions,
     model: string,
   ): Promise<{ content: string; usage?: TokenUsage }> {
-    // Use generic content-based prompt
-    const result = buildKnowledgeExtractionPrompt({
+    // Select the content extraction or JSON repair prompt.
+    const result = buildContentKnowledgePrompt({
       content: payload.content || '',
       maxKnowledgePoints: payload.maxKnowledgePoints,
       lesson: payload.lesson,
+      strategyHint: payload.strategyHint,
+      repairRawOutput: payload.repairRawOutput,
     });
     const systemPrompt = result.systemPrompt;
     const userPrompt = result.userPrompt;
@@ -460,6 +434,7 @@ export class AIRouterService {
     provider: AIProvider,
     payload: {
       statement: string;
+      targetTypes?: string[];
       lesson?: string;
       topic?: string;
       subtopic?: string;
@@ -492,30 +467,11 @@ export class AIRouterService {
     topic?: string;
     subtopic?: string;
   }): Promise<{ content: string; usage?: TokenUsage }> {
-    const { systemPrompt, userPrompt } = buildFlashcardPrompt(payload);
-
-    const taskConfig = await this.prisma.aITaskConfig.findUnique({
-      where: { taskType: AITaskType.FLASHCARD_GENERATION },
-    });
-
-    if (!taskConfig) {
-      throw new Error('AI task config not found for FLASHCARD_GENERATION');
-    }
-
-    const provider = this.providers.get(taskConfig.provider);
-    if (!provider) {
-      throw new Error(`Provider ${taskConfig.provider} not found`);
-    }
-
-    const model = taskConfig.model;
-
-    const textOptions = {
-      temperature: taskConfig.temperature ?? 0.7,
-      maxTokens: taskConfig.maxTokens ?? 2000,
-      responseFormat: 'json_object' as const,
-    };
-
-    return await provider.runText(systemPrompt, userPrompt, model, textOptions);
+    const content = (await this.runTask(
+      AITaskType.FLASHCARD_GENERATION,
+      payload,
+    )) as string;
+    return { content };
   }
 
   private async runQuestionTask(

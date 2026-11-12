@@ -14,10 +14,7 @@ import { CommonModule } from '../common/common.module';
 import { ExamQuestionModule } from '../exam-question/exam-question.module';
 import { ConceptModule } from '../concept/concept.module';
 import { UnresolvedHintsModule } from './unresolved-hints/unresolved-hints.module';
-import { AIRouterService } from '../ai/ai-router.service';
-import { OpenAIProvider } from '../ai/providers/openai.provider';
-import { GeminiProvider } from '../ai/providers/gemini.provider';
-import { PricingService } from '../ai/pricing.service';
+import { AIModule } from '../ai/ai.module';
 import { ManualBatchService } from '../upload/manual-batch.service';
 
 @Module({
@@ -42,6 +39,7 @@ import { ManualBatchService } from '../upload/manual-batch.service';
     ExamQuestionModule,
     ConceptModule,
     UnresolvedHintsModule,
+    AIModule,
   ],
   controllers: [
     AdminController,
@@ -54,10 +52,6 @@ import { ManualBatchService } from '../upload/manual-batch.service';
     AdminAIUsageService,
     ExamIntelligenceService,
     OntologyResolutionService,
-    AIRouterService,
-    OpenAIProvider,
-    GeminiProvider,
-    PricingService,
     ManualBatchService,
   ],
   exports: [AdminService],

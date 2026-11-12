@@ -177,6 +177,18 @@ All content must be admin-approved before use.
 - User analytics and SRS
 - Mobile app integration
 
+## OpenRouter AI provider
+
+Set `OPENROUTER_API_KEY` in the API and worker runtime environments. Optional
+`OPENROUTER_SITE_URL` and `OPENROUTER_APP_TITLE` identify this application in
+OpenRouter. Apply the Prisma migrations before starting the updated API. Existing
+AI task configurations then use `~openai/gpt-sol-latest`; embeddings use
+`openai/text-embedding-3-small`. The admin AI Config page can select other
+OpenRouter model IDs.
+
+From `api/`, run `npx prisma migrate deploy` against the target database before
+restarting the API and worker.
+
 ## License
 
 Private - TUS Medical Education Platform

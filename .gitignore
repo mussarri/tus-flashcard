@@ -32,4 +32,6 @@ yarn-error.log*
 
 # OS
 .DS_Store
-Thumbs.db.agent/skills/
+Thumbs.db
+.agent/skills/
+.md

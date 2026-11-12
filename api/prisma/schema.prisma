@@ -878,6 +878,7 @@ enum AITaskType {
 enum AIProviderType {
   OPENAI
   GEMINI
+  OPENROUTER
 }
 
 model AITaskConfig {

@@ -15,13 +15,15 @@ import { AIProviderType } from '@prisma/client';
 export class OpenAIProvider implements AIProvider {
   private readonly logger = new Logger(OpenAIProvider.name);
   readonly provider: AIProviderType = 'OPENAI';
-  private readonly openai: OpenAI;
+  private readonly openai: OpenAI | null;
   private readonly timeout = 120000; // 120 seconds
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not configured');
+      this.openai = null;
+      this.logger.warn('OPENAI_API_KEY is not configured');
+      return;
     }
 
     this.openai = new OpenAI({
@@ -36,6 +38,7 @@ export class OpenAIProvider implements AIProvider {
     payload: VisionPayload,
     modelName: string,
   ): Promise<VisionResult> {
+    if (!this.openai) throw new Error('OPENAI_API_KEY is not configured');
     try {
       const response = await this.openai.chat.completions.create({
         model: modelName,
@@ -97,6 +100,7 @@ export class OpenAIProvider implements AIProvider {
     modelName: string,
     options?: AIModelOptions,
   ): Promise<TextResult> {
+    if (!this.openai) throw new Error('OPENAI_API_KEY is not configured');
     try {
       const response = await this.openai.chat.completions.create({
         model: modelName,
@@ -142,6 +146,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async runEmbedding(text: string, modelName: string): Promise<number[]> {
+    if (!this.openai) throw new Error('OPENAI_API_KEY is not configured');
     try {
       const response = await this.openai.embeddings.create({
         model: modelName,

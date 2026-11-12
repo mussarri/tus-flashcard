@@ -274,7 +274,7 @@ export default function ExamQuestionDetailView({
     }
   };
 
-  const handleGenerateQuestion = async (provider?: "OPENAI" | "GEMINI") => {
+  const handleGenerateQuestion = async (provider?: "OPENAI" | "GEMINI" | "OPENROUTER") => {
     try {
       setLoading(true);
       await api.generateQuestion(id, provider);
@@ -729,6 +729,13 @@ export default function ExamQuestionDetailView({
                 Knowledge point generated. Ready to generate content.
               </p>
               <div className="flex gap-2">
+                <button
+                  onClick={() => handleGenerateQuestion("OPENROUTER")}
+                  disabled={loading}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  Generate Question (OpenRouter)
+                </button>
                 <button
                   onClick={() => handleGenerateQuestion("OPENAI")}
                   disabled={loading}

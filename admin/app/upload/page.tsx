@@ -12,7 +12,7 @@ import ManualTextWizard from './components/ManualTextWizard';
 const batchSchema = z.object({
   topic: z.string().min(1, 'Topic is required'),
   description: z.string().optional(),
-  visionProvider: z.enum(['OPENAI', 'GEMINI']).optional(),
+  visionProvider: z.enum(['OPENAI', 'GEMINI', 'OPENROUTER']).optional(),
   contentTypeHint: z.enum([
     'TOPIC_EXPLANATION',
     'SPOT_FACT',
@@ -201,6 +201,7 @@ export default function UploadPage() {
                   <option value="">Default (from config)</option>
                   <option value="OPENAI">OpenAI</option>
                   <option value="GEMINI">Gemini</option>
+                  <option value="OPENROUTER">OpenRouter</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-700">
                   AI provider to use for vision processing (OCR and classification)

@@ -1355,7 +1355,7 @@ export class ExamQuestionService {
    */
   async generateNewQuestionFromExamQuestion(
     examQuestionId: string,
-    provider?: 'OPENAI' | 'GEMINI',
+    provider?: 'OPENAI' | 'GEMINI' | 'OPENROUTER',
   ) {
     this.logger.log(
       `Generating practice question card from exam question: ${examQuestionId}${

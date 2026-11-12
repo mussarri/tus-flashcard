@@ -2,7 +2,12 @@
 // Client-side requests go through Next.js proxy (relative URL)
 const API_BASE = "/tus-admin/api/proxy";
 // Server-side requests go directly to backend
-const BACKEND_URL = process.env.API_URL || "http://api:5000";
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  process.env.API_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "http://api:5000");
 
 export const getVisualAssetUrl = (assetId: string) =>
   `${API_BASE}/admin/visual-assets/${assetId}`;
@@ -206,7 +211,7 @@ export const api = {
 
   generateFlashcardsForTopic: (
     topicId: string,
-    data: { mode?: "append" | "replace"; provider?: "OPENAI" | "GEMINI" },
+    data: { mode?: "append" | "replace"; provider?: "OPENAI" | "GEMINI" | "OPENROUTER" },
   ) =>
     apiRequest<{
       success: boolean;
@@ -229,7 +234,7 @@ export const api = {
 
   generateQuestionsForTopic: (
     topicId: string,
-    data: { mode?: "append" | "replace"; provider?: "OPENAI" | "GEMINI" },
+    data: { mode?: "append" | "replace"; provider?: "OPENAI" | "GEMINI" | "OPENROUTER" },
   ) =>
     apiRequest<{
       success: boolean;
@@ -1038,7 +1043,7 @@ export const api = {
       },
     ),
 
-  generateQuestion: (id: string, provider?: "OPENAI" | "GEMINI") =>
+  generateQuestion: (id: string, provider?: "OPENAI" | "GEMINI" | "OPENROUTER") =>
     apiRequest<{
       success: boolean;
       generatedQuestionId: string;
@@ -1203,7 +1208,7 @@ export const api = {
   updateAIConfig: (
     taskType: string,
     data: {
-      provider?: "OPENAI" | "GEMINI";
+      provider?: "OPENAI" | "GEMINI" | "OPENROUTER";
       model?: string;
       temperature?: number;
       maxTokens?: number;

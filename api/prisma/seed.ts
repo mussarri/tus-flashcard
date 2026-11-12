@@ -15,7 +15,7 @@ async function seed() {
 
   await seedAdminUser(prisma);
 
-  const lesson = await prisma.lesson.upsert({
+  await prisma.lesson.upsert({
     where: { name: 'Anatomi' },
     update: {},
     create: {
@@ -47,12 +47,38 @@ async function seed() {
       displayName: 'Biyokimya',
     },
   });
+  await prisma.lesson.upsert({
+    where: { name: 'Histoloji' },
+    update: {},
+    create: {
+      name: 'Histoloji',
+      displayName: 'Histoloji',
+    },
+  });
+  await prisma.lesson.upsert({
+    where: { name: 'Farmakoloji' },
+    update: {},
+    create: {
+      name: 'Farmakoloji',
+      displayName: 'Farmakoloji',
+    },
+  });
+  await prisma.lesson.upsert({
+    where: { name: 'Mikrobiyoloji' },
+    update: {},
+    create: {
+      name: 'Mikrobiyoloji',
+      displayName: 'Mikrobiyoloji',
+    },
+  });
 
-  console.log(`✅ Created lesson: ${lesson.displayName}`);
+  console.log(`✅ Created lesson: Anatomi`);
   console.log(`✅ Created lesson: Fizyoloji`);
   console.log(`✅ Created lesson: Patoloji`);
+  console.log(`✅ Created lesson: Histoloji`);
   console.log(`✅ Created lesson: Biyokimya`);
-
+  console.log(`✅ Created lesson: Mikrobiyoloji`);
+  console.log(`✅ Created lesson: Farmakoloji`);
   // for (const c of allConcepts.flat()) {
   //   const normalizedLabel = normalizeConceptKey(c.preferredLabel);
 

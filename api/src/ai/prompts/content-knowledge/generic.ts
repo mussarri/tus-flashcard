@@ -1,9 +1,22 @@
-export function buildKnowledgeExtractionPrompt(payload: {
-  content: string;
-  lesson?: string;
-  repairRawOutput?: string;
-  maxKnowledgePoints?: number;
-}): { systemPrompt: string; userPrompt: string } {
+import {
+  ContentKnowledgePromptPayload,
+  ContentKnowledgePromptResult,
+} from './types';
+
+const strategyInstructions: Record<string, string> = {
+  ALGORITHM_DECISION_RULES:
+    'Algoritmadaki karar koşullarını ve sonuçlarını ayrı, kendi başına anlaşılır bilgi noktalarına dönüştür.',
+  SPOT_HIGH_YIELD_ATOMIC:
+    'Yalnızca sınav açısından yüksek değerli, tek ana fikir taşıyan kısa bilgi noktalarını çıkar.',
+  MARKDOWN_SUMMARY_ATOMIC_MAX_COVERAGE:
+    'İçerikteki bağımsız ana bilgileri kapsamlı biçimde çıkar; aynı bilgiyi tekrar etme.',
+  COMPACT_JSON_ATOMIC:
+    'Kısa ve geçerli JSON üret; her bilgi noktası tek ana fikir taşısın.',
+};
+
+export function buildKnowledgeExtractionPrompt(
+  payload: ContentKnowledgePromptPayload,
+): ContentKnowledgePromptResult {
   const systemPrompt = `Sen TUS odaklı knowledge point çıkarım motorusun.
 
 Görevin:
@@ -41,12 +54,16 @@ Knowledge point kuralları:
   ]
 }`;
 
+  const strategyInstruction = payload.strategyHint
+    ? strategyInstructions[payload.strategyHint]
+    : undefined;
+
   const userPrompt = `Ders: ${payload.lesson || 'Bilinmiyor'}
 
 Aşağıdaki içerikten en fazla ${payload.maxKnowledgePoints || 15} adet knowledge point üret.
 
 İçerik:
-${payload.content}
+${payload.content || ''}
 
 Kurallar:
 - Sadece JSON döndür.
@@ -58,7 +75,7 @@ Kurallar:
 - Gereksiz aşırı parçalama yapma.
 - priority 0-10 integer olsun.
 - examRelevance 0-1 olsun.
-- classificationConfidence 0-1 olsun.`;
+- classificationConfidence 0-1 olsun.${strategyInstruction ? `\n- ${strategyInstruction}` : ''}`;
 
   return { systemPrompt, userPrompt };
 }

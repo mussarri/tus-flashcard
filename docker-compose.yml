@@ -77,11 +77,14 @@ services:
       UPLOAD_DIR: /app/uploads
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
+      OPENROUTER_APP_TITLE: ${OPENROUTER_APP_TITLE:-TUS}
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       QUESTION_SINGLE_CALL_MODE: ${QUESTION_SINGLE_CALL_MODE:-true}
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
       - ./api/uploads:/app/uploads
     networks:
@@ -122,6 +125,9 @@ services:
       UPLOAD_DIR: /app/uploads
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
+      OPENROUTER_APP_TITLE: ${OPENROUTER_APP_TITLE:-TUS}
     volumes:
       - ./api/uploads:/app/uploads
     networks:
@@ -165,7 +171,7 @@ services:
       NODE_ENV: production
       PORT: 3001
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     networks:
       - tus-network
     depends_on:
@@ -233,5 +239,5 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  nginx_cache:
-    driver: local
+  # nginx_cache:
+  #   driver: local

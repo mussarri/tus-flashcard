@@ -92,7 +92,12 @@ knowledgePoints[]:
 Kalite kuralları:
 - spotRule sınav günü kullanılabilecek kadar kısa olmalı — mekanizma zinciri değil, net kural.
 - physiologyChain maksimum 4 basamak — iyon kanalı veya enzim detayı ekleme.
-- knowledgePoints içinde saf mekanizma basamağı olmasın — sonuç, eşleşme, klinik çıktı olsun.
+- knowledgePoints; sınanabilir sonuç, ayırıcı bilgi veya
+  birden fazla bulguyu açıklayan kritik mekanizma olabilir.
+- Zincirin her küçük basamağını ayrı knowledge point yapma.
+- Bir mekanizma sonraki bilgileri anlamak için gerekliyse
+  MECHANISM veya REGULATION olarak çıkar.
+- Kaynakta desteklenmeyen klinik bağlantı üretme.
 - examFrequency ve importance gerçekçi olsun — her şeyi HIGH yapma.
 - referenceValues sadece soruda geçen veya soruyu çözdüren değerleri içersin.
 - hormoneTable sadece soruda geçen hormonları içersin.`;

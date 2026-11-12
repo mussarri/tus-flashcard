@@ -241,19 +241,21 @@ export default function EditorLayout({
             );
           })}
         </nav>
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={() => {
-              document.cookie =
-                "auth_token=; path=/tus-admin; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-              router.push("/login");
-              router.refresh();
-            }}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-          >
-            <span className="text-sm font-medium">Logout</span>
-          </button>
-        </div>
+        {process.env.NODE_ENV !== "development" && (
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                document.cookie =
+                  "auth_token=; path=/tus-admin; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                router.push("/login");
+                router.refresh();
+              }}
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+            >
+              <span className="text-sm font-medium">Logout</span>
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main Content Area */}
