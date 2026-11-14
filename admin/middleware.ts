@@ -2,33 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  if (process.env.NODE_ENV === "development") {
-    if (request.nextUrl.pathname === "/login") {
-      return NextResponse.redirect(new URL("/tus-admin/", request.url));
-    }
-    return NextResponse.next();
-  }
-
   const token = request.cookies.get("auth_token")?.value;
-  const isLoginPage = request.nextUrl.pathname === "/login";
+  const path = request.nextUrl.pathname;
+  const isLoginPage = path === "/login" || path === "/tus-admin/login";
 
   // Allow API routes to be accessed, backend handles auth
-  if (request.nextUrl.pathname.startsWith("/api")) {
+  if (path.startsWith("/api/") || path.startsWith("/tus-admin/api/")) {
     return NextResponse.next();
-  }
-
-  // If trying to access login page while authenticated, redirect to home
-  if (isLoginPage && token) {
-    const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = "/";
-    return NextResponse.redirect(homeUrl);
   }
 
   // If not authenticated and trying to access protected route, redirect to login
   if (!token && !isLoginPage) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/tus-admin/login", request.url));
   }
 
   return NextResponse.next();

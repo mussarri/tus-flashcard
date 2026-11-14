@@ -1,12 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Client-side requests go through Next.js proxy (relative URL)
 const API_BASE = "/tus-admin/api/proxy";
+
+async function proxyFetch(input: string, options?: RequestInit): Promise<Response> {
+  const response = await fetch(input, options);
+  if (response.status === 401) {
+    window.location.assign("/tus-admin/login");
+    throw new Error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+  }
+  return response;
+}
 // Server-side requests go directly to backend
 const BACKEND_URL =
   process.env.BACKEND_URL ||
   process.env.API_URL ||
   (process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
+    ? "http://localhost:5000"
     : "http://api:5000");
 
 export const getVisualAssetUrl = (assetId: string) =>
@@ -54,7 +63,7 @@ export async function apiRequest<T>(
         ...options?.headers,
       };
 
-  const response = await fetch(`${API_BASE}/${path}`, {
+  const response = await proxyFetch(`${API_BASE}/${path}`, {
     ...options,
     headers,
   });
@@ -84,7 +93,7 @@ export const api = {
     }),
 
   uploadFiles: async (batchId: string, formData: FormData) => {
-    const response = await fetch(
+    const response = await proxyFetch(
       `${API_BASE}/api/upload/batch/${batchId}/files`,
       {
         method: "POST",
@@ -101,7 +110,7 @@ export const api = {
   },
 
   addPagesToBatch: async (batchId: string, formData: FormData) => {
-    const response = await fetch(
+    const response = await proxyFetch(
       `${API_BASE}/api/upload/batch/${batchId}/pages`,
       {
         method: "POST",
@@ -342,7 +351,7 @@ export const api = {
 
   // Vision
   analyzeImage: async (formData: FormData) => {
-    const response = await fetch(`${API_BASE}/admin/vision/analyze-image`, {
+    const response = await proxyFetch(`${API_BASE}/admin/vision/analyze-image`, {
       method: "POST",
       body: formData,
     });
@@ -356,7 +365,7 @@ export const api = {
   },
 
   analyzePDF: async (formData: FormData) => {
-    const response = await fetch(`${API_BASE}/admin/vision/analyze-pdf`, {
+    const response = await proxyFetch(`${API_BASE}/admin/vision/analyze-pdf`, {
       method: "POST",
       body: formData,
     });
@@ -560,7 +569,7 @@ export const api = {
   uploadFlashcardVisual: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await fetch(`${API_BASE}/admin/flashcards/${id}/visual`, {
+    const response = await proxyFetch(`${API_BASE}/admin/flashcards/${id}/visual`, {
       method: "POST",
       body: formData,
     });

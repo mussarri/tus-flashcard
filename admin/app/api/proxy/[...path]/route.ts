@@ -18,7 +18,7 @@ const getApiBaseUrl = (): string => {
   // Default: local API in development, Docker service in other environments
   const defaultUrl =
     process.env.NODE_ENV === "development"
-      ? "http://localhost:3000"
+      ? "http://localhost:5000"
       : "http://api:5000";
 
   if (process.env.NODE_ENV === "development") {
@@ -186,9 +186,19 @@ async function handleProxyRequest(
     const data = await response.json().catch(() => ({}));
 
     // Return response with same status
-    return NextResponse.json(data, {
+    const proxyResponse = NextResponse.json(data, {
       status: response.status,
     });
+    if (response.status === 401) {
+      proxyResponse.cookies.set("auth_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+      });
+    }
+    return proxyResponse;
   } catch (error) {
     console.error("Proxy error:", error);
     const errorMessage =

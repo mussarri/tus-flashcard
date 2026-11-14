@@ -5,12 +5,6 @@ import type { AdminAuthService } from './auth.service';
 import type { AuthenticatedAdminRequest } from './auth.types';
 
 describe('AdminAuthGuard', () => {
-  const originalNodeEnv = process.env.NODE_ENV;
-
-  afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-  });
-
   function setup(authorization?: string) {
     const request = {
       originalUrl: '/admin/items',
@@ -33,25 +27,17 @@ describe('AdminAuthGuard', () => {
     return { request, service, context, guard, admin };
   }
 
-  it('uses the development admin without a token in development', async () => {
-    process.env.NODE_ENV = 'development';
-    const { request, service, context, guard } = setup();
+  it('requires a token in development', async () => {
+    const { service, context, guard } = setup();
 
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(request.adminUser).toMatchObject({
-      id: 'development-admin',
-      role: 'ADMIN',
-    });
+    await expect(guard.canActivate(context)).rejects.toThrow('Missing admin access token');
     expect(service.authenticateToken).not.toHaveBeenCalled();
   });
 
-  it('requires a token outside development', async () => {
-    process.env.NODE_ENV = 'production';
-    const { service, context, guard } = setup();
-
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      'Missing admin access token',
-    );
-    expect(service.authenticateToken).not.toHaveBeenCalled();
+  it('authenticates a bearer token', async () => {
+    const { request, service, context, guard, admin } = setup('Bearer valid-token');
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(service.authenticateToken).toHaveBeenCalledWith('valid-token');
+    expect(request.adminUser).toEqual(admin);
   });
 });

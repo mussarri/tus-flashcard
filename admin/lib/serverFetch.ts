@@ -4,7 +4,7 @@ const BACKEND_URL =
   process.env.BACKEND_URL ||
   process.env.API_URL ||
   (process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
+    ? "http://localhost:5000"
     : "http://api:5000");
 
 // Server-side GET requests - direct to backend (no proxy)

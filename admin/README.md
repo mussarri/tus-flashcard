@@ -14,7 +14,9 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `/tus-admin/login` on the admin server to sign in. The admin server connects to the API at `http://localhost:5000` in development unless `BACKEND_URL` or `API_URL` is set.
+
+An admin user with a password is required. Set `ADMIN_SEED_EMAIL` and `ADMIN_SEED_PASSWORD` for the API, then run `npm run prisma:seed` in `api/` to create or update that user. The panel stores the API session in an HttpOnly cookie and signs out through `/tus-admin/api/auth/logout`.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

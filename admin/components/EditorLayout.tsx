@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Upload,
@@ -20,7 +20,6 @@ import {
   X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { api } from "../lib/api";
 
 interface NavItem {
   label: string;
@@ -43,7 +42,6 @@ export default function EditorLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [workQueueCounts, setWorkQueueCounts] = useState<WorkQueueCounts>({
     batchesAwaitingReview: 0,
@@ -166,7 +164,7 @@ export default function EditorLayout({
 
   const activeContext = getActiveContext();
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/tus-admin/login") {
     return <>{children}</>;
   }
 
@@ -241,21 +239,17 @@ export default function EditorLayout({
             );
           })}
         </nav>
-        {process.env.NODE_ENV !== "development" && (
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={() => {
-                document.cookie =
-                  "auth_token=; path=/tus-admin; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                router.push("/login");
-                router.refresh();
-              }}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-            >
-              <span className="text-sm font-medium">Logout</span>
-            </button>
-          </div>
-        )}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={async () => {
+              await fetch("/tus-admin/api/auth/logout", { method: "POST" });
+              window.location.assign("/tus-admin/login");
+            }}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+          >
+            <span className="text-sm font-medium">Çıkış yap</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}

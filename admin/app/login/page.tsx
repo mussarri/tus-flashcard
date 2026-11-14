@@ -2,15 +2,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +30,7 @@ export default function LoginPage() {
       // No need to set cookie manually, it's handled securely server-side via HttpOnly cookie
 
       // Redirect to home
-      router.push("/");
-      router.refresh();
+      window.location.assign("/tus-admin/");
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {

@@ -17,7 +17,7 @@ const getApiBaseUrl = (): string => {
   // Default: local API in development, Docker service in other environments
   const defaultUrl =
     process.env.NODE_ENV === "development"
-      ? "http://localhost:3000"
+      ? "http://localhost:5000"
       : "http://api:5000";
 
   return defaultUrl;
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: data.expiresIn || 60 * 60 * 12,
       path: "/",
     });
 

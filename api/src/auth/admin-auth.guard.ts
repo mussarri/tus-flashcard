@@ -28,16 +28,6 @@ export class AdminAuthGuard implements CanActivate {
       return true;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      request.adminUser = {
-        id: 'development-admin',
-        email: 'admin@localhost',
-        name: 'Development Admin',
-        role: 'ADMIN',
-      };
-      return true;
-    }
-
     const token = this.extractBearerToken(request.headers.authorization);
     request.adminUser = await this.adminAuthService.authenticateToken(token);
 
