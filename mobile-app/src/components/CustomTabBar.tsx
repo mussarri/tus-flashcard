@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { theme } from '@theme/index';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,7 +50,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             key={route.key}
                             accessibilityRole="button"
                             accessibilityState={isFocused ? { selected: true } : {}}
-                            accessibilityLabel={options.tabBarAccessibilityLabel}
+                            accessibilityLabel={options.tabBarAccessibilityLabel || (typeof options.title === 'string' ? options.title : route.name)}
                             onPress={onPress}
                             onLongPress={onLongPress}
                             style={styles.tabButton}
@@ -64,6 +64,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             >
                                 {iconComponent}
                             </View>
+                            <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                                {typeof options.title === 'string' ? options.title : route.name}
+                            </Text>
                             {isFocused && <View style={styles.activeIndicator} />}
                         </TouchableOpacity>
                     );
@@ -137,4 +140,11 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         backgroundColor: theme.colors.primary, // #0891B2 - medical teal
     },
+    tabLabel: {
+        color: theme.colors.gray[500],
+        fontSize: 11,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    tabLabelActive: { color: theme.colors.primary },
 });

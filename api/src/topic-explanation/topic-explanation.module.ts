@@ -4,6 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import {
   AdminTopicExplanationController,
   StudentTopicExplanationController,
+  StudentTopicExplanationStudyController,
 } from './topic-explanation.controller';
 import { TopicExplanationService } from './topic-explanation.service';
 
@@ -11,6 +12,7 @@ import { TopicExplanationService } from './topic-explanation.service';
   imports: [PrismaModule, AIModule],
   controllers: [
     StudentTopicExplanationController,
+    StudentTopicExplanationStudyController,
     AdminTopicExplanationController,
   ],
   providers: [TopicExplanationService],

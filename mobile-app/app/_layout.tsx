@@ -64,10 +64,6 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
-              name="(question-bank)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
               name="(flashcards)"
               options={{ headerShown: false }}
             />

@@ -26,6 +26,37 @@ export class StudentTopicExplanationController {
   }
 }
 
+@Controller('api/student/topic-explanations')
+export class StudentTopicExplanationStudyController {
+  constructor(private readonly service: TopicExplanationService) {}
+
+  @Get('catalog')
+  catalog() {
+    return this.service.studyCatalog();
+  }
+
+  @Get()
+  list(
+    @Query('lessonId') lessonId?: string,
+    @Query('topicId') topicId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const parsedPage = Number(page || 1);
+    const parsedSize = Number(pageSize || 20);
+    if (
+      !Number.isInteger(parsedPage) ||
+      parsedPage < 1 ||
+      !Number.isInteger(parsedSize) ||
+      parsedSize < 1 ||
+      parsedSize > 50
+    ) {
+      throw new BadRequestException('Invalid pagination');
+    }
+    return this.service.listForStudy(lessonId, topicId, parsedPage, parsedSize);
+  }
+}
+
 @Controller('admin/topic-explanations')
 export class AdminTopicExplanationController {
   constructor(private readonly service: TopicExplanationService) {}

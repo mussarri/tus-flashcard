@@ -11,6 +11,7 @@ import {
   MasteryData,
   HeatmapData,
   TopicExplanation,
+  TopicExplanationCatalog,
 } from "./types";
 
 // ============================================
@@ -25,6 +26,19 @@ const getUserId = (): string => {
 };
 
 export const flashcardApiService = {
+  getTopicExplanationCatalog: async (): Promise<TopicExplanationCatalog> => {
+    const response = await api.get('api/student/topic-explanations/catalog');
+    return response.data;
+  },
+  getTopicExplanations: async (params: {
+    lessonId?: string;
+    topicId?: string;
+    page: number;
+    pageSize?: number;
+  }): Promise<{ items: TopicExplanation[]; total: number; page: number; pageSize: number }> => {
+    const response = await api.get('api/student/topic-explanations', { params });
+    return response.data;
+  },
   getOrCreateTopicExplanation: async (cardId: string): Promise<TopicExplanation> => {
     const response = await api.post(`api/student/flashcards/${cardId}/topic-explanation`);
     return response.data;

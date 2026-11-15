@@ -9,6 +9,7 @@ type IconSymbolName =
   | "house.fill"
   | "paperplane.fill"
   | "book.fill"
+  | "text.book.closed.fill"
   | "person.fill"
   | "chevron.left.forwardslash.chevron.right"
   | "chevron.right"
@@ -30,6 +31,7 @@ const MAPPING: Record<
   "house.fill": "home",
   "paperplane.fill": "send",
   "book.fill": "menu-book",
+  "text.book.closed.fill": "auto-stories",
   "person.fill": "person",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",

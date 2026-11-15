@@ -159,6 +159,60 @@ export class TopicExplanationService {
     return { items, total, page, pageSize };
   }
 
+  async studyCatalog() {
+    const visible = {
+      status: 'APPROVED' as const,
+      flashcards: { some: { approvalStatus: 'APPROVED' as const } },
+    };
+    const [lessons, topics] = await Promise.all([
+      this.prisma.lesson.findMany({
+        where: { topicExplanations: { some: visible } },
+        select: { id: true, name: true, displayName: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.topic.findMany({
+        where: { topicExplanations: { some: visible } },
+        select: { id: true, lessonId: true, name: true, displayName: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+    return { lessons, topics };
+  }
+
+  async listForStudy(
+    lessonId?: string,
+    topicId?: string,
+    page = 1,
+    pageSize = 20,
+  ) {
+    const where = {
+      status: 'APPROVED' as const,
+      flashcards: { some: { approvalStatus: 'APPROVED' as const } },
+      ...(lessonId ? { lessonId } : {}),
+      ...(topicId ? { topicId } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.topicExplanation.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          status: true,
+          lessonId: true,
+          topicId: true,
+          lesson: { select: { name: true, displayName: true } },
+          topic: { select: { name: true, displayName: true } },
+        },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.topicExplanation.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
+  }
+
   async update(
     id: string,
     input: {

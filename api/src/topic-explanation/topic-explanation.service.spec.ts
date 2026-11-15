@@ -126,4 +126,37 @@ describe('TopicExplanationService', () => {
       },
     });
   });
+
+  it('lists only approved explanations linked to approved cards for study', async () => {
+    const query = { items: [{ id: 'ex-1', title: 'Başlık' }], total: 1 };
+    const prisma = {
+      topicExplanation: {
+        findMany: jest.fn().mockResolvedValue(query.items),
+        count: jest.fn().mockResolvedValue(query.total),
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (operations: Promise<unknown>[]) =>
+          Promise.all(operations),
+        ),
+    };
+    const service = new TopicExplanationService(prisma as never, {} as never);
+    expect(await service.listForStudy('lesson-1', 'topic-1', 2, 20)).toEqual({
+      ...query,
+      page: 2,
+      pageSize: 20,
+    });
+    expect(prisma.topicExplanation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: 'APPROVED',
+          flashcards: { some: { approvalStatus: 'APPROVED' } },
+          lessonId: 'lesson-1',
+          topicId: 'topic-1',
+        },
+        skip: 20,
+        take: 20,
+      }),
+    );
+  });
 });

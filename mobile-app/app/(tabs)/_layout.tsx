@@ -26,15 +26,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="house.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="flashcards"
         options={{
           title: "Flashcard",
@@ -44,20 +35,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="questions"
+        name="topic-explanations"
         options={{
-          title: "Solve",
+          title: "Konu Anlatımı",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="pencil.circle.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: "Progress",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="chart.bar.fill" color={color} />
+            <IconSymbol size={24} name="text.book.closed.fill" color={color} />
           ),
         }}
       />

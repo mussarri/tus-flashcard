@@ -2,7 +2,16 @@
 // CARD TYPE ENUMS
 // ============================================
 
-import { Lesson } from "@features/QuestionBank/types";
+export interface Lesson {
+  id: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  category?: 'BASIC' | 'CLINICAL';
+  icon?: string;
+  questionCount?: number;
+  topics?: { id: string; name: string; displayName?: string; lessonId?: string }[];
+}
 
 export enum CardType {
   // CORE CARDS (Tier 1: Foundational Knowledge)
@@ -110,6 +119,13 @@ export interface TopicExplanation {
   lessonId?: string | null;
   topicId?: string | null;
   knowledgePointId?: string | null;
+  lesson?: { name: string; displayName?: string | null } | null;
+  topic?: { name: string; displayName?: string | null } | null;
+}
+
+export interface TopicExplanationCatalog {
+  lessons: { id: string; name: string; displayName?: string | null }[];
+  topics: { id: string; lessonId?: string | null; name: string; displayName?: string | null }[];
 }
 
 // ============================================

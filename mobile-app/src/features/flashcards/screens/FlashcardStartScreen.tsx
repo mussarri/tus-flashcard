@@ -164,6 +164,7 @@ export default function FlashcardStartScreen() {
           easyCount={totalStats.easy}
         />
 
+
         {/* Lesson Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Ders Seçin</Text>
