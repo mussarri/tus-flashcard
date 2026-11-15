@@ -2448,12 +2448,11 @@ export class AdminService {
 
     if (query.reportedOnly === 'true') {
       try {
-        const reportedCards =
-          await this.prisma.flashcardIssueReport.findMany({
-            where: { status: 'OPEN' },
-            select: { flashcardId: true },
-            distinct: ['flashcardId'],
-          });
+        const reportedCards = await this.prisma.flashcardIssueReport.findMany({
+          where: { status: 'OPEN' },
+          select: { flashcardId: true },
+          distinct: ['flashcardId'],
+        });
 
         where.id = {
           in: reportedCards.map((report) => report.flashcardId),
