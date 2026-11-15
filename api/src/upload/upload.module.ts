@@ -5,6 +5,7 @@ import { ManualBatchService } from './manual-batch.service';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueName } from '../queue/queues';
 import { CommonModule } from '../common/common.module';
+import { AIModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { CommonModule } from '../common/common.module';
       name: QueueName.VISION,
     }),
     CommonModule,
+    AIModule,
   ],
   controllers: [UploadController],
   providers: [UploadService, ManualBatchService],

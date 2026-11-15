@@ -314,6 +314,7 @@ model KnowledgePoint {
   updatedAt DateTime @updatedAt
 
   flashcards                  Flashcard[]
+  topicExplanations           TopicExplanation[]
   questionKnowledgePoints     QuestionKnowledgePoint[]
   examQuestionKnowledgePoints ExamQuestionKnowledgePoint[]
   userWeaknesses              UserWeakness[]
@@ -449,6 +450,9 @@ model Flashcard {
   knowledgePointId String?
   knowledgePoint   KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
 
+  topicExplanationId String?
+  topicExplanation   TopicExplanation? @relation(fields: [topicExplanationId], references: [id], onDelete: SetNull)
+
   // Source exam question (for exam-pattern based cards)
   examQuestionId String?
   examQuestion   ExamQuestion? @relation(fields: [examQuestionId], references: [id], onDelete: SetNull)
@@ -505,6 +509,7 @@ model Flashcard {
   issueReports FlashcardIssueReport[]
 
   @@index([knowledgePointId])
+  @@index([topicExplanationId])
   @@index([examQuestionId])
   @@index([cardType])
   @@index([approvalStatus])
@@ -873,6 +878,34 @@ enum AITaskType {
   KP_ATOMICITY_VALIDATE
   KP_ATOMICITY_SPLIT
   QUESTION_ANALYZE_AND_KP
+  TOPIC_EXPLANATION
+}
+
+enum TopicExplanationStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+}
+
+model TopicExplanation {
+  id               String @id @default(uuid())
+  title            String
+  content          String @db.Text
+  status           TopicExplanationStatus @default(DRAFT)
+  lessonId         String?
+  topicId          String?
+  knowledgePointId String?
+  originFlashcardId String? @unique
+  lesson           Lesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  topic            Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  knowledgePoint   KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: SetNull)
+  flashcards       Flashcard[]
+  approvedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([knowledgePointId, lessonId, topicId, status])
+  @@index([status, createdAt])
 }
 
 enum AIProviderType {
@@ -1168,6 +1201,7 @@ model Lesson {
   flashcards      Flashcard[]
   questionCards   QuestionCard[]
   knowledgePoints KnowledgePoint[]
+  topicExplanations TopicExplanation[]
 
   @@index([name])
   @@index([questionCount])
@@ -1203,6 +1237,7 @@ model Topic {
   knowledgePoints KnowledgePoint[]
   flashcards      Flashcard[]
   questionCards   QuestionCard[]
+  topicExplanations TopicExplanation[]
 
   @@unique([name, lessonId])
   @@index([name])

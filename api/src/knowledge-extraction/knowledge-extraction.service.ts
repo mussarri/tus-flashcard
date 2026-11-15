@@ -524,12 +524,6 @@ export class KnowledgeExtractionService {
     });
 
     try {
-      if (mode === ExtractionMode.REPLACE) {
-        await this.prisma.knowledgePoint.deleteMany({
-          where: { approvedContentId: approvedContent.id },
-        });
-      }
-
       const generatedCandidates =
         await this.generatorService.generateFromApprovedContent({
           approvedContentId: approvedContent.id,
@@ -543,21 +537,33 @@ export class KnowledgeExtractionService {
           maxKnowledgePoints: 50,
         });
 
-      const cappedCandidates = [...generatedCandidates]
+      if (
+        approvedContent.blockType === 'TABLE' &&
+        !generatedCandidates.length
+      ) {
+        throw new Error('TABLE extraction produced no knowledge points');
+      }
+
+      const rankedCandidates = [...generatedCandidates]
         .sort((a, b) => {
           if (b.priority !== a.priority) {
             return b.priority - a.priority;
           }
           return b.examRelevance - a.examRelevance;
         })
-        .slice(0, 50);
+        .slice(
+          0,
+          approvedContent.blockType === 'TABLE'
+            ? generatedCandidates.length
+            : 50,
+        );
 
       const dedupedByNormalizedKey = new Map<
         string,
         GeneratedKnowledgePointCandidate & { normalizedKey: string }
       >();
 
-      for (const candidate of cappedCandidates) {
+      for (const candidate of rankedCandidates) {
         if (!candidate.fact || candidate.fact.trim().length === 0) continue;
 
         const normalizedKey = buildNormalizedKey(
@@ -597,6 +603,7 @@ export class KnowledgeExtractionService {
           subtopicId: approvedContent.block.subtopicId,
           candidates: dedupedCandidates,
           chunkSize: 50,
+          replaceExisting: mode === ExtractionMode.REPLACE,
         });
 
       await this.prisma.approvedContent.update({
@@ -609,7 +616,7 @@ export class KnowledgeExtractionService {
 
       return {
         approvedContentId,
-        extracted: cappedCandidates.length,
+        extracted: rankedCandidates.length,
         created: persistResult.created,
         updated: persistResult.updated,
         sourceCountIncremented: persistResult.sourceCountIncremented,

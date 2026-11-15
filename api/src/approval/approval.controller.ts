@@ -12,6 +12,17 @@ import { ApprovalService } from './approval.service';
 import { ApproveBlockDto, RejectBlockDto } from './dto/approve-block.dto';
 import { CreateManualBlockDto } from './dto/create-manual-block.dto';
 import { CurrentAdmin } from '../auth/current-admin.decorator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { BlockType } from '@prisma/client';
+
+class UpdateManualBlockSuggestionDto {
+  @IsEnum({ TEXT: 'TEXT', TABLE: 'TABLE', ALGORITHM: 'ALGORITHM' })
+  blockType: BlockType;
+
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+}
 
 @Controller('api/approval')
 export class ApprovalController {
@@ -146,6 +157,19 @@ export class ApprovalController {
       );
       throw error;
     }
+  }
+
+  @Patch('block/:blockId/manual-suggestion')
+  async updateManualBlockSuggestion(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: UpdateManualBlockSuggestionDto,
+  ) {
+    const block = await this.approvalService.updateManualBlockSuggestion(
+      blockId,
+      dto.blockType,
+      dto.content,
+    );
+    return { success: true, block };
   }
 
   @Get('batch/:batchId/review')

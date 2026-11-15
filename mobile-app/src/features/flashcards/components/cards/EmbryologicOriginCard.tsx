@@ -66,6 +66,7 @@ export default function EmbryologicOriginCard({
       onFlip={onFlip}
       cardType={flashcard.cardType}
       difficulty={flashcard.difficulty}
+      flashcardId={flashcard.id}
       knowledgePoint={flashcard.knowledgePoint}
     />
   );

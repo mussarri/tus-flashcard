@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   Param,
+  Query,
   ParseUUIDPipe,
   Logger,
   ConflictException,
@@ -48,6 +49,7 @@ export class UploadController {
         subtopicId: dto.subtopicId,
         contentTypeHint: dto.contentTypeHint,
         rawText: dto.rawText,
+        contentSeparator: dto.contentSeparator,
         splitStrategy: dto.splitStrategy,
         dedupPolicy: dto.dedupPolicy,
         visionProvider: dto.visionProvider,
@@ -187,10 +189,10 @@ export class UploadController {
   }
 
   @Get('batches')
-  async getAllBatches() {
+  async getAllBatches(@Query('lessonId') lessonId?: string) {
     try {
       this.logger.log('Getting all batches');
-      const batches = await this.uploadService.getAllBatches();
+      const batches = await this.uploadService.getAllBatches(lessonId);
       this.logger.log(`Retrieved ${batches.length} batches`);
 
       return {

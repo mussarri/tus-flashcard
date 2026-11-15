@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import ClassificationView from "./ClassificationView";
 import { apiRequest } from "@/lib/api";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   CheckCircle,
@@ -42,6 +43,8 @@ interface Batch {
   description?: string;
   status: string;
   sourceType?: string;
+  lessonId?: string | null;
+  topicId?: string | null;
   pages: Array<{
     id: string;
     pageNumber: number;
@@ -66,6 +69,8 @@ interface BatchDetailClientProps {
   knowledgePoints: any[];
   flashcards: any[];
   questions: any[];
+  lessons: Array<{ id: string; name: string; displayName?: string | null }>;
+  topics: Array<{ id: string; name: string; displayName?: string | null; lessonId?: string | null }>;
 }
 
 export default function BatchDetailClient({
@@ -74,8 +79,41 @@ export default function BatchDetailClient({
   knowledgePoints,
   flashcards,
   questions,
+  lessons,
+  topics,
 }: BatchDetailClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("pages");
+  const [selectedLessonId, setSelectedLessonId] = useState(batch.lessonId || "");
+  const [selectedTopicId, setSelectedTopicId] = useState(batch.topicId || "");
+  const [savingOntology, setSavingOntology] = useState(false);
+  const [ontologyError, setOntologyError] = useState<string | null>(null);
+  const [ontologySuccess, setOntologySuccess] = useState<string | null>(null);
+  const availableTopics = topics.filter((topic) => topic.lessonId === selectedLessonId);
+
+  const saveOntology = async () => {
+    if (!selectedLessonId || !selectedTopicId) {
+      setOntologyError("Ders ve konu seçin.");
+      return;
+    }
+    setSavingOntology(true);
+    setOntologyError(null);
+    setOntologySuccess(null);
+    try {
+      await apiRequest(`api/upload/batch/${batch.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ lessonId: selectedLessonId, topicId: selectedTopicId }),
+      });
+      setOntologySuccess(knowledgePoints.length > 0
+        ? "Ders ve konu güncellendi. İlgili KP, flashcard ve sorular yeniden inceleme için beklemeye alındı; gerekirse KP çıkarımını REPLACE ile yeniden çalıştırın."
+        : "Ders ve konu güncellendi.");
+      router.refresh();
+    } catch (error) {
+      setOntologyError(error instanceof Error ? error.message : "Güncelleme başarısız.");
+    } finally {
+      setSavingOntology(false);
+    }
+  };
   const [statusCounts, setStatusCounts] = useState<StatusCounts | null>(null);
   const [itemStatusMap, setItemStatusMap] = useState<
     Record<string, ExtractionItemStatus>
@@ -329,6 +367,48 @@ export default function BatchDetailClient({
         </div>
       </div>
 
+      <section className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">Batch dersi ve konusu</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-48 flex-1 text-sm font-medium text-gray-700">
+            Ders
+            <select
+              value={selectedLessonId}
+              onChange={(event) => { setSelectedLessonId(event.target.value); setSelectedTopicId(""); setOntologyError(null); }}
+              className="mt-1 block h-10 w-full rounded border border-gray-300 px-3"
+            >
+              <option value="">Ders seçin</option>
+              {lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.displayName || lesson.name}</option>)}
+            </select>
+          </label>
+          <label className="min-w-48 flex-1 text-sm font-medium text-gray-700">
+            Konu
+            <select
+              value={selectedTopicId}
+              onChange={(event) => { setSelectedTopicId(event.target.value); setOntologyError(null); }}
+              disabled={!selectedLessonId}
+              className="mt-1 block h-10 w-full rounded border border-gray-300 px-3 disabled:bg-gray-100"
+            >
+              <option value="">Konu seçin</option>
+              {availableTopics.map((topic) => <option key={topic.id} value={topic.id}>{topic.displayName || topic.name}</option>)}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => void saveOntology()}
+            disabled={savingOntology || !selectedLessonId || !selectedTopicId || (selectedLessonId === batch.lessonId && selectedTopicId === batch.topicId)}
+            className="h-10 rounded bg-blue-600 px-4 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {savingOntology ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">Ders ve konu batch içindeki aktif içerik bloklarına da uygulanır. Mevcut alt konu seçimi temizlenir.</p>
+        {lessons.length === 0 && <p className="mt-2 text-sm text-red-700">Ders ve konu seçenekleri yüklenemedi.</p>}
+        {knowledgePoints.length > 0 && <p className="mt-2 text-xs text-amber-700">Bu batch’te KP var. Ders/konu değişince ilgili KP, flashcard ve sorular yeniden onay bekler; yanlış üretilen KP’ler için REPLACE çıkarımını çalıştırın.</p>}
+        {ontologyError && <p className="mt-2 text-sm text-red-700">{ontologyError}</p>}
+        {ontologySuccess && <p className="mt-2 text-sm text-green-700">{ontologySuccess}</p>}
+      </section>
+
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
@@ -411,8 +491,7 @@ function PagesTab({ batch }: { batch: Batch }) {
               This batch was created from pasted text.
             </p>
             <p className="text-sm text-green-700 mt-0.5">
-              No OCR was performed. The pasted text was stored as a single raw
-              block and is ready for review.
+              No OCR was performed. Sections separated by --- were stored as individual blocks for review.
             </p>
             {batch.pages?.[0]?.rawText && (
               <details className="mt-3">

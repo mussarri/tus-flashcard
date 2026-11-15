@@ -116,6 +116,7 @@ export default function EditorLayout({
       badge: workQueueCounts.topicsWithoutFlashcards,
     },
     { label: "Flashcards", href: "/flashcards", icon: CreditCard },
+    { label: "Konu Anlatımları", href: "/topic-explanations", icon: BookOpen },
     {
       label: "Flashcards Review",
       href: "/flashcards/review",

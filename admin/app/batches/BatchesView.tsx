@@ -13,11 +13,18 @@ type Batch = {
   status: string;
   sourceType?: string | null;
   createdAt: string;
+  lessonIds?: string[];
+  topicIds?: string[];
   pages?: Array<{ id: string }>;
 };
 
+type OntologyOption = { id: string; name: string; displayName?: string | null; lessonId?: string | null };
+
 interface BatchesViewProps {
   batches: Batch[];
+  lessons: OntologyOption[];
+  topics: OntologyOption[];
+  serverLessonFilter?: string;
 }
 
 const DEFAULT_PAGE_SIZE = 12;
@@ -38,18 +45,31 @@ const SOURCE_OPTIONS = [
   { value: 'MANUAL_TEXT', label: 'Manual text' },
 ];
 
-export default function BatchesView({ batches }: BatchesViewProps) {
+function localDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export default function BatchesView({ batches, lessons, topics, serverLessonFilter }: BatchesViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const searchQuery = searchParams.get('q') || '';
   const statusFilter = searchParams.get('status') || 'all';
   const sourceFilter = searchParams.get('source') || 'all';
+  const lessonFilter = searchParams.get('lesson') || 'all';
+  const topicFilter = searchParams.get('topic') || 'all';
+  const dateFrom = searchParams.get('from') || '';
+  const dateTo = searchParams.get('to') || '';
   const rawPage = Number(searchParams.get('page') || '1');
   const rawPageSize = Number(searchParams.get('pageSize') || DEFAULT_PAGE_SIZE);
   const pageSize = PAGE_SIZE_OPTIONS.includes(rawPageSize)
     ? rawPageSize
     : DEFAULT_PAGE_SIZE;
+  const visibleTopics = lessonFilter === 'all'
+    ? topics
+    : topics.filter((topic) => topic.lessonId === lessonFilter);
 
   const updateParams = (
     updates: Record<string, string | number | null>,
@@ -71,7 +91,7 @@ export default function BatchesView({ batches }: BatchesViewProps) {
 
     const queryString = params.toString();
     router.replace(queryString ? `/batches?${queryString}` : '/batches', {
-      scroll: false,
+      scroll: typeof updates.page === 'number',
     });
   };
 
@@ -89,10 +109,20 @@ export default function BatchesView({ batches }: BatchesViewProps) {
         statusFilter === 'all' || batch.status === statusFilter;
       const matchesSource =
         sourceFilter === 'all' || batch.sourceType === sourceFilter;
+      const matchesLesson =
+        lessonFilter === 'all' ||
+        serverLessonFilter === lessonFilter;
+      const matchesTopic =
+        topicFilter === 'all' || batch.topicIds?.includes(topicFilter);
+      const createdDay = localDate(batch.createdAt);
+      const matchesDate =
+        (!dateFrom || createdDay >= dateFrom) &&
+        (!dateTo || createdDay <= dateTo);
 
-      return matchesSearch && matchesStatus && matchesSource;
+      return matchesSearch && matchesStatus && matchesSource &&
+        matchesLesson && matchesTopic && matchesDate;
     });
-  }, [batches, searchQuery, sourceFilter, statusFilter]);
+  }, [batches, searchQuery, sourceFilter, statusFilter, lessonFilter, serverLessonFilter, topicFilter, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBatches.length / pageSize));
   const currentPage = Math.min(Math.max(rawPage || 1, 1), totalPages);
@@ -102,7 +132,8 @@ export default function BatchesView({ batches }: BatchesViewProps) {
     startIndex + pageSize,
   );
   const hasActiveFilters =
-    searchQuery !== '' || statusFilter !== 'all' || sourceFilter !== 'all';
+    searchQuery !== '' || statusFilter !== 'all' || sourceFilter !== 'all' ||
+    lessonFilter !== 'all' || topicFilter !== 'all' || dateFrom !== '' || dateTo !== '';
 
   const resultStart =
     filteredBatches.length === 0 ? 0 : Math.min(startIndex + 1, filteredBatches.length);
@@ -135,8 +166,8 @@ export default function BatchesView({ batches }: BatchesViewProps) {
             <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,1fr)_180px_180px_150px_auto]">
-            <div className="relative">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="relative md:col-span-2">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 type="search"
@@ -163,6 +194,56 @@ export default function BatchesView({ batches }: BatchesViewProps) {
                 </option>
               ))}
             </select>
+
+            <select
+              aria-label="Filter by lesson"
+              value={lessonFilter}
+              onChange={(event) =>
+                updateParams({ lesson: event.target.value, topic: null }, { resetPage: true })
+              }
+              className="h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="all">All lessons</option>
+              {lessons.map((lesson) => (
+                <option key={lesson.id} value={lesson.id}>{lesson.displayName || lesson.name}</option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Filter by topic"
+              value={topicFilter}
+              onChange={(event) =>
+                updateParams({ topic: event.target.value }, { resetPage: true })
+              }
+              className="h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="all">All topics</option>
+              {visibleTopics.map((topic) => (
+                <option key={topic.id} value={topic.id}>{topic.displayName || topic.name}</option>
+              ))}
+            </select>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="shrink-0">From</span>
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(event) => updateParams({ from: event.target.value }, { resetPage: true })}
+                className="h-10 min-w-0 flex-1 rounded-md border border-gray-300 px-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="shrink-0">To</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(event) => updateParams({ to: event.target.value }, { resetPage: true })}
+                className="h-10 min-w-0 flex-1 rounded-md border border-gray-300 px-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
 
             <select
               value={sourceFilter}
@@ -204,6 +285,10 @@ export default function BatchesView({ batches }: BatchesViewProps) {
                     q: null,
                     status: null,
                     source: null,
+                    lesson: null,
+                    topic: null,
+                    from: null,
+                    to: null,
                     page: null,
                   })
                 }
@@ -245,6 +330,10 @@ export default function BatchesView({ batches }: BatchesViewProps) {
                   q: null,
                   status: null,
                   source: null,
+                  lesson: null,
+                  topic: null,
+                  from: null,
+                  to: null,
                   page: null,
                 })
               }

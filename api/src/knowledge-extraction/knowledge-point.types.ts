@@ -1,7 +1,5 @@
 import { BlockType } from '@prisma/client';
 
-export type TableExtractionMode = 'STANDARD' | 'PATTERN_ONLY';
-
 export type TableType =
   | 'DIRECT_FACT'
   | 'DIAGNOSTIC_CRITERIA'
@@ -18,13 +16,6 @@ export interface GeneratedKnowledgePointCandidate {
   examRelevance: number;
   classificationConfidence: number;
   kind?: CandidateKind;
-}
-
-export interface TableAnalysisContext {
-  rowCount: number;
-  colCount: number;
-  tableType: TableType;
-  extractionMode: TableExtractionMode;
 }
 
 export interface ApprovedContentGenerationInput {

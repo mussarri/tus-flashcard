@@ -42,6 +42,12 @@ export class CreateManualBatchDto {
   rawText: string;
 
   @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  contentSeparator?: string;
+
+  @IsOptional()
   @IsEnum(['LINES', 'BULLETS', 'PARAGRAPHS', 'AUTO'])
   splitStrategy?: SplitStrategy;
 

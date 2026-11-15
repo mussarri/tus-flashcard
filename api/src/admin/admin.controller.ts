@@ -19,7 +19,7 @@ import {
   Delete,
   Patch,
   BadRequestException,
-  } from '@nestjs/common';
+} from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -393,6 +393,7 @@ export class AdminController {
         subtopicId: dto.subtopicId,
         contentTypeHint: dto.contentTypeHint,
         rawText: dto.rawText,
+        contentSeparator: dto.contentSeparator,
         splitStrategy: dto.splitStrategy,
         dedupPolicy: dto.dedupPolicy,
         visionProvider: dto.visionProvider,

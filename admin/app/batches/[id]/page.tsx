@@ -15,6 +15,10 @@ export default async function BatchDetailPage({
   let knowledgePointsResponse;
   let flashcardsResponse;
   let questionsResponse;
+  let ontologyResponse: {
+    lessons: Array<{ id: string; name: string; displayName?: string | null }>;
+    topics: Array<{ id: string; name: string; displayName?: string | null; lessonId?: string | null }>;
+  } = { lessons: [], topics: [] };
 
   try {
     // Fetch batch data
@@ -32,6 +36,7 @@ export default async function BatchDetailPage({
       knowledgePointsResponse,
       flashcardsResponse,
       questionsResponse,
+      ontologyResponse,
     ] = await Promise.all([
       serverFetch<{ success: boolean; approvedBlocks: any[] }>(
         `api/approval/batch/${id}/approved`,
@@ -67,6 +72,7 @@ export default async function BatchDetailPage({
           questions: response.questions || [],
         }))
         .catch(() => ({ success: false, questions: [] })),
+      serverFetch<typeof ontologyResponse>('admin/topics').catch(() => ({ lessons: [], topics: [] })),
     ]);
   } catch (error) {
     console.error("Failed to fetch batch:", error);
@@ -80,6 +86,8 @@ export default async function BatchDetailPage({
       knowledgePoints={knowledgePointsResponse.knowledgePoints}
       flashcards={flashcardsResponse.flashcards}
       questions={questionsResponse.questions}
+      lessons={ontologyResponse.lessons}
+      topics={ontologyResponse.topics}
     />
   );
 }

@@ -72,6 +72,7 @@ export default function TopographicMapCard({
       onFlip={onFlip}
       cardType={flashcard.cardType}
       difficulty={flashcard.difficulty}
+      flashcardId={flashcard.id}
       knowledgePoint={flashcard.knowledgePoint}
     />
   );

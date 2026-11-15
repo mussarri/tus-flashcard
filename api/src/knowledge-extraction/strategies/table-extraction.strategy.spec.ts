@@ -1,63 +1,52 @@
-import { TableExtractionStrategy } from './table-extraction.strategy';
+import {
+  chunkTable,
+  inferTableFromText,
+  parseTables,
+} from './table-extraction.strategy';
 
-describe('TableExtractionStrategy', () => {
-  const strategy = new TableExtractionStrategy();
-
-  it('extracts direct fact table with per-row relation', () => {
-    const tableData = [
-      {
-        headers: ['Sinir', 'İnnervasyon'],
-        rows: [
-          ['n. musculocutaneus', 'm. biceps brachii'],
-          ['n. radialis', 'm. triceps brachii'],
-        ],
-      },
-    ];
-
-    const result = strategy.extract('Sinir-kas tablosu', tableData);
-
-    expect(result.context.tableType).toBe('DIRECT_FACT');
-    expect(result.context.extractionMode).toBe('STANDARD');
-    expect(result.candidates.length).toBe(2);
-    expect(result.candidates[0].fact).toContain('n. musculocutaneus');
+describe('table preparation for AI extraction', () => {
+  it('keeps all columns and empty cells when reading a Markdown table', () => {
+    const table = inferTableFromText(
+      '| Hastalık | A | B |\n| --- | --- | --- |\n| X |  | Pozitif |',
+    );
+    expect(table.headers).toEqual(['Hastalık', 'A', 'B']);
+    expect(table.rows).toEqual([['X', '', 'Pozitif']]);
   });
 
-  it('extracts comparison table (SIADH vs DI) with pattern + selective rows', () => {
-    const tableData = [
-      {
-        headers: ['Özellik', 'SIADH', 'Diabetes Insipidus'],
-        rows: [
-          ['Serum Osmolalitesi', 'Düşük', 'Yüksek'],
-          ['İdrar Osmolalitesi', 'Yüksek', 'Düşük'],
-          ['ADH', 'Yüksek', 'Düşük'],
-        ],
-      },
-    ];
-
-    const result = strategy.extract('SIADH vs DI', tableData);
-
-    expect(result.context.tableType).toBe('COMPARISON');
-    expect(result.candidates.length).toBeLessThanOrEqual(18);
-    expect(result.candidates[0].kind).toBe('PATTERN');
+  it('preserves escaped pipes and code spans inside Markdown cells', () => {
+    const table = inferTableFromText(
+      '| Başlık | Değer |\n| --- | --- |\n| A \\| B | `x|y` |',
+    );
+    expect(table.rows).toEqual([['A | B', '`x|y`']]);
   });
 
-  it('uses PATTERN_ONLY for large tables and obeys caps', () => {
-    const rows = Array.from({ length: 25 }, (_, i) => [
-      `satir-${i + 1}`,
-      `deger-${i + 1}`,
+  it('rejects malformed Markdown rows instead of silently shifting columns', () => {
+    expect(() =>
+      inferTableFromText('| A | B |\n| --- | --- |\n| X | Y | Z |'),
+    ).toThrow('rows do not match headers');
+  });
+
+  it('rejects structured rows whose keys do not match their headers', () => {
+    expect(() =>
+      parseTables({ headers: ['A', 'B'], rows: [{ X: 'x', Y: 'y' }] }, ''),
+    ).toThrow('Invalid structured table data');
+  });
+
+  it('keeps every structured table and row across chunks', () => {
+    const rows = Array.from({ length: 25 }, (_, index) => [
+      `item-${index}`,
+      `value-${index}`,
     ]);
-
-    const tableData = [
-      {
-        headers: ['Kolon1', 'Kolon2'],
-        rows,
-      },
-    ];
-
-    const result = strategy.extract('Büyük tablo', tableData);
-
-    expect(result.context.extractionMode).toBe('PATTERN_ONLY');
-    expect(result.candidates.length).toBeLessThanOrEqual(16);
-    expect(result.candidates.every((c) => c.kind === 'PATTERN')).toBe(true);
+    const tables = parseTables(
+      [
+        { headers: ['Öğe', 'Değer'], rows },
+        { headers: ['Ek'], rows: [['son']] },
+      ],
+      'ignored',
+    );
+    expect(tables).toHaveLength(2);
+    const chunks = chunkTable(tables[0]);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.flatMap((chunk) => chunk.rows)).toEqual(rows);
   });
 });

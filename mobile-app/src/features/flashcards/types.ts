@@ -102,6 +102,16 @@ export interface KnowledgePoint {
   };
 }
 
+export interface TopicExplanation {
+  id: string;
+  title: string;
+  content: string;
+  status: 'DRAFT' | 'APPROVED' | 'REJECTED';
+  lessonId?: string | null;
+  topicId?: string | null;
+  knowledgePointId?: string | null;
+}
+
 // ============================================
 // FLASHCARD INTERFACE
 // ============================================

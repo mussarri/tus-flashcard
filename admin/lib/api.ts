@@ -73,7 +73,10 @@ export async function apiRequest<T>(
       .json()
       .catch(() => ({ error: "Unknown error" }));
     console.log("error", error);
-    throw new Error(error.error || `HTTP ${response.status}`);
+    const message = Array.isArray(error.message)
+      ? error.message.join(", ")
+      : error.message;
+    throw new Error(message || error.error || `HTTP ${response.status}`);
   }
 
   return response.json();
@@ -330,6 +333,7 @@ export const api = {
     subtopicId?: string;
     contentTypeHint?: string;
     rawText: string;
+    contentSeparator?: string;
     dedupPolicy?: "REJECT_IF_DUPLICATE" | "ALLOW_DUPLICATE";
     visionProvider?: string;
   }) =>

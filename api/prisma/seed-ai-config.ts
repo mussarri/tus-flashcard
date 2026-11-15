@@ -39,6 +39,14 @@ async function seedAIConfig() {
       isActive: true,
     },
     {
+      taskType: AITaskType.TOPIC_EXPLANATION,
+      provider: AIProviderType.OPENROUTER,
+      model: 'google/gemini-2.5-flash',
+      temperature: 0.2,
+      maxTokens: 1800,
+      isActive: true,
+    },
+    {
       taskType: AITaskType.QUESTION_GENERATION,
       provider: AIProviderType.OPENROUTER,
       model: 'deepseek/deepseek-v4.1-flash-1017',

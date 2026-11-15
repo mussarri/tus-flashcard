@@ -10,11 +10,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QueueName } from '../queue/queues';
-import { UploadPage } from '@prisma/client';
+import { Prisma, UploadPage } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
+import { buildNormalizedKey } from '../knowledge-extraction/knowledge-point-normalizer.util';
 
 @Injectable()
 export class UploadService {
@@ -347,10 +349,29 @@ export class UploadService {
     }
   }
 
-  async getAllBatches() {
+  async getAllBatches(lessonId?: string) {
     try {
       this.logger.debug('Getting all batches');
+      let where: Prisma.UploadBatchWhereInput | undefined;
+      if (lessonId) {
+        const lessonTopics = await this.prisma.topic.findMany({
+          where: { lessonId },
+          select: { id: true },
+        });
+        where = {
+          OR: [
+            { lessonId },
+            {
+              pages: {
+                some: { blocks: { some: { lessonId, deletedAt: null } } },
+              },
+            },
+            { topicId: { in: lessonTopics.map((topic) => topic.id) } },
+          ],
+        };
+      }
       const batches = await this.prisma.uploadBatch.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         include: {
           pages: {
@@ -358,6 +379,10 @@ export class UploadService {
               id: true,
               pageNumber: true,
               ocrStatus: true,
+              blocks: {
+                where: { deletedAt: null },
+                select: { lessonId: true, topicId: true },
+              },
               _count: {
                 select: { blocks: true },
               },
@@ -367,7 +392,29 @@ export class UploadService {
       });
 
       this.logger.debug(`Retrieved ${batches.length} batches`);
-      return batches;
+      return batches.map((batch) => {
+        const lessonIds = new Set<string>();
+        const topicIds = new Set<string>();
+        if (batch.lessonId) lessonIds.add(batch.lessonId);
+        if (batch.topicId) topicIds.add(batch.topicId);
+        for (const page of batch.pages) {
+          for (const block of page.blocks) {
+            if (block.lessonId) lessonIds.add(block.lessonId);
+            if (block.topicId) topicIds.add(block.topicId);
+          }
+        }
+        return {
+          ...batch,
+          lessonIds: [...lessonIds],
+          topicIds: [...topicIds],
+          pages: batch.pages.map((page) => ({
+            id: page.id,
+            pageNumber: page.pageNumber,
+            ocrStatus: page.ocrStatus,
+            _count: page._count,
+          })),
+        };
+      });
     } catch (error) {
       this.logger.error(
         `Failed to get all batches: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -430,10 +477,22 @@ export class UploadService {
 
   async updateBatch(batchId: string, updateBatchDto: UpdateBatchDto) {
     try {
-      const { topic, description } = updateBatchDto;
+      const { topic, description, lessonId, topicId } = updateBatchDto;
 
-      if (topic === undefined && description === undefined) {
+      if (
+        topic === undefined &&
+        description === undefined &&
+        lessonId === undefined &&
+        topicId === undefined
+      ) {
         throw new BadRequestException('No fields provided for update');
+      }
+
+      const changingOntology = lessonId !== undefined || topicId !== undefined;
+      if (changingOntology && (!lessonId || !topicId)) {
+        throw new BadRequestException(
+          'Lesson and topic must be selected together',
+        );
       }
 
       const batch = await this.prisma.uploadBatch.findUnique({
@@ -444,13 +503,200 @@ export class UploadService {
         throw new NotFoundException(`Batch ${batchId} not found`);
       }
 
-      return await this.prisma.uploadBatch.update({
-        where: { id: batchId },
-        data: {
-          ...(topic !== undefined ? { topic } : {}),
-          ...(description !== undefined ? { description } : {}),
+      if (!changingOntology) {
+        return await this.prisma.uploadBatch.update({
+          where: { id: batchId },
+          data: {
+            ...(topic !== undefined ? { topic } : {}),
+            ...(description !== undefined ? { description } : {}),
+          },
+        });
+      }
+
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const selectedTopic = await tx.topic.findFirst({
+            where: { id: topicId, lessonId },
+            select: {
+              id: true,
+              name: true,
+              lesson: { select: { name: true } },
+            },
+          });
+          if (!selectedTopic?.lesson) {
+            throw new BadRequestException(
+              'Topic does not belong to the selected lesson',
+            );
+          }
+          const lessonName = selectedTopic.lesson.name;
+
+          const processingCount = await tx.approvedContent.count({
+            where: {
+              batchId,
+              extractionStatus: { in: ['QUEUED', 'PROCESSING'] },
+            },
+          });
+          if (processingCount) {
+            throw new BadRequestException(
+              'KP çıkarımı sürerken ders ve konu değiştirilemez. İşlem bitince tekrar deneyin.',
+            );
+          }
+
+          const points = await tx.knowledgePoint.findMany({
+            where: { approvedContent: { is: { batchId } } },
+            select: { id: true, fact: true },
+          });
+          const pointIds = points.map((point) => point.id);
+          const newKeys = points.map((point) =>
+            buildNormalizedKey(lessonName, selectedTopic.name, point.fact),
+          );
+          if (new Set(newKeys).size !== newKeys.length) {
+            throw new BadRequestException(
+              'Yeni ders ve konuda bu batch içindeki bazı KP anahtarları çakışıyor.',
+            );
+          }
+          if (newKeys.length) {
+            const collision = await tx.knowledgePoint.findFirst({
+              where: {
+                normalizedKey: { in: newKeys },
+                id: { notIn: pointIds },
+              },
+              select: { id: true },
+            });
+            if (collision) {
+              throw new BadRequestException(
+                'Hedef ders ve konuda aynı KP zaten mevcut. Önce çakışan KP’yi gözden geçirin.',
+              );
+            }
+          }
+
+          const cards = pointIds.length
+            ? await tx.flashcard.findMany({
+                where: { knowledgePointId: { in: pointIds } },
+                select: {
+                  id: true,
+                  cardType: true,
+                  front: true,
+                  uniqueKey: true,
+                },
+              })
+            : [];
+          const newCardKeys = cards.map((card) =>
+            card.uniqueKey
+              ? crypto
+                  .createHash('sha256')
+                  .update(
+                    `${card.cardType}-${lessonId}-${topicId}-${card.front.toLowerCase().trim().replace(/\s+/g, ' ')}`,
+                  )
+                  .digest('hex')
+                  .substring(0, 32)
+              : null,
+          );
+          const keyedCards = newCardKeys.filter((key): key is string => !!key);
+          if (new Set(keyedCards).size !== keyedCards.length) {
+            throw new BadRequestException(
+              'Hedef ders ve konuda flashcard anahtarları çakışıyor.',
+            );
+          }
+          if (keyedCards.length) {
+            const collision = await tx.flashcard.findFirst({
+              where: {
+                uniqueKey: { in: keyedCards },
+                id: { notIn: cards.map((card) => card.id) },
+              },
+              select: { id: true },
+            });
+            if (collision) {
+              throw new BadRequestException(
+                'Hedef ders ve konuda aynı flashcard zaten mevcut.',
+              );
+            }
+          }
+
+          for (const point of points) {
+            await tx.knowledgePoint.update({
+              where: { id: point.id },
+              data: {
+                normalizedKey: `kp_move_${crypto.randomUUID().replace(/-/g, '')}`,
+              },
+            });
+          }
+          for (const card of cards) {
+            if (card.uniqueKey) {
+              await tx.flashcard.update({
+                where: { id: card.id },
+                data: { uniqueKey: null },
+              });
+            }
+          }
+
+          await tx.parsedBlock.updateMany({
+            where: { page: { batchId }, deletedAt: null },
+            data: { lessonId, topicId, subtopicId: null },
+          });
+          for (const [index, point] of points.entries()) {
+            await tx.knowledgePoint.update({
+              where: { id: point.id },
+              data: {
+                lessonId,
+                topicId,
+                subtopicId: null,
+                normalizedKey: newKeys[index],
+                approvalStatus: 'PENDING',
+                rejectionReason: null,
+              },
+            });
+          }
+          for (const [index, card] of cards.entries()) {
+            await tx.flashcard.update({
+              where: { id: card.id },
+              data: {
+                lessonId,
+                topicId,
+                subtopicId: null,
+                uniqueKey: newCardKeys[index],
+                approvalStatus: 'PENDING',
+                approvedAt: null,
+                approvedBy: null,
+              },
+            });
+          }
+          if (pointIds.length) {
+            await tx.topicExplanation.updateMany({
+              where: { knowledgePointId: { in: pointIds } },
+              data: {
+                lessonId,
+                topicId,
+                status: 'DRAFT',
+                approvedAt: null,
+              },
+            });
+            await tx.questionCard.updateMany({
+              where: {
+                questionKnowledgePoints: {
+                  some: { knowledgePointId: { in: pointIds } },
+                },
+              },
+              data: {
+                approvalStatus: 'PENDING',
+                approvedAt: null,
+                approvedBy: null,
+              },
+            });
+          }
+          return tx.uploadBatch.update({
+            where: { id: batchId },
+            data: {
+              lessonId,
+              topicId,
+              subtopicId: null,
+              ...(topic !== undefined ? { topic } : {}),
+              ...(description !== undefined ? { description } : {}),
+            },
+          });
         },
-      });
+        { timeout: 120000 },
+      );
     } catch (error) {
       this.logger.error(
         `Failed to update batch ${batchId}: ${error instanceof Error ? error.message : 'Unknown error'}`,

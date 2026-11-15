@@ -12,6 +12,7 @@ export interface PersistKnowledgePointsParams {
     GeneratedKnowledgePointCandidate & { normalizedKey: string }
   >;
   chunkSize?: number;
+  replaceExisting?: boolean;
 }
 
 export interface PersistKnowledgePointsResult {
@@ -35,68 +36,74 @@ export class KnowledgePointRepository {
       subtopicId,
       candidates,
       chunkSize = 50,
+      replaceExisting = false,
     } = params;
 
     let created = 0;
     let updated = 0;
     let sourceCountIncremented = 0;
 
-    for (let i = 0; i < candidates.length; i += chunkSize) {
-      const chunk = candidates.slice(i, i + chunkSize);
+    await this.prisma.$transaction(
+      async (tx) => {
+        if (replaceExisting) {
+          await tx.knowledgePoint.deleteMany({ where: { approvedContentId } });
+        }
+        for (let i = 0; i < candidates.length; i += chunkSize) {
+          const chunk = candidates.slice(i, i + chunkSize);
+          for (const candidate of chunk) {
+            const existing = await tx.knowledgePoint.findUnique({
+              where: { normalizedKey: candidate.normalizedKey },
+            });
 
-      await this.prisma.$transaction(async (tx) => {
-        for (const candidate of chunk) {
-          const existing = await tx.knowledgePoint.findUnique({
-            where: { normalizedKey: candidate.normalizedKey },
-          });
+            if (!existing) {
+              await tx.knowledgePoint.create({
+                data: {
+                  source: 'APPROVED_CONTENT',
+                  approvedContentId,
+                  blockId,
+                  lessonId,
+                  topicId: topicId ?? null,
+                  subtopicId: subtopicId ?? null,
+                  normalizedKey: candidate.normalizedKey,
+                  fact: candidate.fact,
+                  priority: candidate.priority,
+                  examRelevance: candidate.examRelevance,
+                  classificationConfidence: candidate.classificationConfidence,
+                  sourceCount: 1,
+                },
+              });
+              created += 1;
+              continue;
+            }
 
-          if (!existing) {
-            await tx.knowledgePoint.create({
+            await tx.knowledgePoint.update({
+              where: { id: existing.id },
               data: {
-                source: 'APPROVED_CONTENT',
                 approvedContentId,
                 blockId,
                 lessonId,
-                topicId: topicId ?? null,
-                subtopicId: subtopicId ?? null,
-                normalizedKey: candidate.normalizedKey,
-                fact: candidate.fact,
-                priority: candidate.priority,
-                examRelevance: candidate.examRelevance,
-                classificationConfidence: candidate.classificationConfidence,
-                sourceCount: 1,
+                topicId: topicId ?? existing.topicId ?? null,
+                subtopicId: subtopicId ?? existing.subtopicId ?? null,
+                priority: Math.max(existing.priority, candidate.priority),
+                examRelevance: Math.max(
+                  existing.examRelevance ?? 0,
+                  candidate.examRelevance,
+                ),
+                classificationConfidence: Math.max(
+                  existing.classificationConfidence ?? 0,
+                  candidate.classificationConfidence,
+                ),
+                sourceCount: { increment: 1 },
               },
             });
-            created += 1;
-            continue;
+
+            updated += 1;
+            sourceCountIncremented += 1;
           }
-
-          await tx.knowledgePoint.update({
-            where: { id: existing.id },
-            data: {
-              approvedContentId,
-              blockId,
-              lessonId,
-              topicId: topicId ?? existing.topicId ?? null,
-              subtopicId: subtopicId ?? existing.subtopicId ?? null,
-              priority: Math.max(existing.priority, candidate.priority),
-              examRelevance: Math.max(
-                existing.examRelevance ?? 0,
-                candidate.examRelevance,
-              ),
-              classificationConfidence: Math.max(
-                existing.classificationConfidence ?? 0,
-                candidate.classificationConfidence,
-              ),
-              sourceCount: { increment: 1 },
-            },
-          });
-
-          updated += 1;
-          sourceCountIncremented += 1;
         }
-      });
-    }
+      },
+      { timeout: 120000 },
+    );
 
     return {
       created,

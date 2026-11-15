@@ -99,6 +99,7 @@ export default function RelationsBordersCard({
       onFlip={onFlip}
       cardType={flashcard.cardType}
       difficulty={flashcard.difficulty}
+      flashcardId={flashcard.id}
       knowledgePoint={flashcard.knowledgePoint}
     />
   );

@@ -209,7 +209,7 @@ export default function ClassificationView({
               </p>
               {isManualTextBatch && (
                 <p className="text-sm text-blue-700 mt-1">
-                  The original pasted text is available in the Pages tab. AI may split it into multiple blocks.
+                  The original pasted text is available in the Pages tab. Each section separated by --- is saved as its own block.
                 </p>
               )}
             </div>

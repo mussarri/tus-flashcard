@@ -1,11 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QueueName } from '../queue/queues';
-import { ContentType } from '@prisma/client';
+import { BlockType, ContentType, Prisma } from '@prisma/client';
 import { StateMachineValidator } from '../common/validators/state-machine.validator';
+import { inferTableFromText } from '../knowledge-extraction/strategies/table-extraction.strategy';
 
 @Injectable()
 export class ApprovalService {
@@ -36,7 +41,7 @@ export class ApprovalService {
         approvalStatus: 'APPROVED' as const,
         approvedAt: new Date(),
         approvedBy,
-        editedText: block.rawText,
+        editedText: block.editedText || block.rawText,
       };
 
       if (editedText && editedText !== block.rawText) {
@@ -47,7 +52,7 @@ export class ApprovalService {
         this.logger.debug(`Block ${blockId} was edited`);
       } else {
         Object.assign(updateData, {
-          editedText: block.rawText || editedText,
+          editedText: block.editedText || block.rawText || editedText,
         });
       }
 
@@ -467,6 +472,21 @@ export class ApprovalService {
         throw new NotFoundException(`Block ${blockId} not found`);
       }
 
+      const page = await this.prisma.uploadPage.findUnique({
+        where: { id: block.pageId },
+        include: { batch: { select: { sourceType: true } } },
+      });
+      if (
+        page?.batch.sourceType === 'MANUAL_TEXT' &&
+        block.approvalStatus === 'PENDING'
+      ) {
+        return this.updateManualBlockSuggestion(
+          blockId,
+          block.blockType ?? 'TEXT',
+          editedText,
+        );
+      }
+
       const updated = await this.prisma.parsedBlock.update({
         where: { id: blockId },
         data: {
@@ -484,6 +504,54 @@ export class ApprovalService {
       );
       throw error;
     }
+  }
+
+  async updateManualBlockSuggestion(
+    blockId: string,
+    blockType: BlockType,
+    content: string,
+  ) {
+    const block = await this.prisma.parsedBlock.findUnique({
+      where: { id: blockId },
+      include: { page: { include: { batch: true } } },
+    });
+    if (
+      !block ||
+      block.page.batch.sourceType !== 'MANUAL_TEXT' ||
+      block.approvalStatus !== 'PENDING'
+    ) {
+      throw new BadRequestException(
+        'Only pending manual blocks can be edited here',
+      );
+    }
+    if (!content.trim())
+      throw new BadRequestException('Content must not be empty');
+    const table = blockType === 'TABLE' ? inferTableFromText(content) : null;
+    if (table && (!table.headers.length || !table.rows.length)) {
+      throw new BadRequestException(
+        'TABLE content needs a Markdown table with a header and rows',
+      );
+    }
+    const steps =
+      blockType === 'ALGORITHM'
+        ? content
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((action) => ({ action }))
+        : null;
+    return this.prisma.parsedBlock.update({
+      where: { id: blockId },
+      data: {
+        blockType,
+        editedText: content.trim(),
+        isEdited: true,
+        tableData: table
+          ? { headers: table.headers, rows: table.rows }
+          : Prisma.JsonNull,
+        algorithmData: steps ? { steps } : Prisma.JsonNull,
+      },
+    });
   }
 
   async getApprovedBlocks(batchId: string) {

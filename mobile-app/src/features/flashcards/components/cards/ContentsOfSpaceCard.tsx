@@ -79,6 +79,7 @@ export default function ContentsOfSpaceCard({
       onFlip={onFlip}
       cardType={flashcard.cardType}
       difficulty={flashcard.difficulty}
+      flashcardId={flashcard.id}
       knowledgePoint={flashcard.knowledgePoint}
     />
   );

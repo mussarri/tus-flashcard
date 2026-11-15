@@ -9,9 +9,9 @@ interface BatchCardProps {
   batch: {
     id: string;
     topic: string;
-    description?: string;
+    description?: string | null;
     status: string;
-    sourceType?: string;
+    sourceType?: string | null;
     createdAt: string;
     pages?: Array<{ id: string }>;
   };

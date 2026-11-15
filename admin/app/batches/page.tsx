@@ -10,13 +10,18 @@ type Batch = {
   status: string;
   sourceType?: string | null;
   createdAt: string;
+  lessonIds?: string[];
+  topicIds?: string[];
   pages?: Array<{ id: string }>;
 };
 
-async function loadBatches() {
+type OntologyOption = { id: string; name: string; displayName?: string | null; lessonId?: string | null };
+
+async function loadBatches(lessonId?: string) {
   try {
+    const query = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : '';
     const response = await serverFetch<{ success: boolean; batches: Batch[] }>(
-      'api/upload/batches'
+      `api/upload/batches${query}`
     );
 
     return { batches: response.batches || [], error: false };
@@ -26,8 +31,30 @@ async function loadBatches() {
   }
 }
 
-export default async function BatchesPage() {
-  const { batches, error } = await loadBatches();
+async function loadOntology() {
+  try {
+    const response = await serverFetch<{
+      lessons: OntologyOption[];
+      topics: OntologyOption[];
+    }>('admin/topics');
+    return { lessons: response.lessons || [], topics: response.topics || [] };
+  } catch (error) {
+    console.error('Failed to fetch lesson and topic filters:', error);
+    return { lessons: [], topics: [] };
+  }
+}
+
+export default async function BatchesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lesson?: string }>;
+}) {
+  const { lesson } = await searchParams;
+  const lessonId = lesson && lesson !== 'all' ? lesson : undefined;
+  const [{ batches, error }, { lessons, topics }] = await Promise.all([
+    loadBatches(lessonId),
+    loadOntology(),
+  ]);
 
   if (error) {
     return (
@@ -39,5 +66,5 @@ export default async function BatchesPage() {
     );
   }
 
-  return <BatchesView batches={batches} />;
+  return <BatchesView batches={batches} lessons={lessons} topics={topics} serverLessonFilter={lessonId} />;
 }

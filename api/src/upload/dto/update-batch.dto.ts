@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateBatchDto {
   @IsString()
@@ -8,4 +8,12 @@ export class UpdateBatchDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsUUID()
+  @IsOptional()
+  lessonId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  topicId?: string;
 }

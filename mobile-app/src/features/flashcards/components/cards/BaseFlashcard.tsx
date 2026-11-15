@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   StyleSheet,
   ScrollView,
 } from "react-native";
-import { CardType, Difficulty, KnowledgePoint } from "../../types";
+import { CardType, Difficulty, KnowledgePoint, TopicExplanation } from "../../types";
 import { cardStyles, getTierColor, getTierLabel } from "./CardStyles";
 import KnowledgePointSheet from "../KnowledgePointSheet";
+import TopicExplanationSheet from "../TopicExplanationSheet";
+import { flashcardApiService } from "../../services";
 
 interface BaseFlashcardProps {
   front: React.ReactNode;
@@ -20,6 +22,7 @@ interface BaseFlashcardProps {
   cardType: CardType;
   difficulty: Difficulty;
   knowledgePoint?: KnowledgePoint | null;
+  flashcardId: string;
 }
 
 /**
@@ -33,14 +36,40 @@ export default function BaseFlashcard({
   cardType,
   difficulty,
   knowledgePoint,
+  flashcardId,
 }: BaseFlashcardProps) {
   const [showKnowledgePoint, setShowKnowledgePoint] = useState(false);
+  const [showTopicExplanation, setShowTopicExplanation] = useState(false);
+  const [topicExplanation, setTopicExplanation] = useState<TopicExplanation | null>(null);
+  const [topicLoading, setTopicLoading] = useState(false);
+  const [topicError, setTopicError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTopicExplanation(null);
+    setShowTopicExplanation(false);
+    setTopicError(null);
+  }, [flashcardId]);
   const tierColor = getTierColor(cardType);
   const tierLabel = getTierLabel(cardType);
 
   const handleExplanationPress = (e: any) => {
     e.stopPropagation(); // Prevent card flip when pressing explanation button
     setShowKnowledgePoint(true);
+  };
+
+  const handleTopicExplanationPress = async (e: any) => {
+    e.stopPropagation();
+    setShowTopicExplanation(true);
+    if (topicExplanation || topicLoading) return;
+    setTopicLoading(true);
+    setTopicError(null);
+    try {
+      setTopicExplanation(await flashcardApiService.getOrCreateTopicExplanation(flashcardId));
+    } catch {
+      setTopicError('Konu anlatımı yüklenemedi. Tekrar denemek için pencereyi kapatıp düğmeye basın.');
+    } finally {
+      setTopicLoading(false);
+    }
   };
 
   return (
@@ -86,6 +115,13 @@ export default function BaseFlashcard({
                   <Text style={styles.explanationButtonText}>💡 Açıklama</Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={styles.topicButton}
+                onPress={handleTopicExplanationPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.explanationButtonText}>📖 Konu anlatımı</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             front
@@ -110,11 +146,26 @@ export default function BaseFlashcard({
           knowledgePoint={knowledgePoint}
         />
       )}
+      <TopicExplanationSheet
+        visible={showTopicExplanation}
+        onDismiss={() => setShowTopicExplanation(false)}
+        explanation={topicExplanation}
+        loading={topicLoading}
+        error={topicError}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  topicButton: {
+    backgroundColor: '#0f766e',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+  },
   explanationButton: {
     backgroundColor: "#3b82f6",
     paddingVertical: 12,

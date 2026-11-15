@@ -89,6 +89,7 @@ export default function FunctionalAnatomyCard({
       onFlip={onFlip}
       cardType={flashcard.cardType}
       difficulty={flashcard.difficulty}
+      flashcardId={flashcard.id}
     />
   );
 }

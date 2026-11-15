@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { ConceptModule } from './concept/concept.module';
 import { StudentModule } from './student/student.module';
+import { TopicExplanationModule } from './topic-explanation/topic-explanation.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { StudentModule } from './student/student.module';
     AdminModule,
     ConceptModule,
     StudentModule,
+    TopicExplanationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

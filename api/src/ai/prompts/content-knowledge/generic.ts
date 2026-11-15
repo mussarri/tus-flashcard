@@ -43,11 +43,30 @@ const lessonRules: Record<string, string> = {
 const strategyRules: Record<string, string> = {
   ALGORITHM_DECISION_RULES:
     'Karar koşulu → sonuç ilişkilerini ayrı, bağımsız bilgi noktaları yap.',
-  SPOT_HIGH_YIELD_ATOMIC:
-    'Yalnızca açıkça sınanabilir ve ayırt edici bilgileri seç.',
-  MARKDOWN_SUMMARY_ATOMIC_MAX_COVERAGE:
-    'İçerikteki bağımsız ana bilgileri kapsa; tekrar üretme.',
   COMPACT_JSON_ATOMIC: 'Kısa fact ifadeleri ve geçerli JSON üret.',
+  GROUP_TABLE_RELATIONS:
+    'Bunlar tablodan çıkarılmış aday bilgilerdir. Aynı ilişki ve hedefi ' +
+    'paylaşan özneleri tek KP içinde birleştir. Farklı özellikleri, ' +
+    'istisnaları ve karar koşullarını ayrı tut. Her satırı ayrı KP yapma.',
+  TABLE_DIRECT_FACT:
+    'Tablodaki her satırı ve tüm sütunları değerlendir. Her özneyi başlıkların belirttiği doğru özelliklerle ilişkilendir. Anlamlı ilişkileri atlama; aynı ilişkiyi paylaşan özneleri gerektiğinde birleştir, farklı özellikleri ayır.',
+  TABLE_DIAGNOSTIC_CRITERIA:
+    'Tanı ölçütlerini, eşikleri, birimleri, koşulları ve istisnaları eksiksiz koru. Birlikte gerekli ölçütleri birbirinden koparma.',
+  TABLE_COMPARISON:
+    'Her satırdaki karşılaştırmayı ilgili sütun başlıklarıyla eşleştir. Ayırıcı farkları üret; hangi bulgunun hangi gruba ait olduğunu belirsiz bırakma.',
+  TABLE_ENUMERATION:
+    'Listenin anlamlı üyelerini ve varsa gruplarını koru. Sayı, kategori ve istisnaları kaybetme; gereksiz genel özet üretme.',
+  TABLE_MECHANISM_FLOW:
+    'Aşama sırasını ve neden-sonuç ilişkilerini koru. Koşul ile sonucu aynı bilgi noktasında açıkça bağla.',
+  TABLE_MIXED_OR_UNKNOWN:
+    'Her satırı ve sütunu başlıklarıyla birlikte değerlendir. Açık ve anlamlı ilişkileri atlama; desteklenmeyen genelleme yapma ve salt tablo başlıklarını bilgi noktası sayma.',
+  SPOT_HIGH_YIELD_ATOMIC:
+    'Yüksek değerli ilişkileri seç. Aynı özelliği paylaşan örnekleri ' +
+    'tek KP içinde topla; her spot cümleyi ayrı KP yapma.',
+
+  MARKDOWN_SUMMARY_ATOMIC_MAX_COVERAGE:
+    'Bağımsız ilişkileri kapsa. Aynı ilişkiyi paylaşan örnekleri ' +
+    'birleştir; aynı bilgiyi tekrar üretme.',
 };
 
 function getLessonRule(lesson?: string): string {
@@ -67,7 +86,7 @@ function getLessonRule(lesson?: string): string {
 export function buildKnowledgeExtractionPrompt(
   payload: ContentKnowledgePromptPayload,
 ): ContentKnowledgePromptResult {
-  const maxPoints = Math.min(Math.max(payload.maxKnowledgePoints ?? 15, 1), 30);
+  const maxPoints = Math.min(Math.max(payload.maxKnowledgePoints ?? 15, 1), 50);
 
   const systemPrompt = `Sen TUS çalışması için bilgi noktaları çıkaran bir motorsun.
 

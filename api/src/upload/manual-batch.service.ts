@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   BadRequestException,
+  BadGatewayException,
   Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
@@ -10,6 +11,16 @@ import { AuditLogService } from '../common/services/audit-log.service';
 import { normalizeText, SplitStrategy } from './text-split.util';
 import { DedupPolicy } from './dto/create-manual-batch.dto';
 import { AIProviderType, ContentType } from '@prisma/client';
+import { AIRouterService } from '../ai/ai-router.service';
+import { AITaskType } from '../ai/types';
+import {
+  ManualClassifiedBlock,
+  parseManualBlockClassification,
+} from './manual-block-classification';
+import {
+  DEFAULT_MANUAL_CONTENT_SEPARATOR,
+  splitManualContents,
+} from './manual-content-separator';
 
 export interface CreateManualBatchInput {
   title: string;
@@ -18,6 +29,7 @@ export interface CreateManualBatchInput {
   subtopicId?: string;
   contentTypeHint?: ContentType;
   rawText: string;
+  contentSeparator?: string;
   splitStrategy?: SplitStrategy;
   dedupPolicy?: DedupPolicy;
   visionProvider?: AIProviderType;
@@ -38,6 +50,7 @@ export class ManualBatchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    private readonly aiRouter: AIRouterService,
   ) {}
 
   /**
@@ -54,6 +67,7 @@ export class ManualBatchService {
       subtopicId,
       contentTypeHint,
       rawText,
+      contentSeparator = DEFAULT_MANUAL_CONTENT_SEPARATOR,
       splitStrategy = 'AUTO',
       dedupPolicy = DedupPolicy.REJECT_IF_DUPLICATE,
       visionProvider,
@@ -98,11 +112,23 @@ export class ManualBatchService {
       }
     }
 
-    // 3. Keep uploaded text as-is in a single block for direct AI extraction.
-    const chunks = [normalizedText];
+    // User boundaries are authoritative; classify each content independently.
+    const contents = splitManualContents(normalizedText, contentSeparator);
+    const classifiedBlocks: ManualClassifiedBlock[] = [];
+    for (const content of contents) {
+      const suggestions = parseManualBlockClassification(
+        await this.aiRouter.runTask(AITaskType.CONTENT_CLASSIFY, { content }),
+      );
+      if (suggestions.length !== 1) {
+        throw new BadGatewayException(
+          'AI must return exactly one block per separated content',
+        );
+      }
+      classifiedBlocks.push(suggestions[0]);
+    }
 
     this.logger.log(
-      `Created 1 block (raw content preserved, strategy=${splitStrategy})`,
+      `Classified manual text into ${classifiedBlocks.length} reviewable blocks`,
     );
 
     // 4. Transactional create: batch + page + blocks
@@ -138,17 +164,20 @@ export class ManualBatchService {
       });
 
       // Create ParsedBlocks
-      const blockData = chunks.map((chunk, index) => ({
+      const blockData = classifiedBlocks.map((block, index) => ({
         pageId: page.id,
         blockIndex: index,
-        rawText: chunk,
+        rawText: block.content,
         contentType: contentTypeHint ?? ContentType.MIXED_CONTENT,
         lessonId,
         topicId,
         subtopicId: subtopicId ?? null,
-        blockType: 'TEXT' as const,
-        confidence: 1.0,
+        blockType: block.blockType,
+        tableData: block.tableData,
+        algorithmData: block.algorithmData,
+        confidence: null,
         classificationStatus: 'CLASSIFIED' as const,
+        classifiedAt: new Date(),
         approvalStatus: 'PENDING' as const,
       }));
 
@@ -160,7 +189,7 @@ export class ManualBatchService {
         data: { status: 'CLASSIFIED' },
       });
 
-      return { batch, page, blockCount: chunks.length };
+      return { batch, page, blockCount: classifiedBlocks.length };
     });
 
     // 5. Audit log (best-effort)
@@ -175,6 +204,7 @@ export class ManualBatchService {
         textHash,
         blockCount: result.blockCount,
         splitStrategy,
+        contentSeparator,
         dedupPolicy,
       },
     });

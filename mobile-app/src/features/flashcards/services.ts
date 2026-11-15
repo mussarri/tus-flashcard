@@ -10,6 +10,7 @@ import {
   FlashcardIssueReportResponse,
   MasteryData,
   HeatmapData,
+  TopicExplanation,
 } from "./types";
 
 // ============================================
@@ -24,6 +25,10 @@ const getUserId = (): string => {
 };
 
 export const flashcardApiService = {
+  getOrCreateTopicExplanation: async (cardId: string): Promise<TopicExplanation> => {
+    const response = await api.post(`api/student/flashcards/${cardId}/topic-explanation`);
+    return response.data;
+  },
   // ========== Dashboard ==========
 
   /**

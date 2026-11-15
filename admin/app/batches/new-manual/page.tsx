@@ -42,6 +42,10 @@ export default function NewManualBatchPage() {
   const [contentTypeHint, setContentTypeHint] = useState<ContentTypeHint>('MIXED_CONTENT');
   const [dedupPolicy, setDedupPolicy] = useState<DedupPolicy>('REJECT_IF_DUPLICATE');
   const [rawText, setRawText] = useState('');
+  const contentSeparator = '---';
+  const contentCount = rawText.trim()
+    ? rawText.split('\n').filter((line) => line.trim() === contentSeparator).length + 1
+    : 0;
 
   // UI state
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +100,7 @@ export default function NewManualBatchPage() {
         subtopicId: subtopicId || undefined,
         contentTypeHint,
         rawText,
+        contentSeparator,
         dedupPolicy,
       });
 
@@ -135,10 +140,7 @@ export default function NewManualBatchPage() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <p className="text-sm text-blue-800">
-          Paste raw text (anatomy notes, KP lists, topic explanations, etc.) to create an{' '}
-          <strong>UploadBatch → UploadPage(TEXT) → ParsedBlocks</strong> pipeline. Text is stored as a{' '}
-          <strong>single raw block</strong>, then reviewed and sent directly to knowledge extraction AI. The block will be{' '}
-          <strong>PENDING</strong> and require admin review before knowledge extraction.
+          Paste text and separate contents with <code>---</code> on its own line. Each section is classified and formatted as a separate block. The original text is preserved, and every block requires review before knowledge extraction.
         </p>
       </div>
 
@@ -287,8 +289,9 @@ export default function NewManualBatchPage() {
             {rawText.length} characters · {rawText.split('\n').filter((l) => l.trim()).length} non-empty lines
           </p>
           <p className="text-xs text-gray-600 mt-1">
-            AI will split and format this text as TEXT, TABLE, or ALGORITHM blocks. Review each suggestion before approving it.
+            Put <code>---</code> on its own line between contents. Each section becomes one content ({contentCount} now). AI will format and classify each section as TEXT, TABLE, or ALGORITHM.
           </p>
+          <pre className="text-xs text-gray-600 mt-2">{`First content\n---\nSecond content`}</pre>
         </div>
 
         {/* Submit */}
