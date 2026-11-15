@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "../../../lib/api";
+import { api, apiRequest } from "../../../lib/api";
+import { useRouter } from "next/navigation";
 import {
   Brain,
   FileText,
@@ -16,6 +17,8 @@ import {
 interface ParsedBlock {
   id: string;
   rawText: string | null;
+  editedText: string | null;
+  approvalStatus: string;
   lesson: string | null;
   topic: string | null;
   subtopic: string | null;
@@ -24,6 +27,8 @@ interface ParsedBlock {
   classificationStatus: string;
   classifiedAt: string | null;
   blockType: string | null;
+  tableData?: unknown;
+  algorithmData?: unknown;
   page: {
     id: string;
     pageNumber: number;
@@ -38,10 +43,58 @@ interface ClassificationViewProps {
 export default function ClassificationView({
   batchId,
 }: ClassificationViewProps) {
+  const router = useRouter();
   const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
   const [batchSourceType, setBatchSourceType] = useState<string>("FILE_UPLOAD");
   const [loading, setLoading] = useState(true);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [draftType, setDraftType] = useState<"TEXT" | "TABLE" | "ALGORITHM">("TEXT");
+  const [draftContent, setDraftContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const startEdit = (block: ParsedBlock) => {
+    setEditingBlockId(block.id);
+    setDraftType((block.blockType || "TEXT") as "TEXT" | "TABLE" | "ALGORITHM");
+    setDraftContent(block.editedText || block.rawText || "");
+    setActionError(null);
+  };
+
+  const saveSuggestion = async (blockId: string) => {
+    setSaving(true);
+    setActionError(null);
+    try {
+      const response = await apiRequest<{ block: ParsedBlock }>(
+        `api/approval/block/${blockId}/manual-suggestion`,
+        { method: "PATCH", body: JSON.stringify({ blockType: draftType, content: draftContent }) },
+      );
+      setBlocks((previous) => previous.map((block) =>
+        block.id === blockId ? { ...block, ...response.block } : block,
+      ));
+      setEditingBlockId(null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not save block");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approveSuggestion = async (blockId: string) => {
+    setSaving(true);
+    setActionError(null);
+    try {
+      await api.approveBlock(blockId);
+      setBlocks((previous) => previous.map((block) =>
+        block.id === blockId ? { ...block, approvalStatus: "APPROVED" } : block,
+      ));
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not approve block");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     const fetchBlocks = async () => {
@@ -149,17 +202,14 @@ export default function ClassificationView({
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-900 mb-1">
-                AI Classification (Read-Only)
+                AI Classification
               </p>
               <p className="text-sm text-blue-700">
-                These classifications are AI suggestions. The final decision
-                happens during knowledge extraction. You cannot edit these
-                values here.
+                Review the suggested type and formatted content before approval.
               </p>
               {isManualTextBatch && (
                 <p className="text-sm text-blue-700 mt-1">
-                  This batch comes from pasted text and is stored as a single
-                  raw block (no OCR).
+                  The original pasted text is available in the Pages tab. AI may split it into multiple blocks.
                 </p>
               )}
             </div>
@@ -273,18 +323,50 @@ export default function ClassificationView({
                       </div>
                     </div>
 
-                    {/* Raw Text */}
+                    {/* Suggested formatted text */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         {isManualTextBatch
-                          ? "Raw Text (Pasted Input)"
+                          ? "AI-formatted content"
                           : "Raw Text (OCR Output)"}
                       </h4>
-                      <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-64 overflow-y-auto">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {block.rawText || "No raw text available"}
-                        </p>
-                      </div>
+                      {editingBlockId === block.id ? (
+                        <div className="space-y-3">
+                          <select value={draftType} onChange={(event) => setDraftType(event.target.value as typeof draftType)} className="border rounded p-2 text-gray-900">
+                            <option value="TEXT">TEXT</option>
+                            <option value="TABLE">TABLE</option>
+                            <option value="ALGORITHM">ALGORITHM</option>
+                          </select>
+                          <textarea value={draftContent} onChange={(event) => setDraftContent(event.target.value)} rows={12} className="w-full border rounded p-3 text-gray-900" />
+                          <div className="flex gap-2">
+                            <button disabled={saving || !draftContent.trim()} onClick={() => void saveSuggestion(block.id)} className="px-3 py-2 bg-blue-700 text-white rounded disabled:opacity-50">Save</button>
+                            <button disabled={saving} onClick={() => setEditingBlockId(null)} className="px-3 py-2 border rounded">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-64 overflow-y-auto">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{block.editedText || block.rawText || "No content available"}</p>
+                        </div>
+                      )}
+                      {isManualTextBatch && block.approvalStatus === "PENDING" && editingBlockId !== block.id && (
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={() => startEdit(block)} className="px-3 py-2 border rounded">Edit type and content</button>
+                          <button disabled={saving} onClick={() => void approveSuggestion(block.id)} className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50">Approve block</button>
+                        </div>
+                      )}
+                      {isManualTextBatch && block.blockType === "TABLE" && block.tableData != null && (
+                        <details className="mt-3 text-sm text-gray-700">
+                          <summary className="cursor-pointer">View structured table</summary>
+                          <pre className="mt-2 p-3 bg-gray-50 rounded whitespace-pre-wrap overflow-x-auto">{JSON.stringify(block.tableData, null, 2)}</pre>
+                        </details>
+                      )}
+                      {isManualTextBatch && block.blockType === "ALGORITHM" && block.algorithmData != null && (
+                        <details className="mt-3 text-sm text-gray-700">
+                          <summary className="cursor-pointer">View structured algorithm</summary>
+                          <pre className="mt-2 p-3 bg-gray-50 rounded whitespace-pre-wrap overflow-x-auto">{JSON.stringify(block.algorithmData, null, 2)}</pre>
+                        </details>
+                      )}
+                      {actionError && expandedBlockId === block.id && <p className="mt-2 text-sm text-red-700">{actionError}</p>}
                     </div>
 
                     {/* Metadata */}
@@ -326,9 +408,7 @@ export default function ClassificationView({
                             This is an AI suggestion
                           </p>
                           <p className="text-sm text-yellow-700">
-                            The final classification decision will be made
-                            during the knowledge extraction step. You cannot
-                            edit these values here.
+                            Check the suggested type, structured content, and original pasted text before approval.
                           </p>
                         </div>
                       </div>

@@ -286,6 +286,9 @@ export default function NewManualBatchPage() {
           <p className="text-xs text-gray-500 mt-1">
             {rawText.length} characters · {rawText.split('\n').filter((l) => l.trim()).length} non-empty lines
           </p>
+          <p className="text-xs text-gray-600 mt-1">
+            AI will split and format this text as TEXT, TABLE, or ALGORITHM blocks. Review each suggestion before approving it.
+          </p>
         </div>
 
         {/* Submit */}
@@ -301,7 +304,7 @@ export default function NewManualBatchPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Creating Manual Batch…
+                Classifying and creating batch…
               </>
             ) : (
               'Create Manual Batch'
