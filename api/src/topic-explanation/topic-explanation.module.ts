@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AIModule } from '../ai/ai.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { CommonModule } from '../common/common.module';
 import {
   AdminTopicExplanationController,
   StudentTopicExplanationController,
@@ -9,7 +10,7 @@ import {
 import { TopicExplanationService } from './topic-explanation.service';
 
 @Module({
-  imports: [PrismaModule, AIModule],
+  imports: [PrismaModule, AIModule, CommonModule],
   controllers: [
     StudentTopicExplanationController,
     StudentTopicExplanationStudyController,

@@ -3,15 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AITaskType, TopicExplanationStatus } from '@prisma/client';
+import { AITaskType, Prisma, TopicExplanationStatus } from '@prisma/client';
 import { AIRouterService } from '../ai/ai-router.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { VisualAssetService } from '../common/services/visual-asset.service';
 
 @Injectable()
 export class TopicExplanationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiRouter: AIRouterService,
+    private readonly visualAssetService: VisualAssetService,
   ) {}
 
   async getForCard(cardId: string) {
@@ -139,8 +141,25 @@ export class TopicExplanationService {
     return explanation;
   }
 
-  async list(status?: TopicExplanationStatus, page = 1, pageSize = 20) {
-    const where = status ? { status } : {};
+  async list(
+    status?: TopicExplanationStatus,
+    page = 1,
+    pageSize = 20,
+    filters: { lessonId?: string; topicId?: string; search?: string } = {},
+  ) {
+    const where: Prisma.TopicExplanationWhereInput = {
+      ...(status ? { status } : {}),
+      ...(filters.lessonId ? { lessonId: filters.lessonId } : {}),
+      ...(filters.topicId ? { topicId: filters.topicId } : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              { title: { contains: filters.search, mode: 'insensitive' } },
+              { content: { contains: filters.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.topicExplanation.findMany({
         where,
@@ -159,10 +178,88 @@ export class TopicExplanationService {
     return { items, total, page, pageSize };
   }
 
+  async adminCatalog() {
+    const [lessons, topics] = await Promise.all([
+      this.prisma.lesson.findMany({
+        select: { id: true, name: true, displayName: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.topic.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, lessonId: true, name: true, displayName: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+    return { lessons, topics };
+  }
+
+  async create(
+    input: {
+      title: string;
+      content: string;
+      lessonId: string;
+      topicId: string;
+      status: 'DRAFT' | 'APPROVED';
+    },
+    image?: Express.Multer.File,
+  ) {
+    const topic = await this.prisma.topic.findFirst({
+      where: { id: input.topicId, lessonId: input.lessonId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!topic)
+      throw new BadRequestException(
+        'Topic does not belong to the selected lesson',
+      );
+    const asset = image
+      ? await this.visualAssetService.saveVisualAsset(image)
+      : null;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (asset) {
+          await tx.imageAsset.create({
+            data: {
+              id: asset.id,
+              fileName: asset.originalName,
+              filePath: asset.filePath,
+              mimeType: asset.mimeType,
+              fileSize: image!.size,
+            },
+          });
+        }
+        return tx.topicExplanation.create({
+          data: {
+            title: input.title.trim().slice(0, 200),
+            content: input.content.trim(),
+            lessonId: input.lessonId,
+            topicId: input.topicId,
+            status: input.status,
+            approvedAt: input.status === 'APPROVED' ? new Date() : null,
+            imageAssetId: asset?.id ?? null,
+          },
+        });
+      });
+    } catch (error) {
+      if (asset) await this.visualAssetService.deleteVisualAsset(asset.id);
+      throw error;
+    }
+  }
+
+  async bulkApprove(ids: string[]) {
+    const result = await this.prisma.topicExplanation.updateMany({
+      where: { id: { in: ids }, status: 'DRAFT' },
+      data: { status: 'APPROVED', approvedAt: new Date() },
+    });
+    return { approved: result.count };
+  }
+
   async studyCatalog() {
     const visible = {
       status: 'APPROVED' as const,
-      flashcards: { some: { approvalStatus: 'APPROVED' as const } },
+      OR: [
+        { flashcards: { some: { approvalStatus: 'APPROVED' as const } } },
+        { originFlashcardId: null },
+      ],
     };
     const [lessons, topics] = await Promise.all([
       this.prisma.lesson.findMany({
@@ -185,9 +282,12 @@ export class TopicExplanationService {
     page = 1,
     pageSize = 20,
   ) {
-    const where = {
+    const where: Prisma.TopicExplanationWhereInput = {
       status: 'APPROVED' as const,
-      flashcards: { some: { approvalStatus: 'APPROVED' as const } },
+      OR: [
+        { flashcards: { some: { approvalStatus: 'APPROVED' as const } } },
+        { originFlashcardId: null },
+      ],
       ...(lessonId ? { lessonId } : {}),
       ...(topicId ? { topicId } : {}),
     };
@@ -198,6 +298,7 @@ export class TopicExplanationService {
           id: true,
           title: true,
           content: true,
+          imageAssetId: true,
           status: true,
           lessonId: true,
           topicId: true,

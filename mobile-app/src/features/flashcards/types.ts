@@ -115,6 +115,7 @@ export interface TopicExplanation {
   id: string;
   title: string;
   content: string;
+  imageAssetId?: string | null;
   status: 'DRAFT' | 'APPROVED' | 'REJECTED';
   lessonId?: string | null;
   topicId?: string | null;
